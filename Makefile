@@ -18,7 +18,7 @@ DIRS += qsrv
 qsrv_DEPEND_DIRS = src ioc
 
 DIRS += test
-test_DEPEND_DIRS = src ioc
+test_DEPEND_DIRS = src ioc qsrv
 
 DIRS += example
 example_DEPEND_DIRS = src
