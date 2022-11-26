@@ -8,12 +8,18 @@
 #include "iocsh.h"
 
 #include <epicsGetopt.h>
+#include <dbAccess.h>
+#include <registryFunction.h>
+#include <subRecord.h>
 #include "osiFileName.h"
 
 #include "qsrvMain.h"
 
 namespace pvxs {
 namespace qsrv {
+
+static void exitCallback(subRecord* pRecord);
+
 // Verbose flag - if true then show verbose output
 bool verboseFlag = false;
 // Macro to use to show verbose output
@@ -31,19 +37,21 @@ bool isDbLoaded = false;
  * 							 specified on the commandline or the default one
  */
 void usage(std::string& executableName, const std::string& initialisationFile) {
+	std::string executableBaseName = executableName.substr(executableName.find_last_of(OSI_PATH_SEPARATOR) + 1) // NOLINT(performance-faster-string-find)
+;
 	std::cout << "PVXS configurable IOC server\n\n"
-	             "Usage: " << executableName <<
+	             "Usage: " << executableBaseName <<
 	          " [-h] [-S] [-v] \n"
 	          " [-m <macro-name>=<macro-value>[,<macro-name>=<macro-value>]...] ... \n"
 	          " [-D <path>] [-G <path>] [-a <path>] [-d <path>] \n"
 	          " [-x <prefix>] [<script-path>]\n"
 	          "\nDescription:\n"
-	          "  After configuring the IOC server with " << initialisationFile.c_str()
-	          << " (or overriden with the -D option)"
-	             " this command starts an interactive IOC shell, unless the -S flag is specified.  Group"
-	             " configuration can optionally be specified using the -G flag, and security can be configured using the -a flag.  An"
-	             " initial database of PV records can be established using the -d flag.  Finally some startup commands can be run if an optional script-path"
-	             " is specified."
+	          "  Start an in-memory database of PV records which can be accessed via PVAccess, and start an IOC shell.\n\n"
+			  "  After configuring the in-memory database with " << initialisationFile.c_str()
+	          << "\n  (or overriden with the -D option) this command starts an interactive IOC shell, unless the -S flag \n"
+				 "  is specified.  Group configuration can optionally be specified using the -G flag, and security can be \n"
+				 "  configured using the -a flag.  An initial database of PV records can be established using the -d flag.  \n"
+				 "  Finally some startup commands can be run if an optional script-path is specified."
 	             "\n"
 	             "\nCommon flags:\n"
 	             "  -h                     Print this message and exit.\n"
@@ -79,20 +87,56 @@ void usage(std::string& executableName, const std::string& initialisationFile) {
 	             "                         perform all database loading in the script itself, or in the interactive shell.\n"
 	             "\n"
 	             "Examples:\n"
-	             "  " << executableName
-	          << " -d my.db                use default configuration and load database records \n"
-	             "                         from my.db and start an iteractive IOC shell \n"
-	             "  " << executableName
-	          << " -m NAME=PV -d my.db     use default configuration and load database records \n"
-	             "                         from my.db after setting macro NAME to PV\n"
-	             "  " << executableName
-	          << " -D myconfig.dbd -G my-group-config.json -d my.db  \n"
+	             "  " << executableBaseName
+	          << " -d my.db\n"
+				 "                         use default configuration, load database records \n"
+	             "                         from my.db, and start an iteractive IOC shell \n"
+	             "  " << executableBaseName
+	          << " -m NAME=PV -d my.db\n"
+				 "                         use default configuration, and load database records \n"
+	             "                         from my.db, after setting macro NAME to PV\n"
+	             "  " << executableBaseName
+	          << " -D myconfig.dbd -G my-group-config.json -d my.db\n"
 	             "                         use custom configuration \n"
-	             "                         myconfig.dbd and group configuration in\n"
-	             "                         my-group-config.json to configure the IOC then load database records \n"
-	             "                         from my.db and start an interactive shell \n";
+	             "                         myconfig.dbd, and group configuration in\n"
+	             "                         my-group-config.json to configure the IOC, then load database records \n"
+	             "                         from my.db, and start an interactive shell \n";
 
 }
+
+/**
+ * Configure the database if it has not been configured previously
+ *
+ * @param databaseConfigurationFile the name of the file containing configuration information
+ */
+void configureDatabase(const std::string& databaseConfigurationFile) {
+	// Only load configuration file if it has been configured previously
+	if (isDbLoaded) {
+		return;
+	}
+	isDbLoaded = true;
+
+	VERBOSE_MESSAGE "dbLoadDatabase(\"" << databaseConfigurationFile << "\")\n";
+	if (dbLoadDatabase(databaseConfigurationFile.c_str(), nullptr, nullptr)) {
+		throw std::runtime_error(
+				std::string("Failed to load database configuration file: ") + databaseConfigurationFile);
+	}
+
+	VERBOSE_MESSAGE "pvcsIoc_registerRecordDeviceDriver(pdbbase)\n";
+//  Must match the dbd you've established in your header file and Makefile as the default configuration file
+	qsrv_registerRecordDeviceDriver(pdbbase);
+	registryFunctionAdd("exit", (REGISTRYFUNCTION)exitCallback);
+}
+
+/**
+ * The exit callback function
+ *
+ * @param pRecord
+ */
+void exitCallback(subRecord* pRecord) {
+	epicsExitLater((pRecord->a == 0.0) ? EXIT_SUCCESS : EXIT_FAILURE);
+}
+
 }
 } // pvxs::qsrv
 
@@ -147,6 +191,9 @@ int main(int argc, char* argv[]) {
 			return 2;
 		}
 	}
+
+	// Configure the database with the specified configuration file
+	configureDatabase(databaseInitialisationFile);
 
 	// If interactive then enter shell
 	if (interactive) {
