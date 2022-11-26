@@ -12,7 +12,7 @@ include $(TOP)/configure/CONFIG_PVXS_VERSION
 PROD_IOC = qsrv
 
 DBDDEPENDS_FILES += qsrv.dbd$(DEP)
-qsrv_DBD = base.dbd qsrv.dbd
+qsrv_DBD = base.dbd pvxsIoc.dbd
 DBD = $(COMMON_DIR)/qsrv.dbd
 
 qsrv_DB = qsrvExit.db

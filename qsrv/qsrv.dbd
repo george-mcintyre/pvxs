@@ -1,3 +1,0 @@
-registrar(pvxsBaseRegistrar)
-registrar(pvxsSingleSourceRegistrar)
-registrar(pvxsGroupSourceRegistrar)
