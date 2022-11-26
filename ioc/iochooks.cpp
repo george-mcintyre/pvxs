@@ -15,10 +15,11 @@
 #include <pvxs/iochooks.h>
 
 #include <iocsh.h>
-#include <initHooks.h>
 #include <epicsStdio.h>
 #include <epicsExit.h>
 #include <epicsExport.h>
+
+#include <initHooks.h>
 
 using namespace pvxs;
 

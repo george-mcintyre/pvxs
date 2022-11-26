@@ -11,6 +11,8 @@ include $(TOP)/configure/CONFIG_PVXS_VERSION
 
 # access to private headers
 USR_CPPFLAGS += -I$(TOP)/src
+# EPICS_BASE macro for our location
+USR_CPPFLAGS += -DEPICS_BASE="\"$(FINAL_LOCATION)\""
 
 PROD_LIBS = pvxs Com
 
