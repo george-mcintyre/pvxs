@@ -11,7 +11,6 @@
 #include <dbAccess.h>
 #include <registryFunction.h>
 #include <subRecord.h>
-#include "osiFileName.h"
 
 #include "qsrvMain.h"
 
@@ -175,6 +174,19 @@ int main(int argc, char* argv[]) {
 			}
 			databaseInitialisationFile = optarg;
 			break;
+		case 'd':
+			configureDatabase(databaseInitialisationFile);
+			VERBOSE_MESSAGE "dbLoadRecords(\"" << optarg << "\""
+			                                   << ((macros.empty()) ? "" :
+			                                       std::string(", \"").append(macros).append("\""))
+			                                   << ")\n";
+
+			if (dbLoadRecords(optarg, macros.c_str())) {
+				throw std::runtime_error(std::string("Failed to load: ") + optarg);
+			}
+
+			loadedDb = true;
+			break;
 		case 'm':
 			macros = optarg;
 			break;
@@ -207,7 +219,9 @@ int main(int argc, char* argv[]) {
 	} else {
 		// If non-interactive then exit
 		if (loadedDb || ranScript) {
-			epicsThreadExitMain();
+			epicsExitCallAtExits();
+			epicsThreadSleep(0.5);
+			epicsThreadSuspendSelf();
 		} else {
 			std::cerr << "Nothing to do!\n";
 			epicsExit(1);

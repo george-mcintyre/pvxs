@@ -11,7 +11,10 @@ include $(TOP)/configure/CONFIG_PVXS_VERSION
 
 PROD_IOC = qsrv
 
-qsrv_DBD = qsrv.dbd
+DBDDEPENDS_FILES += qsrv.dbd$(DEP)
+qsrv_DBD = base.dbd qsrv.dbd
+DBD = $(COMMON_DIR)/qsrv.dbd
+
 qsrv_DB = qsrvExit.db
 
 FINAL_LOCATION ?= $(shell $(PERL) $(TOOLS)/fullPathName.pl $(INSTALL_LOCATION))

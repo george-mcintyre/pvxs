@@ -1,6 +1,8 @@
 #ifndef PVXS_QSRVMAIN_H
 #define PVXS_QSRVMAIN_H
 
+#include "osiFileName.h"
+
 #ifndef EPICS_BASE
 #define EPICS_BASE ""
 #error -DEPICS_BASE=<path-to-epics-base> required while building this component
