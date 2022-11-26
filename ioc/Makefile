@@ -13,8 +13,6 @@ include $(TOP)/configure/CONFIG_PVXS_VERSION
 USR_CPPFLAGS += -I$(TOP)/src
 USR_CPPFLAGS += -DPVXS_IOC_API_BUILDING
 
-DBD += pvxsIoc.dbd
-
 INC += pvxs/iochooks.h
 
 LIBRARY += pvxsIoc
