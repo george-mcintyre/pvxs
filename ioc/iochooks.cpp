@@ -21,6 +21,39 @@
 
 #include <initHooks.h>
 
+/**
+ * Library for implementation of IOC hooks.
+ * IOC works in a standard way, execution follows a set of phases in which hooks can be attached.  The attached
+ * hooks are executed when encountered.   Implementing hooks allows an IOC implementation to completely control
+ * the way it starts up and is implemented.  This library uses hooks to implement the IOC functionality
+ * based on pvxs instead of PVAccess and PVData from epics-base.
+ *
+ * The phases and their hooks are as follows:
+ * - iocInit/iocBuild Phase:
+ *   - initHookAtIocBuild
+ *   - initHookAtBeginning
+ *   - initHookAfterCallbackInit
+ *   - initHookAfterCaLinkInit
+ *   - initHookAfterInitDrvSup
+ *   - initHookAfterInitRecSup
+ *   - initHookAfterInitDevSup
+ *   - initHookAfterInitDatabase
+ *   - initHookAfterFinishDevSup
+ *   - initHookAfterScanInit
+ *   - initHookAfterInitialProcess
+ *   - initHookAfterCaServerInit
+ *   - initHookAfterIocBuilt
+ * - iocRun Phase:
+ *   - initHookAtIocRun
+ *   - initHookAfterDatabaseRunning
+ *   - initHookAfterCaServerRunning
+ *   - initHookAfterIocRunning
+ * - iocPause Phase:
+ *   - initHookAtIocPause
+ *   - initHookAfterCaServerPaused
+ *   - initHookAfterDatabasePaused
+ *   - initHookAfterIocPaused
+ */
 using namespace pvxs;
 
 namespace {
