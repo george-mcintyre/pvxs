@@ -159,6 +159,116 @@ std::string getPrefix() {
 	return prefix;
 }
 
+/**
+ * Parse the command line arguments
+ *
+ * @param argc argument count
+ * @param argv argument values
+ * @param databaseInitialisationFile the default database initialization file, overridden by (-D) option if specified
+ * @param dbIsLoaded set to true if database is loaded by a (-d) or (-x) option
+ * @param shouldStartAnInteractiveSession set to true if an interactive session should be started, overridden by (-S) option if specified
+ * @param scriptName set to the scriptName if specified
+ *
+ * @return positive integer if unsuccessful, negative if successful but needs to exit, zero means success
+ */
+int parseOptions(int argc, char* argv[], std::string& databaseInitialisationFile, bool& dbIsLoaded,
+		bool& shouldStartAnInteractiveSession, std::string& scriptName) {
+	std::string iocExecutableName(argv[0]);
+	std::string databaseShutdownFile(FULL_PATH_TO_EXIT_FILE);
+
+	std::string commaSeparatedListOfMacroDefinitions;   // This is set if a (-m) option is specified
+
+	// compute relative paths
+	{
+		std::string prefix = getPrefix();
+
+		databaseInitialisationFile = prefix + RELATIVE_PATH_TO_INITIALISATION_FILE;
+		databaseShutdownFile = prefix + RELATIVE_PATH_TO_SHUTDOWN_FILE;
+	}
+
+	// Parse the command line and configure and start the IOC
+	int opt;        // parsed option from the command line
+	while ((opt = getopt(argc, argv, "a:D:d:G:hm:Svx:")) != -1) {
+		switch (opt) {
+		case 'a':
+			configureDatabase(databaseInitialisationFile);
+			if (!commaSeparatedListOfMacroDefinitions.empty()) {
+				VERBOSE_MESSAGE "asSetSubstitutions(\"" << commaSeparatedListOfMacroDefinitions << "\")\n";
+				if (asSetSubstitutions(commaSeparatedListOfMacroDefinitions.c_str()))
+					throw std::bad_alloc();
+			}
+			VERBOSE_MESSAGE "asSetFilename(\"" << optarg << "\")\n";
+			if (asSetFilename(optarg)) {
+				throw std::bad_alloc();
+			}
+			break;
+		case 'D':
+			if (isDbLoaded) {
+				throw std::runtime_error("database configuration file override specified "
+				                         "after " FULL_PATH_TO_INITIALISATION_FILE " has already been loaded.\n"
+				                         "Add the -D option prior to any -d or -x options and try again");
+			}
+			databaseInitialisationFile = optarg;
+			break;
+		case 'd':
+			configureDatabase(databaseInitialisationFile);
+			VERBOSE_MESSAGE "dbLoadRecords(\"" << optarg << "\""
+			                                   << ((commaSeparatedListOfMacroDefinitions.empty()) ? "" :
+			                                       std::string(", \"").append(commaSeparatedListOfMacroDefinitions)
+					                                       .append("\""))
+			                                   << ")\n";
+
+			if (dbLoadRecords(optarg, commaSeparatedListOfMacroDefinitions.c_str())) {
+				throw std::runtime_error(std::string("Failed to load: ") + optarg);
+			}
+
+			dbIsLoaded = true;
+			break;
+		case 'G':
+			// dbLoadGroup(optarg);
+			break;
+		case 'h':
+			usage(iocExecutableName, databaseInitialisationFile);
+			epicsExit(0);
+			return -1;
+		case 'm':
+			commaSeparatedListOfMacroDefinitions = optarg;
+			break;
+		case 'S':
+			shouldStartAnInteractiveSession = false;
+			break;
+		case 'v':
+			verboseFlag = true;
+			break;
+		case 'x': {
+			std::string xmacro;
+			configureDatabase(databaseInitialisationFile);
+			xmacro = "IOC=";
+			xmacro += optarg;
+
+			if (dbLoadRecords(databaseShutdownFile.c_str(), xmacro.c_str())) {
+				throw std::runtime_error(std::string("Failed to load: ") + databaseShutdownFile);
+			}
+
+			dbIsLoaded = true;
+		}
+			break;
+		default:
+			usage(iocExecutableName, databaseInitialisationFile);
+			std::cerr << "Unknown argument: -" << char(optopt) << "\n";
+			epicsExit(2);
+			return 2;
+		}
+	}
+
+	// If script specified then return name
+	if (optind < argc) {
+		scriptName = argv[optind];
+	}
+
+	return 0;
+}
+
 }
 } // pvxs::qsrv
 
@@ -173,103 +283,20 @@ using namespace pvxs::qsrv;
  */
 int main(int argc, char* argv[]) {
 	try {
-		std::string iocExecutableName(argv[0]);
 		std::string databaseInitialisationFile(FULL_PATH_TO_INITIALISATION_FILE);
-		std::string databaseShutdownFile(FULL_PATH_TO_EXIT_FILE);
-
-		std::string commaSeparatedListOfMacroDefinitions;   // This is set if a (-m) option is specified
+		std::string scriptName;
 		bool shouldStartAnInteractiveSession = true;        // Default is true, unless (-S) option is specified
-		bool userScriptHasBeenExecuted = false;             // Set to true if a user script has been specified and executed
-		// Set to true if a database is loaded with the (-b) option, or
-		// if the exit script is configured with the (-x) option
-		bool dbIsLoaded = false;
-
-		// compute relative paths
-		{
-			std::string prefix = getPrefix();
-
-			databaseInitialisationFile = prefix + RELATIVE_PATH_TO_INITIALISATION_FILE;
-			databaseShutdownFile = prefix + RELATIVE_PATH_TO_SHUTDOWN_FILE;
-		}
-
-		// Parse the command line and configure and start the IOC
-		int opt;        // parsed option from the command line
-		while ((opt = getopt(argc, argv, "a:D:d:G:hm:Svx:")) != -1) {
-			switch (opt) {
-			case 'a':
-				configureDatabase(databaseInitialisationFile);
-				if (!commaSeparatedListOfMacroDefinitions.empty()) {
-					VERBOSE_MESSAGE "asSetSubstitutions(\"" << commaSeparatedListOfMacroDefinitions << "\")\n";
-					if (asSetSubstitutions(commaSeparatedListOfMacroDefinitions.c_str()))
-						throw std::bad_alloc();
-				}
-				VERBOSE_MESSAGE "asSetFilename(\"" << optarg << "\")\n";
-				if (asSetFilename(optarg)) {
-					throw std::bad_alloc();
-				}
-				break;
-			case 'D':
-				if (isDbLoaded) {
-					throw std::runtime_error("database configuration file override specified "
-					                         "after " FULL_PATH_TO_INITIALISATION_FILE " has already been loaded.\n"
-					                         "Add the -D option prior to any -d or -x options and try again");
-				}
-				databaseInitialisationFile = optarg;
-				break;
-			case 'd':
-				configureDatabase(databaseInitialisationFile);
-				VERBOSE_MESSAGE "dbLoadRecords(\"" << optarg << "\""
-				                                   << ((commaSeparatedListOfMacroDefinitions.empty()) ? "" :
-				                                       std::string(", \"").append(commaSeparatedListOfMacroDefinitions)
-						                                       .append("\""))
-				                                   << ")\n";
-
-				if (dbLoadRecords(optarg, commaSeparatedListOfMacroDefinitions.c_str())) {
-					throw std::runtime_error(std::string("Failed to load: ") + optarg);
-				}
-
-				dbIsLoaded = true;
-				break;
-			case 'G':
-				//				dbLoadGroup(optarg);
-				break;
-			case 'h':
-				usage(iocExecutableName, databaseInitialisationFile);
-				epicsExit(0);
-				return 0;
-			case 'm':
-				commaSeparatedListOfMacroDefinitions = optarg;
-				break;
-			case 'S':
-				shouldStartAnInteractiveSession = false;
-				break;
-			case 'v':
-				verboseFlag = true;
-				break;
-			case 'x': {
-				std::string xmacro;
-				configureDatabase(databaseInitialisationFile);
-				xmacro = "IOC=";
-				xmacro += optarg;
-
-				if (dbLoadRecords(databaseShutdownFile.c_str(), xmacro.c_str())) {
-					throw std::runtime_error(std::string("Failed to load: ") + databaseShutdownFile);
-				}
-
-				dbIsLoaded = true;
-			}
-				break;
-			default:
-				usage(iocExecutableName, databaseInitialisationFile);
-				std::cerr << "Unknown argument: -" << char(optopt) << "\n";
-				epicsExit(2);
-				return 2;
-			}
+		bool dbIsLoaded = false;                            // Is database loaded
+		auto status = parseOptions(argc, argv,
+				databaseInitialisationFile, dbIsLoaded, shouldStartAnInteractiveSession, scriptName);
+		if (status != 0) {
+			return status > 0 ? status : 0;
 		}
 
 		// Configure the database with the specified configuration file
 		configureDatabase(databaseInitialisationFile);
 
+		// If we've loaded a database file or configured the exit callback, then do an iocInit()
 		if (dbIsLoaded) {
 			VERBOSE_MESSAGE "iocInit()\n";
 			iocInit();
@@ -277,10 +304,10 @@ int main(int argc, char* argv[]) {
 		}
 
 		// If we've specified a script on the command line then run it
-		if (optind < argc) {
-			auto scriptName = argv[optind];
+		bool userScriptHasBeenExecuted = false;
+		if (!scriptName.empty()) {
 			VERBOSE_MESSAGE "# Begin execution of: " << scriptName << "\n";
-			if (iocsh(scriptName)) {
+			if (iocsh(scriptName.c_str())) {
 				throw std::runtime_error(std::string("Error in ") + scriptName);
 			}
 			VERBOSE_MESSAGE "# End execution of: " << scriptName << "\n";
@@ -289,7 +316,7 @@ int main(int argc, char* argv[]) {
 			userScriptHasBeenExecuted = true;
 		}
 
-		// If interactive then enter shell
+		// If we haven't disabled the interactive shell then enter it
 		if (shouldStartAnInteractiveSession) {
 			std::cout.flush();
 			std::cerr.flush();
