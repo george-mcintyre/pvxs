@@ -16,37 +16,18 @@ USR_CPPFLAGS += -DPVXS_IOC_API_BUILDING
 DBD += pvxsIoc.dbd
 
 INC += pvxs/iochooks.h
+INC += pvxs/iocshcommand.h
 
 LIBRARY += pvxsIoc
-PROD_LIBS = Com
 
 SHRLIB_VERSION = $(PVXS_MAJOR_VERSION).$(PVXS_MINOR_VERSION)
 
-pvxsIoc_SRCS += iocserver.cpp
-pvxsIoc_SRCS += dbentry.cpp
-pvxsIoc_SRCS += dberrmsg.cpp
-pvxsIoc_SRCS += dbeventcontextdeleter.cpp
-pvxsIoc_SRCS += groupconfigprocessor.cpp
-pvxsIoc_SRCS += groupprocessorcontext.cpp
-pvxsIoc_SRCS += grouppv.cpp
-pvxsIoc_SRCS += groupsource.cpp
-pvxsIoc_SRCS += groupsourcehooks.cpp
-pvxsIoc_SRCS += groupsrcsubscriptionctx.cpp
 pvxsIoc_SRCS += iochooks.cpp
-pvxsIoc_SRCS += iocgroup.cpp
-pvxsIoc_SRCS += iocsource.cpp
-pvxsIoc_SRCS += iocgroupchannel.cpp
-pvxsIoc_SRCS += iocgroupfield.cpp
-pvxsIoc_SRCS += iocgroupfieldname.cpp
-pvxsIoc_SRCS += iocgroupfieldnamecomponent.cpp
-pvxsIoc_SRCS += singlesource.cpp
-pvxsIoc_SRCS += singlesourcehooks.cpp
-pvxsIoc_SRCS += singlesrcsubscriptionctx.cpp
-pvxsIoc_SRCS += typeutils.cpp
-pvxsIoc_SRCS += yajlcallbackhandler.cpp
+pvxsIoc_SRCS += iocshcommand.cpp
 
 LIB_LIBS += pvxs
 LIB_LIBS += $(EPICS_BASE_IOC_LIBS)
+
 #===========================
 
 include $(TOP)/configure/RULES
