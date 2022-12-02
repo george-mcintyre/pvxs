@@ -13,7 +13,7 @@ PROD_IOC = qsrv
 
 DBDDEPENDS_FILES += qsrv.dbd$(DEP)
 qsrv_DBD = base.dbd pvxsIoc.dbd
-DBD = $(COMMON_DIR)/qsrv.dbd
+DBD_INSTALLS = $(COMMON_DIR)/qsrv.dbd
 
 qsrv_DB = qsrvExit.db
 
