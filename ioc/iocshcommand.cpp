@@ -1,6 +1,6 @@
 #include <stdexcept>
 #include <iocsh.h>
-#include <iocshcommand.h>
+#include <pvxs/iocshcommand.h>
 
 namespace pvxs {
 namespace ioc {

@@ -20,7 +20,7 @@
 #include <epicsExport.h>
 
 #include <initHooks.h>
-#include <iocshcommand.h>
+#include <pvxs/iocshcommand.h>
 
 /**
  * Library for implementation of IOC hooks.
