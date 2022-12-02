@@ -20,6 +20,7 @@
 #include <epicsExport.h>
 
 #include <initHooks.h>
+#include <iocshcommand.h>
 
 /**
  * Library for implementation of IOC hooks.
@@ -28,31 +29,41 @@
  * the way it starts up and is implemented.  This library uses hooks to implement the IOC functionality
  * based on pvxs instead of PVAccess and PVData from epics-base.
  *
- * The phases and their hooks are as follows:
- * - iocInit/iocBuild Phase:
- *   - initHookAtIocBuild
- *   - initHookAtBeginning
- *   - initHookAfterCallbackInit
- *   - initHookAfterCaLinkInit
- *   - initHookAfterInitDrvSup
- *   - initHookAfterInitRecSup
- *   - initHookAfterInitDevSup
- *   - initHookAfterInitDatabase
- *   - initHookAfterFinishDevSup
- *   - initHookAfterScanInit
- *   - initHookAfterInitialProcess
- *   - initHookAfterCaServerInit
- *   - initHookAfterIocBuilt
- * - iocRun Phase:
- *   - initHookAtIocRun
- *   - initHookAfterDatabaseRunning
- *   - initHookAfterCaServerRunning
- *   - initHookAfterIocRunning
- * - iocPause Phase:
- *   - initHookAtIocPause
- *   - initHookAfterCaServerPaused
- *   - initHookAfterDatabasePaused
- *   - initHookAfterIocPaused
+* The phases and their hooks are as follows:
+ * - iocInit() PHASE:
+ *   - iocInit(): PHASE:
+ *     - initHookAtIocBuild = 0,        - Start of iocBuild()
+ *     - initHookAtBeginning            - Database sanity checks passed
+ *     - initHookAfterCallbackInit      - Callbacks, generalTime & taskwd init
+ *     - initHookAfterCaLinkInit        - CA links init
+ *     - initHookAfterInitDrvSup        - Driver support init
+ *     - initHookAfterInitRecSup        - Record support init
+ *     - initHookAfterInitDevSup        - Device support init pass 0
+ *     - initHookAfterInitDatabase      - Records and lock-sets init
+ *     - initHookAfterFinishDevSup      - Device support init pass 1
+ *     - initHookAfterScanInit          - Scan, AS, ProcessNotify init
+ *     - initHookAfterInitialProcess    - Records with PINI = YES processed
+ *     - initHookAfterCaServerInit      - RSRV init
+ *     - initHookAfterIocBuilt          - End of iocBuild()
+ *   - iocRun(): PHASE:
+ *     - initHookAtIocRun                - Start of iocRun()
+ *     - initHookAfterDatabaseRunning    - Scan tasks and CA links running
+ *     - initHookAfterCaServerRunning    - RSRV running
+ *     - initHookAfterIocRunning         - End of iocRun() / iocInit()
+ * - iocPause() PHASE:
+ *   - initHookAtIocPause                - Start of iocPause()
+ *   - initHookAfterCaServerPaused       - RSRV paused
+ *   - initHookAfterDatabasePaused       - CA links and scan tasks paused
+ *   - initHookAfterIocPaused            - End of iocPause()
+ * - iocShutdown() PHASE:
+ *   - initHookAtShutdown                - Start of iocShutdown() (unit tests only)
+ *   - initHookAfterCloseLinks           - Links disabled/deleted
+ *   - initHookAfterStopScan             - Scan tasks stopped
+ *   - initHookAfterStopCallback         - Callback tasks stopped
+ *   - initHookAfterStopLinks            - CA links stopped
+ *   - initHookBeforeFree                - Resource cleanup about to happen
+ *   - initHookAfterShutdown             - End of iocShutdown()
+ *
  */
 using namespace pvxs;
 
@@ -117,91 +128,6 @@ void pvxs_target_info()
     }
 }
 
-// index_sequence from:
-//http://stackoverflow.com/questions/17424477/implementation-c14-make-integer-sequence
-
-template< std::size_t ... I >
-struct index_sequence {
-    using type = index_sequence;
-    using value_type = std::size_t;
-    static constexpr std::size_t size() {
-        return sizeof ... (I);
-    }
-};
-
-template< typename Seq1, typename Seq2 >
-struct concat_sequence;
-
-template< std::size_t ... I1, std::size_t ... I2 >
-struct concat_sequence< index_sequence< I1 ... >, index_sequence< I2 ... > > : public index_sequence< I1 ..., (sizeof ... (I1)+I2) ... > {};
-
-template< std::size_t I >
-struct make_index_sequence : public concat_sequence< typename make_index_sequence< I/2 >::type,
-                                                     typename make_index_sequence< I-I/2 >::type > {};
-
-template<>
-struct make_index_sequence< 0 > : public index_sequence<> {};
-
-template<>
-struct make_index_sequence< 1 > : public index_sequence< 0 > {};
-
-template<typename E>
-struct Arg;
-
-template<>
-struct Arg<int> {
-    static constexpr iocshArgType code = iocshArgInt;
-    static int get(const iocshArgBuf& buf) { return buf.ival; }
-};
-
-template<>
-struct Arg<double> {
-    static constexpr iocshArgType code = iocshArgDouble;
-    static double get(const iocshArgBuf& buf) { return buf.dval; }
-};
-
-template<>
-struct Arg<const char*> {
-    static constexpr iocshArgType code = iocshArgString;
-    static const char* get(const iocshArgBuf& buf) { return buf.sval; }
-};
-
-template<typename T>
-struct ToStr { typedef const char* type; };
-
-template<typename ...Args>
-struct Reg {
-    const char* const name;
-    const char* const argnames[1+sizeof...(Args)];
-
-    constexpr explicit Reg(const char* name, typename ToStr<Args>::type... descs)
-        :name(name)
-        ,argnames{descs..., 0}
-    {}
-
-    template<void (*fn)(Args...), size_t... Idxs>
-    static
-    void call(const iocshArgBuf* args)
-    {
-        (*fn)(Arg<Args>::get(args[Idxs])...);
-    }
-
-    template<void (*fn)(Args...), size_t... Idxs>
-    void doit(index_sequence<Idxs...>)
-    {
-        static const iocshArg argstack[1+sizeof...(Args)] = {{argnames[Idxs], Arg<Args>::code}...};
-        static const iocshArg * const args[] = {&argstack[Idxs]..., 0};
-        static const iocshFuncDef def = {name, sizeof...(Args), args};
-
-        iocshRegister(&def, &call<fn, Idxs...>);
-    }
-
-    template<void (*fn)(Args...)>
-    void ister()
-    {
-        doit<fn>(make_index_sequence<sizeof...(Args)>{});
-    }
-};
 
 void pvxsAtExit(void* unused)
 {
@@ -250,9 +176,9 @@ void pvxsRegistrar()
     try {
         pvxs::logger_config_env();
 
-        Reg<int>("pvxsl", "detail").ister<&pvxsl>();
-        Reg<int>("pvxsr", "detail").ister<&pvxsr>();
-        Reg<>("pvxs_target_info").ister<&pvxs_target_info>();
+	    ioc::IOCShCommand<int>("pvxsl", "detail").implementation<&pvxsl>();
+	    ioc::IOCShCommand<int>("pvxsr", "detail").implementation<&pvxsr>();
+	    ioc::IOCShCommand<>("pvxs_target_info").implementation<&pvxs_target_info>();
 
         auto serv = instance.load();
         if(!serv) {
