@@ -42,20 +42,20 @@ public:
 	}
 
 // Create an implementation for this IOC command
-	template<IOCShFunction<IOCShFunctionArgumentTypes ...> fn>
+	template<IOCShFunction<IOCShFunctionArgumentTypes ...> function>
 	void implementation() {
-		implement<fn>(make_index_sequence<sizeof...(IOCShFunctionArgumentTypes)>{});
+		implement<function>(make_index_sequence<sizeof...(IOCShFunctionArgumentTypes)>{});
 	}
 
 // Implement the command by registering the callback with EPICS iocshRegister()
-	template<IOCShFunction<IOCShFunctionArgumentTypes ...> fn, size_t... Idxs>
+	template<IOCShFunction<IOCShFunctionArgumentTypes ...> function, size_t... Idxs>
 	void implement(index_sequence<Idxs...>) {
 		static const iocshArg argstack[1 + sizeof...(IOCShFunctionArgumentTypes)] = {
 				{ argumentNames[Idxs], IOCShFunctionArgument<IOCShFunctionArgumentTypes>::code }... };
-		static const iocshArg* const args[] = { &argstack[Idxs]..., 0 };
-		static const iocshFuncDef def = { name, sizeof...(IOCShFunctionArgumentTypes), args };
+		static const iocshArg* const arguments[] = { &argstack[Idxs]..., 0 };
+		static const iocshFuncDef functionDefinition = { name, sizeof...(IOCShFunctionArgumentTypes), arguments };
 
-		iocshRegister(&def, &call < fn, Idxs... >);
+		iocshRegister(&functionDefinition, &call < function, Idxs... >);
 	}
 
 // The actual callback that is executed for the registered command
