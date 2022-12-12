@@ -24,6 +24,7 @@ public:
 	void onCreate(std::unique_ptr<server::ChannelControl>&& op) final;
 	List onList() final;
 	void show(std::ostream& strm) final;
+	static void onGet(const std::shared_ptr<dbChannel>& chan, std::unique_ptr<server::ExecOp>& eop, const Value& prototype);
 };
 
 } // ioc

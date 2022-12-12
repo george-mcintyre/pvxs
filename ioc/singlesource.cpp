@@ -27,7 +27,6 @@ namespace ioc {
 
 DEFINE_LOGGER(_logname, "pvxs.ioc.search");
 
-
 #define MAXLINE 80
 #define MAXMESS 128
 
@@ -81,6 +80,78 @@ void SingleSource::onSearch(Search& op) {
 	}
 }
 
+TypeCode::code_t toTypeCode(dbfType dbfTypeCode) {
+	switch (dbfTypeCode) {
+	case DBF_CHAR:
+		return TypeCode::Int8;
+	case DBF_UCHAR:
+		return TypeCode::UInt8;
+	case DBF_SHORT:
+		return TypeCode::Int16;
+	case DBF_USHORT:
+		return TypeCode::UInt16;
+	case DBF_LONG:
+		return TypeCode::Int32;
+	case DBF_ULONG:
+		return TypeCode::UInt32;
+	case DBF_INT64:
+		return TypeCode::Int64;
+	case DBF_UINT64:
+		return TypeCode::UInt64;
+	case DBF_FLOAT:
+		return TypeCode::Float32;
+	case DBF_DOUBLE:
+		return TypeCode::Float64;
+	case DBF_STRING:
+	case DBF_INLINK:
+	case DBF_OUTLINK:
+	case DBF_FWDLINK:
+		return TypeCode::String;
+	case DBF_ENUM:
+	case DBF_MENU:
+	case DBF_DEVICE:
+	case DBF_NOACCESS:
+	default:
+		return TypeCode::Null;
+	}
+}
+
+void SingleSource::onGet(const std::shared_ptr<dbChannel>& chan, std::unique_ptr<server::ExecOp>& eop, const Value& prototype){
+	const char* pname = chan->name;
+	/* declare buffer long just to ensure correct alignment */
+	long buffer[100];
+	long* pbuffer = &buffer[0];
+	DBADDR addr;
+	long options = 0;
+	long no_elements;
+	static TAB_BUFFER msg_Buff;
+
+	if (!nameToAddr(pname, &addr) && addr.precord->lset != nullptr) {
+		no_elements = MIN(addr.no_elements, sizeof(buffer) / addr.field_size);
+		if (addr.dbr_field_type == DBR_ENUM) {
+			long status = dbGetField(&addr, DBR_STRING, pbuffer, &options, &no_elements, nullptr);
+
+//						prototype = *pbuffer;
+			eop->reply(prototype);
+		} else {
+			long status = dbGetField(&addr, addr.dbr_field_type, pbuffer, &options, &no_elements, nullptr);
+			auto val = prototype.cloneEmpty();
+			val["value"] = ((double*)pbuffer)[0];
+			val["alarm.severity"] = 0;
+			val["alarm.status"] = 0;
+			val["alarm.message"] = "";
+			auto ts(val["timeStamp"]);
+			// TODO: KLUDGE use current time
+			epicsTimeStamp now;
+			if(!epicsTimeGetCurrent(&now)) {
+				ts["secondsPastEpoch"] = now.secPastEpoch + POSIX_TIME_AT_EPICS_EPOCH;
+				ts["nanoseconds"] = now.nsec;
+			}
+			eop->reply(val);
+		}
+	}
+}
+
 void SingleSource::onCreate(std::unique_ptr<server::ChannelControl>&& op) {
 	dbChannel* dbchan = dbChannelCreate(op->name().c_str());
 	if (!dbchan) {
@@ -98,82 +169,36 @@ void SingleSource::onCreate(std::unique_ptr<server::ChannelControl>&& op) {
 		return;
 	}
 
-	TypeCode valuetype(TypeCode::Null);
+	TypeCode valueType(TypeCode::Null);
 	short dbrType = dbChannelFinalFieldType(chan.get());
-	bool longstring = false;
+	bool longString = false;
 
 	if (dbChannelFieldType(chan.get()) == DBF_STRING && dbChannelElements(chan.get()) == 1
 			&& dbrType && dbChannelFinalElements(chan.get()) > 1) {
 		// single DBF_STRING being cast to DBF_CHAR array.  aka long string
-		valuetype = TypeCode::String;
-		longstring = true;
+		valueType = TypeCode::String;
+		longString = true;
 
 	} else if (dbrType == DBF_ENUM && dbChannelFinalElements(chan.get()) == 1) {
 
 	} else {
-		switch (dbrType) {
-		case DBF_INLINK:
-		case DBF_OUTLINK:
-		case DBF_FWDLINK:
+		if ( dbrType == DBF_INLINK || dbrType == DBF_OUTLINK || dbrType == DBF_FWDLINK ) {
 			dbrType = DBF_CHAR;
-			longstring = true;
-			break;
+			longString = true;
 		}
 
-		switch (dbrType) {
-#define CASE(DBF, PVX) case DBF_ ## DBF: valuetype = TypeCode::PVX; break
-		CASE(CHAR, Int8);
-		CASE(UCHAR, UInt8);
-		CASE(SHORT, Int16);
-		CASE(USHORT, UInt16);
-		CASE(LONG, Int32);
-		CASE(ULONG, UInt32);
-		CASE(INT64, Int64);
-		CASE(UINT64, UInt64);
-		CASE(FLOAT, Float32);
-		CASE(DOUBLE, Float64);
-		CASE(STRING, String);
-		CASE(INLINK, String);
-		CASE(OUTLINK, String);
-		CASE(FWDLINK, String);
-#undef CASE
-		}
+		valueType = toTypeCode(dbfType(dbrType));
 
-		if (valuetype != TypeCode::Null && dbChannelFinalElements(chan.get()) != 1) {
-			valuetype = valuetype.arrayOf();
+		if (valueType != TypeCode::Null && dbChannelFinalElements(chan.get()) != 1) {
+			valueType = valueType.arrayOf();
 		}
 	}
 
-	Value prototype(nt::NTScalar{ valuetype }.create()); // TODO: enable meta
+	Value prototype(nt::NTScalar{ valueType }.create()); // TODO: enable meta
 
 	op->onOp([chan, prototype](std::unique_ptr<server::ConnectOp>&& cop) {
 		cop->onGet([chan, prototype](std::unique_ptr<server::ExecOp>&& eop) {
-			const char* pname = chan->name;
-			/* declare buffer long just to ensure correct alignment */
-			long buffer[100];
-			long* pbuffer = &buffer[0];
-			DBADDR addr;
-			long options = 0;
-			long no_elements;
-			static TAB_BUFFER msg_Buff;
-
-			if (!nameToAddr(pname, &addr) && addr.precord->lset != NULL) {
-				no_elements = MIN(addr.no_elements, sizeof(buffer) / addr.field_size);
-				if (addr.dbr_field_type == DBR_ENUM) {
-					long status = dbGetField(&addr, DBR_STRING, pbuffer, &options, &no_elements, nullptr);
-
-//						prototype = *pbuffer;
-					eop->reply(prototype);
-				} else {
-					long status = dbGetField(&addr, addr.dbr_field_type, pbuffer, &options, &no_elements, nullptr);
-					auto val = prototype.cloneEmpty();
-					val["value"] = ((double*)pbuffer)[0];
-					val["alarm.severity"] = 0;
-					val["alarm.status"] = 0;
-					val["alarm.message"] = "";
-					eop->reply(val);
-				}
-			}
+			onGet(chan, eop, prototype);
 		});
 
 		cop->onPut([](std::unique_ptr<server::ExecOp>&& eop, Value&& val) {
