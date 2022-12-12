@@ -18,6 +18,9 @@ class SingleSource : public server::Source {
 	List allrecords;
 	std::unique_ptr<std::remove_pointer<dbEventCtx>::type, DbEventCtxDeleter> dbe;
 
+	template<typename valueType> static void setValue(Value& val, void* pValueBuffer);
+	template<typename valueType> static void setValue(Value& val, void* pValueBuffer, long nElements);
+
 public:
 	SingleSource();
 	void onSearch(Search& op) final;
@@ -26,8 +29,6 @@ public:
 	void show(std::ostream& strm) final;
 	static void onGet(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& operation,
 			const Value& valuePrototype);
-	template<typename valueType> static void setValue(Value& val, void* pValueBuffer);
-	template<typename valueType> static void setValue(Value& val, void* pValueBuffer, long nElements);
 	static void setValue(Value& val, void* pValueBuffer);
 	static void setValue(Value& val, void* pValueBuffer, long nElements);
 };
