@@ -17,11 +17,11 @@ namespace {
 using namespace pvxs;
 
 /**
- * Initialise qsrv database records by adding them as sources in our running pvxs server instance
+ * Initialise qsrv database single records by adding them as sources in our running pvxs server instance
  *
  * @param theInitHookState the initHook state - we only want to trigger on the initHookAfterIocBuilt state - ignore all others
  */
-void qsrvRecordInit(initHookState theInitHookState) {
+void qsrvSingleSourceInit(initHookState theInitHookState) {
 	if (theInitHookState != initHookAfterIocBuilt) {
 		return;
 	}
@@ -29,23 +29,23 @@ void qsrvRecordInit(initHookState theInitHookState) {
 }
 
 /**
- * IOC pvxs records registrar.  This implements the required registrar function that is called by xxxx_registerRecordDeviceDriver,
+ * IOC pvxs Single Source registrar.  This implements the required registrar function that is called by xxxx_registerRecordDeviceDriver,
  * the auto-generated stub created for all IOC implementations.
  *
  * It is registered by using the `epicsExportRegistrar()` macro.
  *
  * 1. Register your hook handler to handle any state hooks that you want to implement.  Here we install
  * an `initHookState` handler connected to the `initHookAfterIocBuilt` state.  It  will add all of the
- * record sources defined so far.  Note that you can define sources up until the `iocInit()` call,
+ * single record type sources defined so far.  Note that you can define sources up until the `iocInit()` call,
  * after which point the `initHookAfterIocBuilt` handlers are called and will register all the defined records.
  */
-void pvxsRecordsRegistrar(void) {
-	initHookRegister(&qsrvRecordInit);
+void pvxsSingleSourceRegistrar(void) {
+	initHookRegister(&qsrvSingleSourceInit);
 }
 } // namespace
 
 // in .dbd file
-//registrar(pvxsRecordsRegistrar)
+//registrar(pvxsSingleSourceRegistrar)
 extern "C" {
-epicsExportRegistrar(pvxsRecordsRegistrar);
+epicsExportRegistrar(pvxsSingleSourceRegistrar);
 }
