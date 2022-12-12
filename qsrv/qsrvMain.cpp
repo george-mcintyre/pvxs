@@ -1,4 +1,8 @@
-/**
+/*
+ * Copyright - See the COPYRIGHT that is included with this distribution.
+ * pvxs is distributed subject to a Software License Agreement found
+ * in file LICENSE that is included with this distribution.
+ *
  * qsrvMain.cpp: The main entry point for the pvxs qsrv soft IOC.
  * Use this as is, or as the base for your customised IOC application
  */

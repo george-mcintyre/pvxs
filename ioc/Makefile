@@ -25,6 +25,7 @@ LIBRARY += pvxsIoc
 SHRLIB_VERSION = $(PVXS_MAJOR_VERSION).$(PVXS_MINOR_VERSION)
 
 pvxsIoc_SRCS += iochooks.cpp
+pvxsIoc_SRCS += records.cpp
 
 LIB_LIBS += pvxs
 LIB_LIBS += $(EPICS_BASE_IOC_LIBS)

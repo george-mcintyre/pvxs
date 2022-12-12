@@ -116,9 +116,15 @@ pvxsr(int level)
     PVXS Server Report.  Shows information about server config (level==0)
     or about connected clients (level>0).  Indirectly calls `pvxs::server::Source::show`.
 
-pvxsl(int level)
-    PVXS Server List.  Lists attached Sources and PV names.
+pvxsl(const char *showDetails)
+    PVXS Server List.  Lists attached Sources and PV names.  showDetails
+    is interpreted as a boolean "true" "yes" "1" meaning show detailed information.
     Indirectly calls `pvxs::server::Source::onList`.
+
+pvxsi()
+    Show information about the PVXS host.  Includes OS, build toolchain, library versions,
+    runtime environment information including network address and thread count, and
+    EPICS PVA environment variable settings.
 
 Adding PVs
 ^^^^^^^^^^

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * pvxs is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
@@ -7,6 +7,7 @@
 #define PVXS_IOCHOOKS_H
 
 #include <pvxs/version.h>
+#include "iocshcommand.h"
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 
@@ -69,6 +70,21 @@ namespace ioc {
 PVXS_IOC_API
 server::Server server();
 
+void runOnServer(const std::function <void (server::Server *)>& function, const char *method = nullptr, const char *context = nullptr);
+
 }} // namespace pvxs::ioc
+
+/**
+ * Run given lambda function against the provided pvxs server instance
+ * @param _lambda the lambda function to run against the provided pvxs server instance
+ */
+#define runOnPvxsServer(_lambda) runOnServer(_lambda, __func__)
+
+/**
+ * Run given lambda function against the provided pvxs server instance with the given context string
+ * @param _context the context string, used in error reporting.  e.g. "Updating tables"
+ * @param _lambda the lambda function to run against the provided pvxs server instance
+ */
+#define runOnPvxsServerWhile_(_context, _lambda) runOnServer(_lambda, __func__, _context)
 
 #endif // PVXS_IOCHOOKS_H

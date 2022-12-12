@@ -45,7 +45,7 @@ MAIN(testioc)
     testdbReadDatabase("testioc.dbd", nullptr, nullptr);
 	testEq(0, testioc_registerRecordDeviceDriver(pdbbase));
 	testEq(0, iocshCmd("pvxsr"));
-	testEq(0, iocshCmd("pvxs_target_info"));
+	testEq(0, iocshCmd("pvxsi"));
 
 	// Loading database
 	testdbReadDatabase(EPICS_BASE OSI_PATH_SEPARATOR "test" OSI_PATH_SEPARATOR "testioc.db", nullptr, "user=test");

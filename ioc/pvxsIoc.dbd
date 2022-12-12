@@ -1,1 +1,2 @@
-registrar(pvxsRegistrar)
+registrar(pvxsBaseRegistrar)
+registrar(pvxsRecordsRegistrar)

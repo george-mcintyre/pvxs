@@ -1,3 +1,9 @@
+/*
+ * Copyright - See the COPYRIGHT that is included with this distribution.
+ * pvxs is distributed subject to a Software License Agreement found
+ * in file LICENSE that is included with this distribution.
+ */
+
 #ifndef PVXS_IOCSHCOMMAND_H
 #define PVXS_IOCSHCOMMAND_H
 
@@ -5,6 +11,7 @@
 #include <memory>
 #include <stdexcept>
 #include <sstream>
+#include <iocsh.h>
 
 #include "pvxs/iocshargument.h"
 #include "pvxs/iocshindex.h"
@@ -26,7 +33,7 @@ using IOCShFunction = void (*)(IOCShFunctionArgumentTypes...);
  * Call implementation() with a reference to your implementation function to complete registration
  *
  * e.g.:
- * 	    pvxs::ioc::IOCShRegister<int>("pvxsl", "detailed help text").implementation<&pvxsl>();
+ * 	    pvxs::ioc::IOCShRegister<int>("pvxsl", "show detailed info?").implementation<&pvxsl>();
  *
  * @tparam IOCShFunctionArgumentTypes the list of 0 or more argument types for the shell function to be registered
  */
@@ -35,10 +42,16 @@ class IOCShCommand {
 public:
 	const char* const name;
 	const char* const argumentNames[1 + sizeof...(IOCShFunctionArgumentTypes)];
+	const char* const usage = nullptr;
 
 // Construct a new IOC shell command with a name and description
-	constexpr explicit IOCShCommand(const char* name, ConstString<IOCShFunctionArgumentTypes>... descriptions)
-			:name(name), argumentNames{ descriptions..., 0 } {
+	constexpr explicit IOCShCommand(const char* name, ConstString<IOCShFunctionArgumentTypes>... argumentDescriptions)
+			:name(name), argumentNames{ argumentDescriptions..., 0 } {
+	}
+
+// Construct a new IOC shell command with a name and description
+	constexpr explicit IOCShCommand(const char* name, ConstString<IOCShFunctionArgumentTypes>... argumentDescriptions, const char* usage)
+			:name(name), argumentNames{ argumentDescriptions..., 0 }, usage(usage) {
 	}
 
 // Create an implementation for this IOC command
@@ -53,7 +66,7 @@ public:
 		static const iocshArg argstack[1 + sizeof...(IOCShFunctionArgumentTypes)] = {
 				{ argumentNames[Idxs], IOCShFunctionArgument<IOCShFunctionArgumentTypes>::code }... };
 		static const iocshArg* const arguments[] = { &argstack[Idxs]..., 0 };
-		static const iocshFuncDef functionDefinition = { name, sizeof...(IOCShFunctionArgumentTypes), arguments };
+		static const iocshFuncDef functionDefinition = { name, sizeof...(IOCShFunctionArgumentTypes), arguments, usage };
 
 		iocshRegister(&functionDefinition, &call < function, Idxs... >);
 	}
