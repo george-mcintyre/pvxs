@@ -48,39 +48,7 @@ static long nameToAddr(const char* pname, DBADDR* paddr) {
 	return status;
 }
 
-SingleSource::SingleSource()
-		:dbe(db_init_events()) {
-	if (!dbe)
-		throw std::runtime_error("Unable to allocate dbEvent context");
-
-	if (db_start_events(dbe.get(), "XSRVsingle", nullptr, nullptr, epicsThreadPriorityCAServerLow)) {
-		throw std::runtime_error("Unable to start dbEvent context");
-	}
-
-	auto names(std::make_shared<std::set<std::string >>());
-
-	DBEntry db;
-	for (long status = dbFirstRecordType(db); !status; status = dbNextRecordType(db)) {
-		for (status = dbFirstRecord(db); !status; status = dbNextRecord(db)) {
-			names->insert(db->precnode->recordname);
-		}
-	}
-
-	allrecords.names = names;
-}
-
-void SingleSource::onSearch(Search& op) {
-	for (auto& pv: op) {
-		std::cout << "Checking : " << pv.name() << std::endl;
-		if (!dbChannelTest(pv.name())) {
-			std::cout << "Matched name: " << pv.name() << std::endl;
-			pv.claim();
-			log_debug_printf(_logname, "Claiming '%s'\n", pv.name());
-		}
-	}
-}
-
-TypeCode::code_t toTypeCode(dbfType dbfTypeCode) {
+static TypeCode::code_t toTypeCode(dbfType dbfTypeCode) {
 	switch (dbfTypeCode) {
 	case DBF_CHAR:
 		return TypeCode::Int8;
@@ -116,38 +84,171 @@ TypeCode::code_t toTypeCode(dbfType dbfTypeCode) {
 	}
 }
 
-void SingleSource::onGet(const std::shared_ptr<dbChannel>& chan, std::unique_ptr<server::ExecOp>& eop, const Value& prototype){
-	const char* pname = chan->name;
-	/* declare buffer long just to ensure correct alignment */
-	long buffer[100];
-	long* pbuffer = &buffer[0];
-	DBADDR addr;
-	long options = 0;
-	long no_elements;
-	static TAB_BUFFER msg_Buff;
+SingleSource::SingleSource()
+		:dbe(db_init_events()) {
+	if (!dbe)
+		throw std::runtime_error("Unable to allocate dbEvent context");
 
-	if (!nameToAddr(pname, &addr) && addr.precord->lset != nullptr) {
-		no_elements = MIN(addr.no_elements, sizeof(buffer) / addr.field_size);
-		if (addr.dbr_field_type == DBR_ENUM) {
-			long status = dbGetField(&addr, DBR_STRING, pbuffer, &options, &no_elements, nullptr);
+	if (db_start_events(dbe.get(), "XSRVsingle", nullptr, nullptr, epicsThreadPriorityCAServerLow)) {
+		throw std::runtime_error("Unable to start dbEvent context");
+	}
+
+	auto names(std::make_shared<std::set<std::string >>());
+
+	DBEntry db;
+	for (long status = dbFirstRecordType(db); !status; status = dbNextRecordType(db)) {
+		for (status = dbFirstRecord(db); !status; status = dbNextRecord(db)) {
+			names->insert(db->precnode->recordname);
+		}
+	}
+
+	allrecords.names = names;
+}
+
+void SingleSource::onSearch(Search& op) {
+	for (auto& pv: op) {
+		std::cout << "Checking : " << pv.name() << std::endl;
+		if (!dbChannelTest(pv.name())) {
+			std::cout << "Matched name: " << pv.name() << std::endl;
+			pv.claim();
+			log_debug_printf(_logname, "Claiming '%s'\n", pv.name());
+		}
+	}
+}
+
+void SingleSource::setValue(Value& val, void* pValueBuffer) {
+	auto valueType = val["value"].type();
+	std::cout << "code" << (short)valueType.code << std::endl;
+	switch (valueType.code) {
+	case TypeCode::Int8:
+		return setValue<char>(val, pValueBuffer);
+	case TypeCode::UInt8:
+		return setValue<unsigned char>(val, pValueBuffer);
+	case TypeCode::Int16:
+		return setValue<short>(val, pValueBuffer);
+	case TypeCode::UInt16:
+		return setValue<unsigned short>(val, pValueBuffer);
+	case TypeCode::Int32:
+		return setValue<int>(val, pValueBuffer);
+	case TypeCode::UInt32:
+		return setValue<unsigned int>(val, pValueBuffer);
+	case TypeCode::Int64:
+		return setValue<long>(val, pValueBuffer);
+	case TypeCode::UInt64:
+		return setValue<unsigned long>(val, pValueBuffer);
+	case TypeCode::Float32:
+		return setValue<float>(val, pValueBuffer);
+	case TypeCode::Float64:
+		return setValue<double>(val, pValueBuffer);
+	case TypeCode::String:
+		return setValue<std::string>(val, pValueBuffer);
+	case TypeCode::Null:
+	default:
+		;
+	}
+}
+
+void SingleSource::setValue(Value& val, void* pValueBuffer, long nElements) {
+	auto valueType = val["value"].type();
+	switch (valueType.code) {
+	case TypeCode::Int8:
+//		return setValue<char>(val, pValueBuffer, nElements);
+	case TypeCode::UInt8:
+		return setValue<unsigned char>(val, pValueBuffer, nElements);
+	case TypeCode::Int16:
+		return setValue<short>(val, pValueBuffer, nElements);
+	case TypeCode::UInt16:
+		return setValue<unsigned short>(val, pValueBuffer, nElements);
+	case TypeCode::Int32:
+		return setValue<int>(val, pValueBuffer, nElements);
+	case TypeCode::UInt32:
+		return setValue<unsigned int>(val, pValueBuffer, nElements);
+	case TypeCode::Int64:
+//		return setValue<long>(val, pValueBuffer, nElements);
+	case TypeCode::UInt64:
+//		return setValue<unsigned long>(val, pValueBuffer, nElements);
+	case TypeCode::Float32:
+		return setValue<float>(val, pValueBuffer, nElements);
+	case TypeCode::Float64:
+		return setValue<double>(val, pValueBuffer, nElements);
+	case TypeCode::String:
+		return setValue<std::string>(val, pValueBuffer, nElements);
+	case TypeCode::Null:
+	default:
+		;
+	}
+}
+
+template<typename valueType> void SingleSource::setValue(Value& val, void* pValueBuffer) {
+	val["value"] = ((valueType*)pValueBuffer)[0];
+}
+
+template<typename valueType> void SingleSource::setValue(Value& val, void* pValueBuffer, long nElements) {
+	shared_array<valueType> values(nElements);
+	for (auto i = 0; i < nElements; i++) {
+		values[i] = ((valueType*)pValueBuffer)[i];
+	}
+	val["value"] = values.freeze().template castTo<const void>();
+}
+
+/**
+ * Handle the get operation
+ *
+ * @param channel the channel that the request comes in on
+ * @param operation the current executing operation
+ * @param valuePrototype a value prototype that is made based on the expected type to be returned
+ */
+void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& operation,
+		const Value& valuePrototype) {
+	const char* pvName = channel->name;
+
+	// declare a value buffer to store the field we will get from the database.
+	// make it of type long to ensure correct alignment as long buffers are the worst
+	// case for alignment on any platform
+	long valueBuffer[100];
+	long* pValueBuffer = &valueBuffer[0];
+
+	DBADDR dbAddress;   // Special struct for storing database addresses
+	long options = 0;   // For options returned from database read along with data
+	long nElements;     // Calculated number of elements to retrieve.  For single values its 1 but for arrays it can be any number
+
+//	static TAB_BUFFER msg_Buff;
+
+	if (!nameToAddr(pvName, &dbAddress) && // Convert the pvName to a db address
+			dbAddress.precord->lset != nullptr) { // make sure that it has been correctly converted
+
+		// Calculate number of elements to retrieve as lowest of actual number of elements and max number
+		// of elements we can store in the buffer we've allocated
+		nElements = MIN(dbAddress.no_elements, sizeof(valueBuffer) / dbAddress.field_size);
+
+		if (dbAddress.dbr_field_type == DBR_ENUM) {
+			long status = dbGetField(&dbAddress, DBR_STRING, pValueBuffer, &options, &nElements, nullptr);
 
 //						prototype = *pbuffer;
-			eop->reply(prototype);
+			operation->reply(valuePrototype);
 		} else {
-			long status = dbGetField(&addr, addr.dbr_field_type, pbuffer, &options, &no_elements, nullptr);
-			auto val = prototype.cloneEmpty();
-			val["value"] = ((double*)pbuffer)[0];
+			long status = dbGetField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, &options, &nElements,
+					nullptr);
+			auto val = valuePrototype.cloneEmpty();
+
+			if (nElements == 1) {
+				setValue(val, pValueBuffer);
+			} else {
+				setValue(val, pValueBuffer, nElements);
+			}
+
 			val["alarm.severity"] = 0;
 			val["alarm.status"] = 0;
 			val["alarm.message"] = "";
 			auto ts(val["timeStamp"]);
 			// TODO: KLUDGE use current time
 			epicsTimeStamp now;
-			if(!epicsTimeGetCurrent(&now)) {
+			if (!epicsTimeGetCurrent(&now)) {
 				ts["secondsPastEpoch"] = now.secPastEpoch + POSIX_TIME_AT_EPICS_EPOCH;
 				ts["nanoseconds"] = now.nsec;
 			}
-			eop->reply(val);
+
+			operation->reply(val);
 		}
 	}
 }
@@ -182,7 +283,7 @@ void SingleSource::onCreate(std::unique_ptr<server::ChannelControl>&& op) {
 	} else if (dbrType == DBF_ENUM && dbChannelFinalElements(chan.get()) == 1) {
 
 	} else {
-		if ( dbrType == DBF_INLINK || dbrType == DBF_OUTLINK || dbrType == DBF_FWDLINK ) {
+		if (dbrType == DBF_INLINK || dbrType == DBF_OUTLINK || dbrType == DBF_FWDLINK) {
 			dbrType = DBF_CHAR;
 			longString = true;
 		}
@@ -194,11 +295,11 @@ void SingleSource::onCreate(std::unique_ptr<server::ChannelControl>&& op) {
 		}
 	}
 
-	Value prototype(nt::NTScalar{ valueType }.create()); // TODO: enable meta
+	Value valuePrototype(nt::NTScalar{ valueType }.create()); // TODO: enable meta
 
-	op->onOp([chan, prototype](std::unique_ptr<server::ConnectOp>&& cop) {
-		cop->onGet([chan, prototype](std::unique_ptr<server::ExecOp>&& eop) {
-			onGet(chan, eop, prototype);
+	op->onOp([chan, valuePrototype](std::unique_ptr<server::ConnectOp>&& cop) {
+		cop->onGet([chan, valuePrototype](std::unique_ptr<server::ExecOp>&& eop) {
+			onGet(chan, eop, valuePrototype);
 		});
 
 		cop->onPut([](std::unique_ptr<server::ExecOp>&& eop, Value&& val) {
@@ -208,11 +309,11 @@ void SingleSource::onCreate(std::unique_ptr<server::ChannelControl>&& op) {
 			// dbPutField() ...
 		});
 
-		cop->connect(prototype);
+		cop->connect(valuePrototype);
 	});
 
-	op->onSubscribe([chan, prototype](std::unique_ptr<server::MonitorSetupOp>&& setup) {
-		auto ctrl(setup->connect(prototype));
+	op->onSubscribe([chan, valuePrototype](std::unique_ptr<server::MonitorSetupOp>&& setup) {
+		auto ctrl(setup->connect(valuePrototype));
 
 		// db_add_event( &callback)
 

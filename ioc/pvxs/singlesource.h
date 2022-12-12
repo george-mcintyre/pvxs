@@ -24,7 +24,12 @@ public:
 	void onCreate(std::unique_ptr<server::ChannelControl>&& op) final;
 	List onList() final;
 	void show(std::ostream& strm) final;
-	static void onGet(const std::shared_ptr<dbChannel>& chan, std::unique_ptr<server::ExecOp>& eop, const Value& prototype);
+	static void onGet(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& operation,
+			const Value& valuePrototype);
+	template<typename valueType> static void setValue(Value& val, void* pValueBuffer);
+	template<typename valueType> static void setValue(Value& val, void* pValueBuffer, long nElements);
+	static void setValue(Value& val, void* pValueBuffer);
+	static void setValue(Value& val, void* pValueBuffer, long nElements);
 };
 
 } // ioc
