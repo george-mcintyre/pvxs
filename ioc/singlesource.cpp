@@ -47,42 +47,6 @@ static long nameToAddr(const char* pname, DBADDR* paddr) {
 	return status;
 }
 
-static TypeCode::code_t toTypeCode(dbfType dbfTypeCode) {
-	switch (dbfTypeCode) {
-	case DBF_CHAR:
-		return TypeCode::Int8;
-	case DBF_UCHAR:
-		return TypeCode::UInt8;
-	case DBF_SHORT:
-		return TypeCode::Int16;
-	case DBF_USHORT:
-		return TypeCode::UInt16;
-	case DBF_LONG:
-		return TypeCode::Int32;
-	case DBF_ULONG:
-		return TypeCode::UInt32;
-	case DBF_INT64:
-		return TypeCode::Int64;
-	case DBF_UINT64:
-		return TypeCode::UInt64;
-	case DBF_FLOAT:
-		return TypeCode::Float32;
-	case DBF_DOUBLE:
-		return TypeCode::Float64;
-	case DBF_STRING:
-	case DBF_INLINK:
-	case DBF_OUTLINK:
-	case DBF_FWDLINK:
-		return TypeCode::String;
-	case DBF_ENUM:
-	case DBF_MENU:
-	case DBF_DEVICE:
-	case DBF_NOACCESS:
-	default:
-		return TypeCode::Null;
-	}
-}
-
 SingleSource::SingleSource() {
 	auto names(std::make_shared<std::set<std::string >>());
 

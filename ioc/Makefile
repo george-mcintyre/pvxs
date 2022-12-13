@@ -33,6 +33,7 @@ pvxsIoc_SRCS += dberrmsg.cpp
 pvxsIoc_SRCS += iochooks.cpp
 pvxsIoc_SRCS += pvxssources.cpp
 pvxsIoc_SRCS += singlesource.cpp
+pvxsIoc_SRCS += typeutils.cpp
 
 LIB_LIBS += pvxs
 LIB_LIBS += $(EPICS_BASE_IOC_LIBS)
