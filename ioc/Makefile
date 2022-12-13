@@ -22,6 +22,7 @@ INC += pvxs/iocshargument.h
 INC += pvxs/iocshcommand.h
 INC += pvxs/iocshindex.h
 INC += pvxs/singlesource.h
+INC += pvxs/typeutils.h
 
 LIBRARY += pvxsIoc
 

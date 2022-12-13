@@ -19,6 +19,7 @@
 #include <dbEvent.h>
 
 #include "pvxs/dbentry.h"
+#include "pvxs/typeutils.h"
 
 namespace pvxs {
 namespace ioc {
@@ -106,74 +107,37 @@ void SingleSource::onSearch(Search& op) {
 	}
 }
 
-void SingleSource::setValue(Value& val, void* pValueBuffer) {
-	auto valueType = val["value"].type();
-	std::cout << "code" << (short)valueType.code << std::endl;
-	switch (valueType.code) {
-	case TypeCode::Int8:
-		return setValue<char>(val, pValueBuffer);
-	case TypeCode::UInt8:
-		return setValue<unsigned char>(val, pValueBuffer);
-	case TypeCode::Int16:
-		return setValue<short>(val, pValueBuffer);
-	case TypeCode::UInt16:
-		return setValue<unsigned short>(val, pValueBuffer);
-	case TypeCode::Int32:
-		return setValue<int>(val, pValueBuffer);
-	case TypeCode::UInt32:
-		return setValue<unsigned int>(val, pValueBuffer);
-	case TypeCode::Int64:
-		return setValue<long>(val, pValueBuffer);
-	case TypeCode::UInt64:
-		return setValue<unsigned long>(val, pValueBuffer);
-	case TypeCode::Float32:
-		return setValue<float>(val, pValueBuffer);
-	case TypeCode::Float64:
-		return setValue<double>(val, pValueBuffer);
-	case TypeCode::String:
-		val["value"] = ((const char *)pValueBuffer);
-	case TypeCode::Null:
-	default:
-		;
+void SingleSource::setValue(Value& value, void* pValueBuffer) {
+	auto valueType = value["value"].type();
+	if (valueType.code == TypeCode::String) {
+		value["value"] = ((const char *)pValueBuffer);
+	} else {
+		SwitchTypeCodeForTemplatedCall(valueType.code, setValue,(value, pValueBuffer));
 	}
 }
 
 /**
  * Set a value from the given database value buffer.  This is the array version of the function
  *
- * @param val the value to set
+ * @param value the value to set
  * @param pValueBuffer the database value buffer
  * @param nElements the number of elements in the buffer
  */
-void SingleSource::setValue(Value& val, void* pValueBuffer, long nElements) {
-	auto valueType = val["value"].type();
-	switch (valueType.code) {
-	case TypeCode::Int8A:
-		return setValue<int8_t>(val, pValueBuffer, nElements);
-	case TypeCode::UInt8A:
-		return setValue<uint8_t>(val, pValueBuffer, nElements);
-	case TypeCode::Int16A:
-		return setValue<int16_t>(val, pValueBuffer, nElements);
-	case TypeCode::UInt16A:
-		return setValue<uint16_t>(val, pValueBuffer, nElements);
-	case TypeCode::Int32A:
-		return setValue<int32_t>(val, pValueBuffer, nElements);
-	case TypeCode::UInt32A:
-		return setValue<uint32_t>(val, pValueBuffer, nElements);
-	case TypeCode::Int64A:
-		return setValue<int64_t>(val, pValueBuffer, nElements);
-	case TypeCode::UInt64A:
-		return setValue<uint64_t>(val, pValueBuffer, nElements);
-	case TypeCode::Float32A:
-		return setValue<float>(val, pValueBuffer, nElements);
-	case TypeCode::Float64A:
-		return setValue<double>(val, pValueBuffer, nElements);
-	case TypeCode::StringA:
-		return setValue<std::string>(val, pValueBuffer, nElements);
-	case TypeCode::Null:
-	default:
-		;
+void SingleSource::setValue(Value& value, void* pValueBuffer, long nElements) {
+	auto valueType = value["value"].type();
+	if (valueType.code == TypeCode::String) {
+		value["value"] = ((const char *)pValueBuffer);
+	} else {
+		SwitchTypeCodeForTemplatedCall(valueType.code, setValue,(value, pValueBuffer, nElements));
 	}
+}
+
+template<typename valueType> void SingleSource::setValue(Value& value, void* pValueBuffer) {
+	return setValueFromBuffer(value, (valueType*)pValueBuffer);
+}
+
+template<typename valueType> void SingleSource::setValue(Value& value, void* pValueBuffer, long nElements) {
+	return setValueFromBuffer(value, (valueType*)pValueBuffer, nElements);
 }
 
 /**
@@ -181,19 +145,28 @@ void SingleSource::setValue(Value& val, void* pValueBuffer, long nElements) {
  * of the function uses the template parameter to determine the type to use to set the value
  *
  * @tparam valueType the type to use to set the value
- * @param val the value to set
- * @param pValueBuffer the
+ * @param value the value to set
+ * @param pValueBuffer the database buffer
  */
-template<typename valueType> void SingleSource::setValue(Value& val, void* pValueBuffer) {
-	val["value"] = ((valueType*)pValueBuffer)[0];
+template<typename valueType> void SingleSource::setValueFromBuffer(Value& value, valueType* pValueBuffer) {
+	value["value"] = pValueBuffer[0];
 }
 
-template<typename valueType> void SingleSource::setValue(Value& val, void* pValueBuffer, long nElements) {
+/**
+ * Set the value of the given value parameter from the given database value buffer.  This version
+ * of the function uses the template parameter to determine the type to use to set the value
+ *
+ * @tparam valueType the type to use to set the value
+ * @param value the value to set
+ * @param pValueBuffer the database buffer
+ * @param nElements the number of elements in the buffer
+ */
+template<typename valueType> void SingleSource::setValueFromBuffer(Value& value, valueType* pValueBuffer, long nElements) {
 	shared_array<valueType> values(nElements);
 	for (auto i = 0; i < nElements; i++) {
-		values[i] = ((valueType*)pValueBuffer)[i];
+		values[i] = (pValueBuffer)[i];
 	}
-	val["value"] = values.freeze().template castTo<const void>();
+	value["value"] = values.freeze().template castTo<const void>();
 }
 
 /**
@@ -342,6 +315,5 @@ SingleSource::List SingleSource::onList() {
 
 void SingleSource::show(std::ostream& strm) {
 }
-
 } // ioc
 } // pvxs
