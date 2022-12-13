@@ -9,14 +9,12 @@
 
 #include <dbEvent.h>
 #include "pvxs/source.h"
-#include "dbeventctxdeleter.h"
 
 namespace pvxs {
 namespace ioc {
 
 class SingleSource : public server::Source {
 	List allrecords;
-	std::unique_ptr<std::remove_pointer<dbEventCtx>::type, DbEventCtxDeleter> dbe;
 
 	template<typename valueType> static void setValue(Value& val, void* pValueBuffer);
 	template<typename valueType> static void setValue(Value& val, void* pValueBuffer, long nElements);

@@ -13,8 +13,6 @@
 #include <pvxs/singlesource.h>
 #include <pvxs/dberrmsg.h>
 
-#include <errSymTbl.h>
-
 #include <dbStaticLib.h>
 #include <dbAccess.h>
 #include <dbChannel.h>
@@ -84,15 +82,7 @@ static TypeCode::code_t toTypeCode(dbfType dbfTypeCode) {
 	}
 }
 
-SingleSource::SingleSource()
-		:dbe(db_init_events()) {
-	if (!dbe)
-		throw std::runtime_error("Unable to allocate dbEvent context");
-
-	if (db_start_events(dbe.get(), "XSRVsingle", nullptr, nullptr, epicsThreadPriorityCAServerLow)) {
-		throw std::runtime_error("Unable to start dbEvent context");
-	}
-
+SingleSource::SingleSource() {
 	auto names(std::make_shared<std::set<std::string >>());
 
 	DBEntry db;
