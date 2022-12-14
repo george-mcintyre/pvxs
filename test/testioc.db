@@ -45,4 +45,13 @@ record(compress,"$(user):compressExample")
 	field(HOPR,"10")
 	field(EGU,"Counts")
 }
-
+record(stringin, "$(user):string")
+{
+        field(VAL,"Some random value")
+        field(PINI,"YES")
+}
+record(waveform,"$(user):array")
+{
+        field(FTVL, "DOUBLE")
+        field(NELM, "5")
+}

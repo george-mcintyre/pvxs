@@ -14,6 +14,8 @@
 #include <pvxs/unittest.h>
 
 #include "osiFileName.h"
+#include "pvxs/client.h"
+#include "utilpvt.h"
 
 #ifndef EPICS_BASE
 #define EPICS_BASE ""
@@ -30,19 +32,19 @@ namespace {
 
 } // namespace
 
-MAIN(testioc)
-{
-    testPlan(9);
-    testSetup();
+MAIN(testioc) {
+	testPlan(19);
+	testSetup();
 
-    testdbPrepare();
+	testdbPrepare();
 
-    testThrows<std::logic_error>([]{
-        ioc::server();
-    });
+	testThrows<std::logic_error>([] {
+		ioc::server();
+	});
 
 	// Test loading configuration file
-    testdbReadDatabase("testioc.dbd", nullptr, nullptr);
+	testDiag("dbLoadDatabase(\"testioc.dbd\")");
+	testdbReadDatabase("testioc.dbd", nullptr, nullptr);
 	testEq(0, testioc_registerRecordDeviceDriver(pdbbase));
 	testEq(0, iocshCmd("pvxsr"));
 	testEq(0, iocshCmd("pvxsi"));
@@ -51,18 +53,49 @@ MAIN(testioc)
 	testdbReadDatabase(EPICS_BASE OSI_PATH_SEPARATOR "test" OSI_PATH_SEPARATOR "testioc.db", nullptr, "user=test");
 
 	// Test starting server
-    testTrue(!!ioc::server());
-    testIocInitOk();
+	testTrue(!!ioc::server());
+
+	testIocInitNonIsolatedOk();
 
 	// Test fields loaded ok
 	testEq(0, iocshCmd("dbl"));
+
+	// Test ability to get fields via shell
 	testEq(0, iocshCmd("dbgf test:aiExample"));
 	testEq(0, iocshCmd("dbgf test:calcExample"));
 	testEq(0, iocshCmd("dbgf test:compressExample"));
+	testEq(0, iocshCmd("dbgf test:string"));
+	testEq(0, iocshCmd("dbgf test:array"));
+
+	// Test value of fields correct
+	testdbGetFieldEqual("test:aiExample", DBR_DOUBLE, 0);
+	testdbGetFieldEqual("test:calcExample", DBR_DOUBLE, 0);
+	testdbGetFieldEqual("test:compressExample", DBR_DOUBLE, 0);
+	testdbGetFieldEqual("test:string", DBR_STRING, "Some random value");
+	double expected =0.0;
+	testdbGetArrFieldEqual("test:array", DBR_DOUBLE, 0, 0, &expected);
+
+	// Get a client config to connect to server for network testing
+	client::Context cli(ioc::server().clientConfig().build());
+
+	// Test client access to ioc
+	auto val = cli.get("test:aiExample").exec()->wait(5.0);
+	testEq(0, val["value"].as<double>());
+
+	val = cli.get("test:calcExample").exec()->wait(5.0);
+	testEq(0, val["value"].as<double>());
+
+//	val = cli.get("test:compressExample").exec()->wait(5.0);
+//	testEq(0, val["value"].as<double>());
+
+	val = cli.get("test:string").exec()->wait(5.0);
+	testStrEq(std::string(SB()<<val["value"]), "string = \"Some random value\"\n");
+
+	//	cli.put();
 
 	// Test shutdown
 	testIocShutdownOk();
-    testdbCleanup();
+	testdbCleanup();
 
-    return testDone();
+	return testDone();
 }
