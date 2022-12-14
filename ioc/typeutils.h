@@ -1,3 +1,9 @@
+/*
+ * Copyright - See the COPYRIGHT that is included with this distribution.
+ * pvxs is distributed subject to a Software License Agreement found
+ * in file LICENSE that is included with this distribution.
+ */
+
 #pragma clang diagnostic push
 /*
  * Copyright - See the COPYRIGHT that is included with this distribution.
@@ -13,7 +19,7 @@
 
 #include <pvxs/source.h>
 #include <dbStaticLib.h>
-#include "pvxs/typeutils.h"
+#include "typeutils.h"
 
 /**
  * To switch the given `TypeCode` for a statically typed call to the given function with the appropriate template type

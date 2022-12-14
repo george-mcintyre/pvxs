@@ -9,9 +9,7 @@
 
 #include <pvxs/source.h>
 #include <dbStaticLib.h>
-#include "pvxs/typeutils.h"
-
-#include "pvxs/typeutils.h"
+#include "typeutils.h"
 
 namespace pvxs {
 
@@ -19,7 +17,7 @@ namespace pvxs {
  * Convert the given database type code into a pvxs type code
  *
  * TODO support DBF_ENUM, DBF_MENU, DBF_DEVICE AND DBF_NOACCESS
- * 
+ *
  * @param databaseTypeCode the database type code
  * @return a pvxs type code
  *

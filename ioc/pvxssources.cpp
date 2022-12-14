@@ -8,10 +8,10 @@
 
 #include <pvxs/source.h>
 #include <pvxs/iochooks.h>
-#include <pvxs/singlesource.h>
-
 #include <initHooks.h>
 #include <epicsExport.h>
+
+#include "singlesource.h"
 
 namespace {
 using namespace pvxs;

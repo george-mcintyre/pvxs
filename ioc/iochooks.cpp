@@ -23,7 +23,8 @@
 #include <initHooks.h>
 #include <epicsExit.h>
 #include <epicsExport.h>
-#include "pvxs/iocshcommand.h"
+
+#include "iocshcommand.h"
 
 namespace pvxs {
 namespace ioc {

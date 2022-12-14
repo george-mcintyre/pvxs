@@ -33,7 +33,7 @@ namespace {
 } // namespace
 
 MAIN(testioc) {
-	testPlan(19);
+	testPlan(21);
 	testSetup();
 
 	testdbPrepare();
@@ -72,7 +72,7 @@ MAIN(testioc) {
 	testdbGetFieldEqual("test:calcExample", DBR_DOUBLE, 0);
 	testdbGetFieldEqual("test:compressExample", DBR_DOUBLE, 0);
 	testdbGetFieldEqual("test:string", DBR_STRING, "Some random value");
-	double expected =0.0;
+	double expected = 0.0;
 	testdbGetArrFieldEqual("test:array", DBR_DOUBLE, 0, 0, &expected);
 
 	// Get a client config to connect to server for network testing
@@ -85,11 +85,17 @@ MAIN(testioc) {
 	val = cli.get("test:calcExample").exec()->wait(5.0);
 	testEq(0, val["value"].as<double>());
 
+	shared_array<double> foo({ 1.0, 2.0, 3.0, 4.0, 5.0 });
+
+	testdbPutArrFieldOk("test:array", DBR_DOUBLE, foo.size(), foo.data());
+	val = cli.get("test:array").exec()->wait(5.0);
+	testArrEq(foo, val["value"].as<shared_array<const double>>());
+
 //	val = cli.get("test:compressExample").exec()->wait(5.0);
 //	testEq(0, val["value"].as<double>());
 
 	val = cli.get("test:string").exec()->wait(5.0);
-	testStrEq(std::string(SB()<<val["value"]), "string = \"Some random value\"\n");
+	testStrEq(std::string(SB() << val["value"]), "string = \"Some random value\"\n");
 
 	//	cli.put();
 

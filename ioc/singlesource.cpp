@@ -10,8 +10,6 @@
 #include <pvxs/source.h>
 #include <pvxs/nt.h>
 #include <pvxs/log.h>
-#include <pvxs/singlesource.h>
-#include <pvxs/dberrmsg.h>
 
 #include <epicsTypes.h>
 #include <dbStaticLib.h>
@@ -19,8 +17,10 @@
 #include <dbChannel.h>
 #include <dbEvent.h>
 
-#include "pvxs/dbentry.h"
-#include "pvxs/typeutils.h"
+#include "dbentry.h"
+#include "dberrmsg.h"
+#include "singlesource.h"
+#include "typeutils.h"
 
 namespace pvxs {
 namespace ioc {
@@ -252,6 +252,8 @@ SingleSource::onGetEnum(std::unique_ptr<server::ExecOp>& operation, const Value&
 void
 SingleSource::onGetNonEnum(std::unique_ptr<server::ExecOp>& operation, const Value& valuePrototype, void* pValueBuffer,
 		DBADDR& dbAddress, long& options, long& nElements) {// Get the field value
+	// Set options to null for value
+	// Set options to non-null to get metadata
 	if (DBErrMsg err = dbGetField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, &options, &nElements,
 			nullptr)) {
 		operation->error(err.c_str());

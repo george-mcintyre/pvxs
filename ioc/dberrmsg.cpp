@@ -5,7 +5,7 @@
  */
 
 #include <errlog.h>
-#include "pvxs/dberrmsg.h"
+#include "dberrmsg.h"
 
 namespace pvxs {
 namespace ioc {

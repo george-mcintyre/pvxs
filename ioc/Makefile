@@ -15,14 +15,7 @@ USR_CPPFLAGS += -DPVXS_IOC_API_BUILDING
 
 DBD += pvxsIoc.dbd
 
-INC += pvxs/dbentry.h
-INC += pvxs/dberrmsg.h
 INC += pvxs/iochooks.h
-INC += pvxs/iocshargument.h
-INC += pvxs/iocshcommand.h
-INC += pvxs/iocshindex.h
-INC += pvxs/singlesource.h
-INC += pvxs/typeutils.h
 
 LIBRARY += pvxsIoc
 

@@ -7,7 +7,7 @@
 #include <dbStaticLib.h>
 #include <dbAccess.h>
 
-#include "pvxs/dbentry.h"
+#include "dbentry.h"
 
 namespace pvxs {
 namespace ioc {

@@ -13,8 +13,8 @@
 #include <sstream>
 #include <iocsh.h>
 
-#include "pvxs/iocshargument.h"
-#include "pvxs/iocshindex.h"
+#include "iocshargument.h"
+#include "iocshindex.h"
 
 namespace pvxs {
 namespace ioc {
@@ -80,7 +80,22 @@ public:
 		(*function)(IOCShFunctionArgument<IOCShFunctionArgumentTypes>::get(iocShArgumentsBuffer[Idxs])...);
 	}
 };
+
+void runOnServer(const std::function <void (server::Server *)>& function, const char *method = nullptr, const char *context = nullptr);
+
 } // pvxs
 } // ioc
 
+/**
+ * Run given lambda function against the provided pvxs server instance
+ * @param _lambda the lambda function to run against the provided pvxs server instance
+ */
+#define runOnPvxsServer(_lambda) runOnServer(_lambda, __func__)
+
+/**
+ * Run given lambda function against the provided pvxs server instance with the given context string
+ * @param _context the context string, used in error reporting.  e.g. "Updating tables"
+ * @param _lambda the lambda function to run against the provided pvxs server instance
+ */
+#define runOnPvxsServerWhile_(_context, _lambda) runOnServer(_lambda, __func__, _context)
 #endif //PVXS_IOCSHCOMMAND_H

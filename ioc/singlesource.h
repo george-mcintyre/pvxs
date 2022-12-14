@@ -9,7 +9,7 @@
 
 #include <dbEvent.h>
 #include <dbAddr.h>
-#include "pvxs/source.h"
+#include <pvxs/source.h>
 
 namespace pvxs {
 namespace ioc {
