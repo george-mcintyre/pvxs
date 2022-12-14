@@ -44,106 +44,169 @@ SingleSource::SingleSource() {
 	allrecords.names = names;
 }
 
-void SingleSource::onCreate(std::unique_ptr<server::ChannelControl>&& op) {
-	dbChannel* dbchan = dbChannelCreate(op->name().c_str());
-	if (!dbchan) {
-		log_debug_printf(_logname, "Ignore requested channel for '%s'\n", op->name().c_str());
+/**
+ * Handle the create source operation.  This is called once when the source is created.
+ * We will register all of the database records that have been loaded until this time as pv names in this
+ * source.
+ * @param channelControl
+ */
+void SingleSource::onCreate(std::unique_ptr<server::ChannelControl>&& channelControl) {
+	auto sourceName(channelControl->name().c_str());
+	dbChannel* pdbChannel = dbChannelCreate(sourceName);
+	if (!pdbChannel) {
+		log_debug_printf(_logname, "Ignore requested source '%s'\n", sourceName);
 		return;
 	}
-	log_debug_printf(_logname, "Accepting channel for '%s'\n", op->name().c_str());
+	log_debug_printf(_logname, "Accepting channel for '%s'\n", sourceName);
 
-	std::shared_ptr<dbChannel> chan(dbchan, [](dbChannel* ch) {
-		dbChannelDelete(ch);
-	});
+	// Set up a shared pointer to the database channel and provide a deleter lambda for when it will eventually be deleted
+	std::shared_ptr<dbChannel> pChannel(pdbChannel, [](dbChannel* ch) { dbChannelDelete(ch); });
 
-	if (DBErrMsg err = dbChannelOpen(chan.get())) {
+	if (DBErrMsg err = dbChannelOpen(pChannel.get())) {
+		log_debug_printf(_logname, "Error opening database channel for '%s: %s'\n", sourceName, err.c_str());
 		throw std::runtime_error(err.c_str());
 	}
 
-	TypeCode valueType(TypeCode::Null);
-	short dbrType = dbChannelFinalFieldType(chan.get());
-
-	if (dbChannelFieldType(chan.get()) == DBF_STRING && dbChannelElements(chan.get()) == 1
-			&& dbrType && dbChannelFinalElements(chan.get()) > 1) {
-		// single DBF_STRING being cast to DBF_CHAR array.  aka long string
-		valueType = TypeCode::String;
-
-	} else if (dbrType == DBF_ENUM && dbChannelFinalElements(chan.get()) == 1) {
-
-	} else {
-		// TODO handle links.  For the moment we handle as chars and fail later
-		if (dbrType == DBF_INLINK || dbrType == DBF_OUTLINK || dbrType == DBF_FWDLINK) {
-			dbrType = DBF_CHAR;
-		}
-
-		valueType = toTypeCode(dbfType(dbrType));
-		if (valueType != TypeCode::Null && dbChannelFinalElements(chan.get()) != 1) {
-			valueType = valueType.arrayOf();
-		}
-	}
-
-	Value valuePrototype(nt::NTScalar{ valueType }.create()); // TODO: enable meta
-
-	op->onOp([chan, valuePrototype](std::unique_ptr<server::ConnectOp>&& cop) {
-		cop->onGet([chan, valuePrototype](std::unique_ptr<server::ExecOp>&& eop) {
-			onGet(chan, eop, valuePrototype);
-		});
-
-		cop->onPut([](std::unique_ptr<server::ExecOp>&& eop, Value&& val) {
-			// TODO
-			std::cout << "On Put" << std::endl;
-
-			// dbPutField() ...
-		});
-
-		cop->connect(valuePrototype);
-	});
-
-	op->onSubscribe([chan, valuePrototype](std::unique_ptr<server::MonitorSetupOp>&& setup) {
-		auto ctrl(setup->connect(valuePrototype));
-
-		// db_add_event( &callback)
-
-		ctrl->onStart([](bool start) {
-			// TODO
-			if (start) {
-				// db_event_enable()
-				// db_post_single_event()
-
-			} else {
-				// db_event_disable()
-			}
-		});
-
-	});
+	// Create callbacks for handling requests and channel subscriptions
+	createRequestAndSubscriptionHandlers(channelControl, pChannel);
 }
 
 SingleSource::List SingleSource::onList() {
 	return allrecords;
 }
 
-void SingleSource::onSearch(Search& op) {
-	for (auto& pv: op) {
-		std::cout << "Checking : " << pv.name() << std::endl;
+/**
+ * Respond to search requests.  For each matching pv, claim that pv
+ *
+ * @param searchOperation the search operation
+ */
+void SingleSource::onSearch(Search& searchOperation) {
+	for (auto& pv: searchOperation) {
 		if (!dbChannelTest(pv.name())) {
-			std::cout << "Matched name: " << pv.name() << std::endl;
 			pv.claim();
 			log_debug_printf(_logname, "Claiming '%s'\n", pv.name());
 		}
 	}
 }
 
-void SingleSource::show(std::ostream& strm) {
+/**
+ * Respond to the show request by displaying a list of all the PVs hosted in this ioc
+ *
+ * @param outputStream the stream to show the list on
+ */
+void SingleSource::show(std::ostream& outputStream) {
+	outputStream << "IOC";
+	for (auto& name: *SingleSource::allrecords.names) {
+		outputStream << "\n" << indent{} << name;
+	}
+}
+
+/**
+ * Create request and subscription handlers for single record sources
+ *
+ * @param channelControl the control channel pointer that we got from onCreate
+ * @param pChannel the pointer to the database channel to set up the handlers for
+ */
+void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& channelControl,
+		const std::shared_ptr<dbChannel>& pChannel) {
+	auto valueType(getChannelValueType(pChannel));
+	Value valuePrototype(nt::NTScalar{ valueType }.create()); // TODO: enable meta
+
+	// Get and Put requests
+	channelControl->onOp([pChannel, valuePrototype](std::unique_ptr<server::ConnectOp>&& channelConnectOperation) {
+		// First stage for handling any request is to announce the channel type with a `connect()` call
+		// @note The type signalled here must match the eventual type returned by a pvxs get
+		channelConnectOperation->connect(valuePrototype);
+
+		// pvxs get
+		channelConnectOperation->onGet([pChannel, valuePrototype](std::unique_ptr<server::ExecOp>&& getOperation) {
+			onGet(pChannel, getOperation, valuePrototype);
+		});
+
+		// pvxs put
+		channelConnectOperation
+				->onPut([pChannel, valuePrototype](std::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
+					onPut(pChannel, putOperation, valuePrototype, value);
+				});
+
+	});
+
+	// Subscription requests
+	channelControl
+			->onSubscribe([pChannel, valuePrototype](std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
+				auto subscriptionControl(subscriptionOperation->connect(valuePrototype));
+
+				// get event control mask
+				db_field_log eventControlMask;
+
+//				std::map<epicsEventId, std::vector<dbEventSubscription>> channelMonitor = subscriptions[pChannel];
+
+//				void* eventSubscription = db_add_event(eventContext, pChannel, &subscriptionCallback, channelMonitor, eventControlMask);
+				void* eventSubscription(nullptr);
+
+				subscriptionControl->onStart([pChannel](bool isStarting) {
+					if (isStarting) {
+						onStartSubscription(pChannel);
+					} else {
+						onDisableSubscription(pChannel);
+					}
+				});
+			});
+}
+
+void SingleSource::onStartSubscription(const std::shared_ptr<dbChannel>& pChannel) {
+	// db_event_enable()
+	// db_post_single_event()
+}
+
+void SingleSource::onDisableSubscription(const std::shared_ptr<dbChannel>& pChannel) {
+	// db_event_disable()
+}
+
+/*
+void SingleSource::subscriptionCallback(void* user_arg, const std::shared_ptr<dbChannel>& pChannel,
+		int eventsRemaining, struct db_field_log* pfl) {
+	epicsMutexMustLock(eventLock);
+	std::map<epicsEventId, std::vector<dbEventSubscription>> channelMonitor = subscriptions[pChannel];
+	epicsMutexUnlock(eventLock);
+//	epicsEventMustTrigger(channelMonitor[user_arg]);
+}
+
+*/
+TypeCode SingleSource::getChannelValueType(const std::shared_ptr<dbChannel>& pChannel) {
+	auto dbChannel(pChannel.get());
+	short dbrType(dbChannelFinalFieldType(dbChannel));
+	auto nFinalElements(dbChannelFinalElements(dbChannel));
+	auto nElements(dbChannelElements(dbChannel));
+
+	TypeCode valueType(TypeCode::Null);
+
+	if (dbChannelFieldType(dbChannel) == DBF_STRING && nElements == 1 && dbrType && nFinalElements > 1) {
+		// single DBF_STRING being cast to DBF_CHAR array.  aka long string
+		valueType = TypeCode::String;
+
+	} else if (dbrType == DBF_ENUM && nFinalElements == 1) {
+
+	} else {
+		// TODO handle links.  For the moment we handle as chars and fail later
+		if (dbrType == DBF_INLINK || dbrType == DBF_OUTLINK || dbrType == DBF_FWDLINK) dbrType = DBF_CHAR;
+
+		valueType = toTypeCode(dbfType(dbrType));
+		if (valueType != TypeCode::Null && nFinalElements != 1) {
+			valueType = valueType.arrayOf();
+		}
+	}
+	return valueType;
 }
 
 /**
  * Handle the get operation
  *
  * @param channel the channel that the request comes in on
- * @param operation the current executing operation
+ * @param getOperation the current executing operation
  * @param valuePrototype a value prototype that is made based on the expected type to be returned
  */
-void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& operation,
+void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& getOperation,
 		const Value& valuePrototype) {
 	const char* pvName = channel->name;
 
@@ -155,12 +218,12 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_
 
 	// Convert pvName to a dbAddress
 	if (DBErrMsg err = nameToAddr(pvName, &dbAddress)) {
-		operation->error(err.c_str());
+		getOperation->error(err.c_str());
 		return;
 	}
 
 	if (dbAddress.precord->lset == nullptr) {
-		operation->error("pvName no specified in request");
+		getOperation->error("pvName no specified in request");
 		return;
 	}
 
@@ -169,13 +232,14 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_
 	nElements = MIN(dbAddress.no_elements, sizeof(valueBuffer) / dbAddress.field_size);
 
 	if (dbAddress.dbr_field_type == DBR_ENUM) {
-		onGetEnum(operation, valuePrototype, pValueBuffer, dbAddress, options, nElements);
+		onGetEnum(getOperation, valuePrototype, pValueBuffer, dbAddress, options, nElements);
 	} else {
-		onGetNonEnum(operation, valuePrototype, pValueBuffer, dbAddress, options, nElements);
+		onGetNonEnum(getOperation, valuePrototype, pValueBuffer, dbAddress, options, nElements);
 	}
 }
 
-void SingleSource::onGetEnum(std::unique_ptr<server::ExecOp>& operation, const Value& valuePrototype, void* pValueBuffer,
+void
+SingleSource::onGetEnum(std::unique_ptr<server::ExecOp>& operation, const Value& valuePrototype, void* pValueBuffer,
 		DBADDR& dbAddress, long& options, long& nElements) {
 	if (DBErrMsg err = dbGetField(&dbAddress, DBR_STRING, pValueBuffer, &options, &nElements, nullptr)) {
 		operation->error(err.c_str());
@@ -185,7 +249,8 @@ void SingleSource::onGetEnum(std::unique_ptr<server::ExecOp>& operation, const V
 	operation->reply(valuePrototype);
 }
 
-void SingleSource::onGetNonEnum(std::unique_ptr<server::ExecOp>& operation, const Value& valuePrototype, void* pValueBuffer,
+void
+SingleSource::onGetNonEnum(std::unique_ptr<server::ExecOp>& operation, const Value& valuePrototype, void* pValueBuffer,
 		DBADDR& dbAddress, long& options, long& nElements) {// Get the field value
 	if (DBErrMsg err = dbGetField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, &options, &nElements,
 			nullptr)) {
@@ -193,7 +258,7 @@ void SingleSource::onGetNonEnum(std::unique_ptr<server::ExecOp>& operation, cons
 	}
 
 	// Create a placeholder for the return value
-	auto value = valuePrototype.cloneEmpty();
+	auto value(valuePrototype.cloneEmpty());
 	// based on whether it is a scalar or array then call the appropriate setter
 	if (nElements == 1) {
 		setValue(value, pValueBuffer);
@@ -215,6 +280,11 @@ void SingleSource::onGetNonEnum(std::unique_ptr<server::ExecOp>& operation, cons
 	operation->reply(value);
 }
 
+void SingleSource::onPut(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& putOperation,
+		const Value& valuePrototype, const Value& value) {
+	// dbPutField() ...
+}
+
 long SingleSource::nameToAddr(const char* pname, DBADDR* paddr) {
 	long status = dbNameToAddr(pname, paddr);
 
@@ -225,7 +295,7 @@ long SingleSource::nameToAddr(const char* pname, DBADDR* paddr) {
 }
 
 void SingleSource::setValue(Value& value, void* pValueBuffer) {
-	auto valueType = value["value"].type();
+	auto valueType(value["value"].type());
 	if (valueType.code == TypeCode::String) {
 		value["value"] = ((const char*)pValueBuffer);
 	} else {
@@ -241,7 +311,7 @@ void SingleSource::setValue(Value& value, void* pValueBuffer) {
  * @param nElements the number of elements in the buffer
  */
 void SingleSource::setValue(Value& value, void* pValueBuffer, long nElements) {
-	auto valueType = value["value"].type();
+	auto valueType(value["value"].type());
 	if (valueType.code == TypeCode::String) {
 		value["value"] = ((const char*)pValueBuffer);
 	} else {
