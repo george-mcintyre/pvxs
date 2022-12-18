@@ -12,6 +12,7 @@
 #include <pvxs/iochooks.h>
 #include <pvxs/server.h>
 #include <pvxs/unittest.h>
+#include <iocInit.h>
 
 #include "osiFileName.h"
 #include "pvxs/client.h"
@@ -32,8 +33,28 @@ namespace {
 
 } // namespace
 
+static dbEventCtx testEvtCtx;
+
+static void pvxsTestIocInitOk()
+{
+	if(iocBuild() || iocRun())
+		testAbort("Failed to start up test database");
+	if(!(testEvtCtx=db_init_events()))
+		testAbort("Failed to initialize test dbEvent context");
+	if(DB_EVENT_OK!=db_start_events(testEvtCtx, "CAS-test", NULL, NULL, epicsThreadPriorityCAServerLow))
+		testAbort("Failed to start test dbEvent context");
+}
+
+static void pvxsTestIocShutdownOk()
+{
+	db_close_events(testEvtCtx);
+	testEvtCtx = NULL;
+	if(iocShutdown())
+		testAbort("Failed to shutdown test database");
+}
+
 MAIN(testioc) {
-	testPlan(21);
+	testPlan(22);
 	testSetup();
 
 	testdbPrepare();
@@ -53,9 +74,9 @@ MAIN(testioc) {
 	testdbReadDatabase(EPICS_BASE OSI_PATH_SEPARATOR "test" OSI_PATH_SEPARATOR "testioc.db", nullptr, "user=test");
 
 	// Test starting server
-	testTrue(!!ioc::server());
+	testTrue((bool)ioc::server());
 
-	testIocInitNonIsolatedOk();
+	pvxsTestIocInitOk();
 
 	// Test fields loaded ok
 	testEq(0, iocshCmd("dbl"));
@@ -68,9 +89,9 @@ MAIN(testioc) {
 	testEq(0, iocshCmd("dbgf test:array"));
 
 	// Test value of fields correct
-	testdbGetFieldEqual("test:aiExample", DBR_DOUBLE, 0);
+	testdbGetFieldEqual("test:aiExample", DBR_DOUBLE, 42.2);
 	testdbGetFieldEqual("test:calcExample", DBR_DOUBLE, 0);
-	testdbGetFieldEqual("test:compressExample", DBR_DOUBLE, 0);
+	testdbGetFieldEqual("test:compressExample", DBR_DOUBLE, 42.2);
 	testdbGetFieldEqual("test:string", DBR_STRING, "Some random value");
 	double expected = 0.0;
 	testdbGetArrFieldEqual("test:array", DBR_DOUBLE, 0, 0, &expected);
@@ -80,27 +101,37 @@ MAIN(testioc) {
 
 	// Test client access to ioc
 	auto val = cli.get("test:aiExample").exec()->wait(5.0);
-	testEq(0, val["value"].as<double>());
+	auto aiExample = val["value"].as<double>();
+	testEq(42.2, aiExample);
 
 	val = cli.get("test:calcExample").exec()->wait(5.0);
-	testEq(0, val["value"].as<double>());
+	auto calcExample = val["value"].as<double>();
+	testEq(0.0, calcExample);
 
-	shared_array<double> foo({ 1.0, 2.0, 3.0, 4.0, 5.0 });
+	// Set test values into array
+	shared_array<double> testArray({ 1.0, 2.0, 3.0, 4.0, 5.0 });
+	testdbPutArrFieldOk("test:array", DBR_DOUBLE, testArray.size(), testArray.data());
 
-	testdbPutArrFieldOk("test:array", DBR_DOUBLE, foo.size(), foo.data());
 	val = cli.get("test:array").exec()->wait(5.0);
-	testArrEq(foo, val["value"].as<shared_array<const double>>());
+	auto array = val["value"].as<shared_array<const double>>();
+	testArrEq(testArray, array);
 
 //	val = cli.get("test:compressExample").exec()->wait(5.0);
-//	testEq(0, val["value"].as<double>());
+//	auto compressExample = val["value"].as<double>();
+//	testEq(42.2, compressExample);
+
+	val = cli.get("test:long").exec()->wait(5.0);
+	auto longValue = val["value"].as<long>();
+	testEq(102042, longValue);
 
 	val = cli.get("test:string").exec()->wait(5.0);
-	testStrEq(std::string(SB() << val["value"]), "string = \"Some random value\"\n");
+	auto testString = val["value"];
+	testStrEq(std::string(SB() << testString), "string = \"Some random value\"\n");
 
 	//	cli.put();
 
 	// Test shutdown
-	testIocShutdownOk();
+	pvxsTestIocShutdownOk();
 	testdbCleanup();
 
 	return testDone();
