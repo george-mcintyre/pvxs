@@ -128,7 +128,6 @@ void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::
 				->onPut([pChannel, valuePrototype](std::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
 					onPut(pChannel, putOperation, valuePrototype, value);
 				});
-
 	});
 
 	// Subscription requests
@@ -154,11 +153,21 @@ void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::
 			});
 }
 
+/**
+ * Called when a client starts a subscription it has subscribed to
+ *
+ * @param pChannel the pointer to the database channel subscribed to
+ */
 void SingleSource::onStartSubscription(const std::shared_ptr<dbChannel>& pChannel) {
 	// db_event_enable()
 	// db_post_single_event()
 }
 
+/**
+ * Called when a client pauses / stops a subscription it has been subscribed to
+ *
+ * @param pChannel the pointer to the database channel subscribed to
+ */
 void SingleSource::onDisableSubscription(const std::shared_ptr<dbChannel>& pChannel) {
 	// db_event_disable()
 }
@@ -171,8 +180,14 @@ void SingleSource::subscriptionCallback(void* user_arg, const std::shared_ptr<db
 	epicsMutexUnlock(eventLock);
 //	epicsEventMustTrigger(channelMonitor[user_arg]);
 }
-
 */
+
+/**
+ * Utility function to get the TypeCode that the given database channel is configured for
+ *
+ * @param pChannel the pointer to the database channel to get the TypeCode for
+ * @return the TypeCode that the channel is configured for
+ */
 TypeCode SingleSource::getChannelValueType(const std::shared_ptr<dbChannel>& pChannel) {
 	auto dbChannel(pChannel.get());
 	short dbrType(dbChannelFinalFieldType(dbChannel));
@@ -182,10 +197,11 @@ TypeCode SingleSource::getChannelValueType(const std::shared_ptr<dbChannel>& pCh
 	TypeCode valueType(TypeCode::Null);
 
 	if (dbChannelFieldType(dbChannel) == DBF_STRING && nElements == 1 && dbrType && nFinalElements > 1) {
-		// single DBF_STRING being cast to DBF_CHAR array.  aka long string
+		// single character long DBF_STRING being cast to DBF_CHAR array.
 		valueType = TypeCode::String;
 
 	} else if (dbrType == DBF_ENUM && nFinalElements == 1) {
+		valueType = TypeCode::UInt16;   // value field is
 
 	} else {
 		// TODO handle links.  For the moment we handle as chars and fail later
@@ -213,7 +229,6 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_
 	epicsAny valueBuffer[100]; // value buffer to store the field we will get from the database.
 	void* pValueBuffer = &valueBuffer[0];
 	DBADDR dbAddress;   // Special struct for storing database addresses
-	long options = 0;   // For options returned from database read along with data
 	long nElements;     // Calculated number of elements to retrieve.  For single values its 1 but for arrays it can be any number
 
 	// Convert pvName to a dbAddress
@@ -231,34 +246,53 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_
 	// of elements we can store in the buffer we've allocated
 	nElements = MIN(dbAddress.no_elements, sizeof(valueBuffer) / dbAddress.field_size);
 
-	if (dbAddress.dbr_field_type == DBR_ENUM) {
-		onGetEnum(getOperation, valuePrototype, pValueBuffer, dbAddress, options, nElements);
-	} else {
-		onGetNonEnum(getOperation, valuePrototype, pValueBuffer, dbAddress, options, nElements);
-	}
-}
+	// Lock record
+	dbCommon* pRecord = dbAddress.precord;
+	dbScanLock(pRecord);
 
-void
-SingleSource::onGetEnum(std::unique_ptr<server::ExecOp>& operation, const Value& valuePrototype, void* pValueBuffer,
-		DBADDR& dbAddress, long& options, long& nElements) {
-	if (DBErrMsg err = dbGetField(&dbAddress, DBR_STRING, pValueBuffer, &options, &nElements, nullptr)) {
-		operation->error(err.c_str());
-	}
+	// Get field value and all metadata
+	// Note that metadata will precede the value in the buffer and will be laid out in the order of the
+	// options bit mask LSB to MSB
+	long options = DBR_STATUS |
+			DBR_AMSG |
+			DBR_UNITS |
+			DBR_PRECISION |
+			DBR_TIME |
+			DBR_UTAG |
+			DBR_ENUM_STRS |
+			DBR_GR_LONG |
+			DBR_GR_DOUBLE |
+			DBR_CTRL_LONG |
+			DBR_CTRL_DOUBLE |
+			DBR_AL_LONG |
+			DBR_AL_DOUBLE;
 
-//						prototype = *pbuffer;
-	operation->reply(valuePrototype);
-}
-
-void
-SingleSource::onGetNonEnum(std::unique_ptr<server::ExecOp>& operation, const Value& valuePrototype, void* pValueBuffer,
-		DBADDR& dbAddress, long& options, long& nElements) {// Get the field value
-	// Set options to null for value
-	// Set options to non-null to get metadata
-	if (DBErrMsg err = dbGetField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, &options, &nElements,
+	if (DBErrMsg err = dbGet(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, &options, &nElements,
 			nullptr)) {
-		operation->error(err.c_str());
+		getOperation->error(err.c_str());
+		return;
 	}
 
+	// Unlock record
+	dbScanUnlock(pRecord);
+
+	// Extract metadata
+	dbCommon metadata;
+	const char* pUnits;
+	const dbr_precision* pPrecision;
+	const dbr_enumStrs* enumStrings;
+	const struct dbr_grLong* graphicsLong;
+	const struct dbr_grDouble* graphicsDouble;
+	const struct dbr_ctrlLong* controlLong;
+	const struct dbr_ctrlDouble* controlDouble;
+	const struct dbr_alLong* alarmLong;
+	const struct dbr_alDouble* alarmDouble;
+	getMetadata(pValueBuffer, metadata, pUnits, pPrecision, enumStrings,
+			graphicsLong, graphicsDouble,
+			controlLong, controlDouble,
+			alarmLong, alarmDouble);
+
+	// read out the value from the buffer
 	// Create a placeholder for the return value
 	auto value(valuePrototype.cloneEmpty());
 	// based on whether it is a scalar or array then call the appropriate setter
@@ -268,18 +302,97 @@ SingleSource::onGetNonEnum(std::unique_ptr<server::ExecOp>& operation, const Val
 		setValue(value, pValueBuffer, nElements);
 	}
 
-	value["alarm.severity"] = 0;
-	value["alarm.status"] = 0;
-	value["alarm.message"] = "";
-	auto ts(value["timeStamp"]);
-	// TODO: KLUDGE use current time
-	epicsTimeStamp now;
-	if (!epicsTimeGetCurrent(&now)) {
-		ts["secondsPastEpoch"] = now.secPastEpoch + POSIX_TIME_AT_EPICS_EPOCH;
-		ts["nanoseconds"] = now.nsec;
-	}
+	// Add metadata to response
+	value["alarm.status"] = metadata.stat;
+	value["alarm.severity"] = metadata.sevr;
+	value["alarm.message"] = metadata.amsg;
+	value["timeStamp.secondsPastEpoch"] = metadata.time.secPastEpoch;
+	value["timeStamp.nanoseconds"] = metadata.time.nsec;
+	value["timeStamp.userTag"] = metadata.utag;
 
-	operation->reply(value);
+	// Send reply
+	getOperation->reply(value);
+}
+
+/**
+ * Get metadata from the given value buffer and deliver it in the given metadata and other parameters
+ *
+ * @param pValueBuffer The given value buffer
+ * @param metadata  the given metadata structure to fill with data from the value buffer
+ * @param pUnits the units
+ * @param pPrecision the precision
+ * @param enumStrings the enum strings
+ * @param graphicsLong
+ * @param graphicsDouble
+ * @param controlLong
+ * @param controlDouble
+ * @param alarmLong
+ * @param alarmDouble
+ */
+void SingleSource::getMetadata(void*& pValueBuffer, dbCommon& metadata,
+		const char*& pUnits,
+		const dbr_precision*& pPrecision,
+		const dbr_enumStrs*& enumStrings,
+		const struct dbr_grLong*& graphicsLong, const struct dbr_grDouble*& graphicsDouble,
+		const struct dbr_ctrlLong*& controlLong, const struct dbr_ctrlDouble*& controlDouble,
+		const struct dbr_alLong*& alarmLong, const struct dbr_alDouble*& alarmDouble) {
+
+	// Read out the metadata from the buffer
+	// Alarm Status
+	auto* pStatus = (uint16_t*)pValueBuffer;
+	metadata.stat = *pStatus++;
+	metadata.sevr = *pStatus++;
+	metadata.acks = *pStatus++;
+	metadata.ackt = *pStatus++;
+	pValueBuffer = (char*)pStatus;
+
+	// Alarm message
+	strcpy(metadata.amsg, (const char*)pValueBuffer);
+	pValueBuffer = ((void*)&((const char*)pValueBuffer)[sizeof(metadata.amsg)]);
+
+	// Alarm message
+	pUnits = (const char*)pValueBuffer;
+	pValueBuffer = ((void*)&((const char*)pValueBuffer)[DB_UNITS_SIZE]);
+
+	// Precision
+	pPrecision = (const dbr_precision*)pValueBuffer;
+	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_precision_size]);
+
+	// Time
+	auto* pTime = (uint32_t*)pValueBuffer;
+	metadata.time.secPastEpoch = *pTime++;
+	metadata.time.nsec = *pTime++;
+	pValueBuffer = (char*)pTime;
+
+	// Utag
+	auto* pUTag = (uint64_t*)pValueBuffer;
+	metadata.utag = *pUTag++;
+	pValueBuffer = (char*)pUTag;
+
+	// Enum strings
+	enumStrings = (const dbr_enumStrs*)pValueBuffer;
+	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_enumStrs_size]);
+
+	// Graphics
+	graphicsLong = (const struct dbr_grLong*)pValueBuffer;
+	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_grLong_size]);
+
+	graphicsDouble = (const struct dbr_grDouble*)pValueBuffer;
+	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_grDouble_size]);
+
+	// Control
+	controlLong = (const struct dbr_ctrlLong*)pValueBuffer;
+	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_ctrlLong_size]);
+
+	controlDouble = (const struct dbr_ctrlDouble*)pValueBuffer;
+	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_ctrlDouble_size]);
+
+	// Alarm
+	alarmLong = (const struct dbr_alLong*)pValueBuffer;
+	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_alLong_size]);
+
+	alarmDouble = (const struct dbr_alDouble*)pValueBuffer;
+	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_alDouble_size]);
 }
 
 void SingleSource::onPut(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& putOperation,

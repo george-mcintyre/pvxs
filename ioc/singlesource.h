@@ -10,6 +10,7 @@
 #include <dbEvent.h>
 #include <dbAddr.h>
 #include <pvxs/source.h>
+#include <dbAccess.h>
 
 namespace pvxs {
 namespace ioc {
@@ -22,13 +23,13 @@ class SingleSource : public server::Source {
 	static void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& putOperation,
 			const std::shared_ptr<dbChannel>& pChannel);
 	static TypeCode getChannelValueType(const std::shared_ptr<dbChannel>& pChannel) ;
+	static void getMetadata(void*& pValueBuffer, dbCommon& metadata, const char*& pUnits, const dbr_precision*& pPrecision,
+			const dbr_enumStrs*& enumStrings, const dbr_grLong*& graphicsLong, const dbr_grDouble*& graphicsDouble,
+			const dbr_ctrlLong*& controlLong, const dbr_ctrlDouble*& controlDouble, const dbr_alLong*& alarmLong,
+			const dbr_alDouble*& alarmDouble);
 	static void onDisableSubscription(const std::shared_ptr<dbChannel>& pChannel);
 	static void onGet(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& getOperation,
 			const Value& valuePrototype);
-	static void onGetEnum(std::unique_ptr<server::ExecOp>& operation, const Value& valuePrototype, void* pValueBuffer,
-			DBADDR& dbAddress, long& options, long& nElements);
-	static void onGetNonEnum(std::unique_ptr<server::ExecOp>& operation, const Value& valuePrototype, void* pValueBuffer,
-			dbAddr& dbAddress, long& options, long& nElements);
 	static void onPut(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& putOperation,
 			const Value& valuePrototype, const Value& value);
 	static void onStartSubscription(const std::shared_ptr<dbChannel>& pChannel);
