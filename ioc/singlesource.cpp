@@ -109,8 +109,20 @@ void SingleSource::show(std::ostream& outputStream) {
  */
 void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& channelControl,
 		const std::shared_ptr<dbChannel>& pChannel) {
+	auto dbChannel(pChannel.get());
+	short dbrType(dbChannelFinalFieldType(dbChannel));
 	auto valueType(getChannelValueType(pChannel));
-	Value valuePrototype(nt::NTScalar{ valueType }.create()); // TODO: enable meta
+
+	Value valuePrototype;
+	bool display = false;
+	bool control = false;
+	bool valueAlarm = false;
+
+	if (dbrType == DBR_ENUM) {
+		valuePrototype = nt::NTEnum{}.create();
+	} else {
+		valuePrototype = nt::NTScalar{ valueType, display, control, valueAlarm }.create();
+	}
 
 	// Get and Put requests
 	channelControl->onOp([pChannel, valuePrototype](std::unique_ptr<server::ConnectOp>&& channelConnectOperation) {
@@ -194,7 +206,7 @@ TypeCode SingleSource::getChannelValueType(const std::shared_ptr<dbChannel>& pCh
 	auto nFinalElements(dbChannelFinalElements(dbChannel));
 	auto nElements(dbChannelElements(dbChannel));
 
-	TypeCode valueType(TypeCode::Null);
+	TypeCode valueType;
 
 	if (dbChannelFieldType(dbChannel) == DBF_STRING && nElements == 1 && dbrType && nFinalElements > 1) {
 		// single character long DBF_STRING being cast to DBF_CHAR array.
@@ -253,19 +265,7 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_
 	// Get field value and all metadata
 	// Note that metadata will precede the value in the buffer and will be laid out in the order of the
 	// options bit mask LSB to MSB
-	long options = DBR_STATUS |
-			DBR_AMSG |
-			DBR_UNITS |
-			DBR_PRECISION |
-			DBR_TIME |
-			DBR_UTAG |
-			DBR_ENUM_STRS |
-			DBR_GR_LONG |
-			DBR_GR_DOUBLE |
-			DBR_CTRL_LONG |
-			DBR_CTRL_DOUBLE |
-			DBR_AL_LONG |
-			DBR_AL_DOUBLE;
+	long options = IOC_OPTIONS;
 
 	if (DBErrMsg err = dbGet(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, &options, &nElements,
 			nullptr)) {
@@ -277,121 +277,97 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_
 	dbScanUnlock(pRecord);
 
 	// Extract metadata
-	dbCommon metadata;
-	const char* pUnits;
-	const dbr_precision* pPrecision;
-	const dbr_enumStrs* enumStrings;
-	const struct dbr_grLong* graphicsLong;
-	const struct dbr_grDouble* graphicsDouble;
-	const struct dbr_ctrlLong* controlLong;
-	const struct dbr_ctrlDouble* controlDouble;
-	const struct dbr_alLong* alarmLong;
-	const struct dbr_alDouble* alarmDouble;
-	getMetadata(pValueBuffer, metadata, pUnits, pPrecision, enumStrings,
-			graphicsLong, graphicsDouble,
-			controlLong, controlDouble,
-			alarmLong, alarmDouble);
+	Metadata metadata;
+	getMetadata(pValueBuffer, metadata);
 
 	// read out the value from the buffer
 	// Create a placeholder for the return value
 	auto value(valuePrototype.cloneEmpty());
-	// based on whether it is a scalar or array then call the appropriate setter
-	if (nElements == 1) {
+	// based on whether it is an enum, scalar or array then call the appropriate setter
+	if (dbAddress.dbr_field_type == DBR_ENUM) {
+		if (value["value.index"]) {
+			value["value.index"] = *((uint16_t*)pValueBuffer);
+
+			shared_array<std::string> choices(metadata.enumStrings->no_str);
+			for (auto i = 0; i < metadata.enumStrings->no_str; i++) {
+				choices[i] = metadata.enumStrings->strs[i];
+			}
+			value["value.choices"] = choices.freeze().castTo<const void>();
+		} else {
+			getOperation->error("Programming error: Database enum record but not NTEnum response");
+			return;
+		}
+	} else if (nElements == 1) {
 		setValue(value, pValueBuffer);
 	} else {
 		setValue(value, pValueBuffer, nElements);
 	}
 
 	// Add metadata to response
-	value["alarm.status"] = metadata.stat;
-	value["alarm.severity"] = metadata.sevr;
-	value["alarm.message"] = metadata.amsg;
-	value["timeStamp.secondsPastEpoch"] = metadata.time.secPastEpoch;
-	value["timeStamp.nanoseconds"] = metadata.time.nsec;
-	value["timeStamp.userTag"] = metadata.utag;
+	setAlarmMetadata(metadata, value);
+	setTimestampMetadata(metadata, value);
+	setDisplayMetadata(metadata, value);
+	setControlMetadata(metadata, value);
+	setAlarmLimitMetadata(metadata, value);
 
 	// Send reply
 	getOperation->reply(value);
 }
 
 /**
- * Get metadata from the given value buffer and deliver it in the given metadata and other parameters
+ * Get metadata from the given value buffer and deliver it in the given metadata buffer
  *
  * @param pValueBuffer The given value buffer
- * @param metadata  the given metadata structure to fill with data from the value buffer
- * @param pUnits the units
- * @param pPrecision the precision
- * @param enumStrings the enum strings
- * @param graphicsLong
- * @param graphicsDouble
- * @param controlLong
- * @param controlDouble
- * @param alarmLong
- * @param alarmDouble
+ * @param metadata to store the metadata
  */
-void SingleSource::getMetadata(void*& pValueBuffer, dbCommon& metadata,
-		const char*& pUnits,
-		const dbr_precision*& pPrecision,
-		const dbr_enumStrs*& enumStrings,
-		const struct dbr_grLong*& graphicsLong, const struct dbr_grDouble*& graphicsDouble,
-		const struct dbr_ctrlLong*& controlLong, const struct dbr_ctrlDouble*& controlDouble,
-		const struct dbr_alLong*& alarmLong, const struct dbr_alDouble*& alarmDouble) {
+void SingleSource::getMetadata(void*& pValueBuffer, Metadata& metadata) {
 
 	// Read out the metadata from the buffer
 	// Alarm Status
 	auto* pStatus = (uint16_t*)pValueBuffer;
-	metadata.stat = *pStatus++;
-	metadata.sevr = *pStatus++;
-	metadata.acks = *pStatus++;
-	metadata.ackt = *pStatus++;
+	metadata.metadata.stat = *pStatus++;
+	metadata.metadata.sevr = *pStatus++;
+	metadata.metadata.acks = *pStatus++;
+	metadata.metadata.ackt = *pStatus++;
 	pValueBuffer = (char*)pStatus;
 
 	// Alarm message
-	strcpy(metadata.amsg, (const char*)pValueBuffer);
-	pValueBuffer = ((void*)&((const char*)pValueBuffer)[sizeof(metadata.amsg)]);
+	strcpy(metadata.metadata.amsg, (const char*)pValueBuffer);
+	pValueBuffer = ((void*)&((const char*)pValueBuffer)[sizeof(metadata.metadata.amsg)]);
 
 	// Alarm message
-	pUnits = (const char*)pValueBuffer;
+	metadata.pUnits = (const char*)pValueBuffer;
 	pValueBuffer = ((void*)&((const char*)pValueBuffer)[DB_UNITS_SIZE]);
 
 	// Precision
-	pPrecision = (const dbr_precision*)pValueBuffer;
+	metadata.pPrecision = (const dbr_precision*)pValueBuffer;
 	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_precision_size]);
 
 	// Time
 	auto* pTime = (uint32_t*)pValueBuffer;
-	metadata.time.secPastEpoch = *pTime++;
-	metadata.time.nsec = *pTime++;
+	metadata.metadata.time.secPastEpoch = *pTime++;
+	metadata.metadata.time.nsec = *pTime++;
 	pValueBuffer = (char*)pTime;
 
 	// Utag
 	auto* pUTag = (uint64_t*)pValueBuffer;
-	metadata.utag = *pUTag++;
+	metadata.metadata.utag = *pUTag++;
 	pValueBuffer = (char*)pUTag;
 
 	// Enum strings
-	enumStrings = (const dbr_enumStrs*)pValueBuffer;
+	metadata.enumStrings = (const dbr_enumStrs*)pValueBuffer;
 	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_enumStrs_size]);
 
 	// Graphics
-	graphicsLong = (const struct dbr_grLong*)pValueBuffer;
-	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_grLong_size]);
-
-	graphicsDouble = (const struct dbr_grDouble*)pValueBuffer;
+	metadata.graphicsDouble = (const struct dbr_grDouble*)pValueBuffer;
 	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_grDouble_size]);
 
 	// Control
-	controlLong = (const struct dbr_ctrlLong*)pValueBuffer;
-	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_ctrlLong_size]);
-
-	controlDouble = (const struct dbr_ctrlDouble*)pValueBuffer;
+	metadata.controlDouble = (const struct dbr_ctrlDouble*)pValueBuffer;
 	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_ctrlDouble_size]);
 
 	// Alarm
-	alarmLong = (const struct dbr_alLong*)pValueBuffer;
-	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_alLong_size]);
-
-	alarmDouble = (const struct dbr_alDouble*)pValueBuffer;
+	metadata.alarmDouble = (const struct dbr_alDouble*)pValueBuffer;
 	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_alDouble_size]);
 }
 
@@ -400,15 +376,28 @@ void SingleSource::onPut(const std::shared_ptr<dbChannel>& channel, std::unique_
 	// dbPutField() ...
 }
 
-long SingleSource::nameToAddr(const char* pname, DBADDR* paddr) {
-	long status = dbNameToAddr(pname, paddr);
+/**
+ * Utility function to get the corresponding database address structure given a pvName
+ *
+ * @param pvName the pvName
+ * @param pdbAddress pointer to the database address structure
+ * @return status that can be decoded with DBErrMsg - 0 means success
+ */
+long SingleSource::nameToAddr(const char* pvName, DBADDR* pdbAddress) {
+	long status = dbNameToAddr(pvName, pdbAddress);
 
 	if (status) {
-		printf("PV '%s' not found\n", pname);
+		printf("PV '%s' not found\n", pvName);
 	}
 	return status;
 }
 
+/**
+ * Set a value from the given database value
+ *
+ * @param value the value to set
+ * @param pValueBuffer pointer to the database value
+ */
 void SingleSource::setValue(Value& value, void* pValueBuffer) {
 	auto valueType(value["value"].type());
 	if (valueType.code == TypeCode::String) {
@@ -434,42 +423,125 @@ void SingleSource::setValue(Value& value, void* pValueBuffer, long nElements) {
 	}
 }
 
+/**
+ * Set the value field of the given return value to a scalar pointed to by pValueBuffer
+ * Supported types are:
+ *   TypeCode::Int8 	TypeCode::UInt8
+ *   TypeCode::Int16 	TypeCode::UInt16
+ *   TypeCode::Int32 	TypeCode::UInt32
+ *   TypeCode::Int64 	TypeCode::UInt64
+ *   TypeCode::Float32 	TypeCode::Float64
+ *
+ * @tparam valueType the type of the scalar stored in the buffer.  One of the supported types
+ * @param value the return value
+ * @param pValueBuffer the pointer to the data containing the database data to store in the return value
+ */
 template<typename valueType> void SingleSource::setValue(Value& value, void* pValueBuffer) {
-	return setValueFromBuffer(value, (valueType*)pValueBuffer);
+	value["value"] = ((valueType*)pValueBuffer)[0];
 }
 
+/**
+ * Set the value field of the given return value to an array of scalars pointed to by pValueBuffer
+ * Supported types are:
+ *   TypeCode::Int8 	TypeCode::UInt8
+ *   TypeCode::Int16 	TypeCode::UInt16
+ *   TypeCode::Int32 	TypeCode::UInt32
+ *   TypeCode::Int64 	TypeCode::UInt64
+ *   TypeCode::Float32 	TypeCode::Float64
+ *
+ * @tparam valueType the type of the scalars stored in this array.  One of the supported types
+ * @param value the return value
+ * @param pValueBuffer the pointer to the data containing the database data to store in the return value
+ * @param nElements the number of elements in the array
+ */
 template<typename valueType> void SingleSource::setValue(Value& value, void* pValueBuffer, long nElements) {
-	return setValueFromBuffer(value, (valueType*)pValueBuffer, nElements);
-}
-
-/**
- * Set the value of the given value parameter from the given database value buffer.  This version
- * of the function uses the template parameter to determine the type to use to set the value
- *
- * @tparam valueType the type to use to set the value
- * @param value the value to set
- * @param pValueBuffer the database buffer
- */
-template<typename valueType> void SingleSource::setValueFromBuffer(Value& value, valueType* pValueBuffer) {
-	value["value"] = pValueBuffer[0];
-}
-
-/**
- * Set the value of the given value parameter from the given database value buffer.  This version
- * of the function uses the template parameter to determine the type to use to set the value
- *
- * @tparam valueType the type to use to set the value
- * @param value the value to set
- * @param pValueBuffer the database buffer
- * @param nElements the number of elements in the buffer
- */
-template<typename valueType>
-void SingleSource::setValueFromBuffer(Value& value, valueType* pValueBuffer, long nElements) {
 	shared_array<valueType> values(nElements);
 	for (auto i = 0; i < nElements; i++) {
-		values[i] = (pValueBuffer)[i];
+		values[i] = ((valueType*)pValueBuffer)[i];
 	}
 	value["value"] = values.freeze().template castTo<const void>();
+}
+
+/**
+ * Set alarm metadata in the given value.
+ *
+ * @param metadata metadata containing alarm metadata
+ * @param value the value to set metadata for
+ */
+void SingleSource::setAlarmMetadata(Metadata& metadata, Value& value) {
+	value["alarm.status"] = metadata.metadata.stat;
+	value["alarm.severity"] = metadata.metadata.sevr;
+	if (auto&& acks = value["alarm.acks"]) {
+		acks = metadata.metadata.acks;
+	}
+	if (auto&& ackt = value["alarm.ackt"]) {
+		ackt = metadata.metadata.acks;
+	}
+	value["alarm.message"] = metadata.metadata.amsg;
+}
+
+/**
+ * Set timestamp metadata in the given value.
+ *
+ * @param metadata metadata containing timestamp metadata
+ * @param value the value to set metadata for
+ */
+void SingleSource::setTimestampMetadata(Metadata& metadata, Value& value) {
+	value["timeStamp.secondsPastEpoch"] = metadata.metadata.time.secPastEpoch;
+	value["timeStamp.nanoseconds"] = metadata.metadata.time.nsec;
+	if (auto&& utag = value["timeStamp.userTag"]) {
+		utag = metadata.metadata.utag;
+	}
+}
+
+/**
+ * Set display metadata in the given value.
+ * Only set the metadata if the display field is included in value's structure
+ *
+ * @param metadata metadata containing display metadata
+ * @param value the value to set metadata for
+ */
+void SingleSource::setDisplayMetadata(Metadata& metadata, Value& value) {
+	if (value["display"]) {
+		value["display.limitLow"] = metadata.graphicsDouble->lower_disp_limit;
+		value["display.limitHigh"] = metadata.graphicsDouble->upper_disp_limit;
+		if (auto&& units = value["display.units"]) {
+			units = metadata.pUnits;
+		}
+		if (auto&& precision = value["display.precision"]) {
+			precision = metadata.pPrecision->precision.dp;
+		}
+	}
+}
+
+/**
+ * Set control metadata in the given value.
+ * Only set the metadata if the control field is included in value's structure
+ *
+ * @param metadata metadata containing control metadata
+ * @param value the value to set metadata for
+ */
+void SingleSource::setControlMetadata(const Metadata& metadata, Value& value) {
+	if (value["control"]) {
+		value["control.limitLow"] = metadata.controlDouble->lower_ctrl_limit;
+		value["control.limitHigh"] = metadata.controlDouble->upper_ctrl_limit;
+	}
+}
+
+/**
+ * Set alarm limit metadata in the given value.
+ * Only set the metadata if the valueAlarm field is included in value's structure
+ *
+ * @param metadata metadata containing alarm limit metadata
+ * @param value the value to set metadata for
+ */
+void SingleSource::setAlarmLimitMetadata(const Metadata& metadata, Value& value) {
+	if (value["valueAlarm"]) {
+		value["valueAlarm.lowAlarmLimit"] = metadata.alarmDouble->lower_alarm_limit;
+		value["valueAlarm.lowWarningLimit"] = metadata.alarmDouble->lower_warning_limit;
+		value["valueAlarm.highWarningLimit"] = metadata.alarmDouble->upper_warning_limit;
+		value["valueAlarm.highAlarmLimit"] = metadata.alarmDouble->upper_alarm_limit;
+	}
 }
 
 } // ioc

@@ -71,7 +71,7 @@ record(longin, "$(user):long") {
 }
 record(mbbi, "$(user):enum") {
   field(RVAL, "10")
-  field(VAL, "1")
+  field(VAL, "2")
   field(ZRST, "zero")
   field(ONST, "one")
   field(TWST, "two")

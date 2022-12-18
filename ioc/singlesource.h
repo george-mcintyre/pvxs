@@ -12,34 +12,61 @@
 #include <pvxs/source.h>
 #include <dbAccess.h>
 
+#define IOC_OPTIONS DBR_STATUS | \
+	DBR_AMSG | \
+	DBR_UNITS | \
+	DBR_PRECISION | \
+	DBR_TIME | \
+	DBR_UTAG | \
+	DBR_ENUM_STRS | \
+	DBR_GR_DOUBLE | \
+	DBR_CTRL_DOUBLE | \
+	DBR_AL_DOUBLE
+
 namespace pvxs {
 namespace ioc {
+
+/**
+ * structure to store metadata internally
+ */
+typedef struct metadata
+{
+	dbCommon metadata;
+	const char* pUnits;
+	const dbr_precision* pPrecision;
+	const dbr_enumStrs* enumStrings;
+	const struct dbr_grDouble* graphicsDouble;
+	const struct dbr_ctrlDouble* controlDouble;
+	const struct dbr_alDouble* alarmDouble;
+} Metadata;
 
 class SingleSource : public server::Source {
 	List allrecords;
 	static dbEventCtx eventContext;
 	static epicsMutexId eventLock;
+
 //	static std::map<std::shared_ptr<dbChannel>, std::map<epicsEventId, std::vector<dbEventSubscription>>> subscriptions;
 	static void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& putOperation,
 			const std::shared_ptr<dbChannel>& pChannel);
 	static TypeCode getChannelValueType(const std::shared_ptr<dbChannel>& pChannel) ;
-	static void getMetadata(void*& pValueBuffer, dbCommon& metadata, const char*& pUnits, const dbr_precision*& pPrecision,
-			const dbr_enumStrs*& enumStrings, const dbr_grLong*& graphicsLong, const dbr_grDouble*& graphicsDouble,
-			const dbr_ctrlLong*& controlLong, const dbr_ctrlDouble*& controlDouble, const dbr_alLong*& alarmLong,
-			const dbr_alDouble*& alarmDouble);
+	static void getMetadata(void*& pValueBuffer, Metadata &metadata);
 	static void onDisableSubscription(const std::shared_ptr<dbChannel>& pChannel);
 	static void onGet(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& getOperation,
 			const Value& valuePrototype);
 	static void onPut(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& putOperation,
 			const Value& valuePrototype, const Value& value);
 	static void onStartSubscription(const std::shared_ptr<dbChannel>& pChannel);
-	static long nameToAddr(const char* pname, DBADDR* paddr);
+	static long nameToAddr(const char* pvName, DBADDR* pdbAddress);
 	static void setValue(Value& value, void* pValueBuffer);
 	template<typename valueType> static void setValue(Value& value, void* pValueBuffer);
 	static void setValue(Value& value, void* pValueBuffer, long nElements);
 	template<typename valueType> static void setValue(Value& value, void* pValueBuffer, long nElements);
-	template<typename valueType> static void setValueFromBuffer(Value& value, valueType* pValueBuffer);
-	template<typename valueType> static void setValueFromBuffer(Value& value, valueType* pValueBuffer, long nElements);
+
+	static void setAlarmMetadata(Metadata& metadata, Value& value);
+	static void setTimestampMetadata(Metadata& metadata, Value& value);
+	static void setDisplayMetadata(Metadata& metadata, Value& value);
+	static void setControlMetadata(const Metadata& metadata, Value& value);
+	static void setAlarmLimitMetadata(const Metadata& metadata, Value& value);
 /*
 	static void subscriptionCallback(void* user_arg, const std::shared_ptr<dbChannel>& pChannel, int eventsRemaining,
 			db_field_log* pfl);

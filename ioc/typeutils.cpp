@@ -44,12 +44,13 @@ TypeCode::code_t toTypeCode(dbfType databaseTypeCode) {
 		return TypeCode::Float32;
 	case DBF_DOUBLE:
 		return TypeCode::Float64;
+	case DBF_ENUM:
+		return TypeCode::Struct;
 	case DBF_STRING:
 	case DBF_INLINK:
 	case DBF_OUTLINK:
 	case DBF_FWDLINK:
 		return TypeCode::String;
-	case DBF_ENUM:
 	case DBF_MENU:
 	case DBF_DEVICE:
 	case DBF_NOACCESS:
