@@ -260,23 +260,16 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_
 	// of elements we can store in the buffer we've allocated
 	nElements = MIN(dbAddress.no_elements, sizeof(valueBuffer) / dbAddress.field_size);
 
-	// Lock record
-	dbCommon* pRecord = dbAddress.precord;
-	dbScanLock(pRecord);
-
 	// Get field value and all metadata
 	// Note that metadata will precede the value in the buffer and will be laid out in the order of the
 	// options bit mask LSB to MSB
 	long options = IOC_OPTIONS;
 
-	if (DBErrMsg err = dbGet(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, &options, &nElements,
+	if (DBErrMsg err = dbGetField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, &options, &nElements,
 			nullptr)) {
 		getOperation->error(err.c_str());
 		return;
 	}
-
-	// Unlock record
-	dbScanUnlock(pRecord);
 
 	// Extract metadata
 	Metadata metadata;
