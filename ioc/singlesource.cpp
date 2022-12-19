@@ -114,9 +114,10 @@ void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::
 	auto valueType(getChannelValueType(pChannel));
 
 	Value valuePrototype;
-	bool display = false;
-	bool control = false;
-	bool valueAlarm = false;
+	// To control optional metadata set to true to include in the output
+	bool display = true;
+	bool control = true;
+	bool valueAlarm = true;
 
 	if (dbrType == DBR_ENUM) {
 		valuePrototype = nt::NTEnum{}.create();
