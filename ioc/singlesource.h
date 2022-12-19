@@ -12,16 +12,35 @@
 #include <pvxs/source.h>
 #include <dbAccess.h>
 
-#define IOC_OPTIONS DBR_STATUS | \
-	DBR_AMSG | \
-	DBR_UNITS | \
-	DBR_PRECISION | \
-	DBR_TIME | \
-	DBR_UTAG | \
-	DBR_ENUM_STRS | \
-	DBR_GR_DOUBLE | \
-	DBR_CTRL_DOUBLE | \
-	DBR_AL_DOUBLE
+#define IOC_OPTIONS (DBR_STATUS | \
+    DBR_AMSG | \
+    DBR_UNITS | \
+    DBR_PRECISION | \
+    DBR_TIME | \
+    DBR_UTAG | \
+    DBR_ENUM_STRS | \
+    DBR_GR_DOUBLE | \
+    DBR_CTRL_DOUBLE | \
+    DBR_AL_DOUBLE)
+
+#define checkedSetField(_lvalue, _rvalue) \
+if (auto&& __field = value[#_rvalue] ) { \
+	__field = _lvalue; \
+}
+
+#define checkedSetDoubleField(_lvalue, _rvalue) \
+if (auto&& __field = value[#_rvalue] ) { \
+    if ( !isnan(_lvalue)) { \
+        __field = _lvalue; \
+    } \
+}
+
+#define checkedSetStringField(_lvalue, _rvalue) \
+if (auto&& __field = value[#_rvalue] ) { \
+    if ( strlen(_lvalue)) { \
+        __field = _lvalue; \
+    } \
+}
 
 namespace pvxs {
 namespace ioc {
@@ -29,8 +48,7 @@ namespace ioc {
 /**
  * structure to store metadata internally
  */
-typedef struct metadata
-{
+typedef struct metadata {
 	dbCommon metadata;
 	const char* pUnits;
 	const dbr_precision* pPrecision;
@@ -48,8 +66,8 @@ class SingleSource : public server::Source {
 //	static std::map<std::shared_ptr<dbChannel>, std::map<epicsEventId, std::vector<dbEventSubscription>>> subscriptions;
 	static void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& putOperation,
 			const std::shared_ptr<dbChannel>& pChannel);
-	static TypeCode getChannelValueType(const std::shared_ptr<dbChannel>& pChannel) ;
-	static void getMetadata(void*& pValueBuffer, Metadata &metadata);
+	static TypeCode getChannelValueType(const std::shared_ptr<dbChannel>& pChannel);
+	static void getMetadata(void*& pValueBuffer, Metadata& metadata);
 	static void onDisableSubscription(const std::shared_ptr<dbChannel>& pChannel);
 	static void onGet(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& getOperation,
 			const Value& valuePrototype);

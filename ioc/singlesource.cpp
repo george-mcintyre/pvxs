@@ -16,6 +16,7 @@
 #include <dbAccess.h>
 #include <dbChannel.h>
 #include <dbEvent.h>
+#include <cmath>
 
 #include "dbentry.h"
 #include "dberrmsg.h"
@@ -470,15 +471,11 @@ template<typename valueType> void SingleSource::setValue(Value& value, void* pVa
  * @param value the value to set metadata for
  */
 void SingleSource::setAlarmMetadata(Metadata& metadata, Value& value) {
-	value["alarm.status"] = metadata.metadata.stat;
-	value["alarm.severity"] = metadata.metadata.sevr;
-	if (auto&& acks = value["alarm.acks"]) {
-		acks = metadata.metadata.acks;
-	}
-	if (auto&& ackt = value["alarm.ackt"]) {
-		ackt = metadata.metadata.acks;
-	}
-	value["alarm.message"] = metadata.metadata.amsg;
+	checkedSetField(metadata.metadata.stat, alarm.status);
+	checkedSetField(metadata.metadata.sevr, alarm.severity);
+	checkedSetField(metadata.metadata.acks, alarm.acks);
+	checkedSetField(metadata.metadata.ackt, alarm.ackt);
+	checkedSetStringField(metadata.metadata.amsg, alarm.message);
 }
 
 /**
@@ -488,11 +485,9 @@ void SingleSource::setAlarmMetadata(Metadata& metadata, Value& value) {
  * @param value the value to set metadata for
  */
 void SingleSource::setTimestampMetadata(Metadata& metadata, Value& value) {
-	value["timeStamp.secondsPastEpoch"] = metadata.metadata.time.secPastEpoch;
-	value["timeStamp.nanoseconds"] = metadata.metadata.time.nsec;
-	if (auto&& utag = value["timeStamp.userTag"]) {
-		utag = metadata.metadata.utag;
-	}
+	checkedSetField(metadata.metadata.time.secPastEpoch, timeStamp.secondsPastEpoch);
+	checkedSetField(metadata.metadata.time.nsec, timeStamp.nanoseconds);
+	checkedSetField(metadata.metadata.utag, timeStamp.userTag);
 }
 
 /**
@@ -504,14 +499,11 @@ void SingleSource::setTimestampMetadata(Metadata& metadata, Value& value) {
  */
 void SingleSource::setDisplayMetadata(Metadata& metadata, Value& value) {
 	if (value["display"]) {
-		value["display.limitLow"] = metadata.graphicsDouble->lower_disp_limit;
-		value["display.limitHigh"] = metadata.graphicsDouble->upper_disp_limit;
-		if (auto&& units = value["display.units"]) {
-			units = metadata.pUnits;
-		}
-		if (auto&& precision = value["display.precision"]) {
-			precision = metadata.pPrecision->precision.dp;
-		}
+		checkedSetDoubleField(metadata.graphicsDouble->lower_disp_limit, display.limitLow);
+		checkedSetDoubleField(metadata.graphicsDouble->upper_disp_limit, display.limitHigh);
+		checkedSetStringField(metadata.pUnits, display.units);
+		// TODO This is never present, Why?
+		checkedSetField(metadata.pPrecision->precision.dp, display.precision);
 	}
 }
 
@@ -524,8 +516,8 @@ void SingleSource::setDisplayMetadata(Metadata& metadata, Value& value) {
  */
 void SingleSource::setControlMetadata(const Metadata& metadata, Value& value) {
 	if (value["control"]) {
-		value["control.limitLow"] = metadata.controlDouble->lower_ctrl_limit;
-		value["control.limitHigh"] = metadata.controlDouble->upper_ctrl_limit;
+		checkedSetDoubleField(metadata.controlDouble->lower_ctrl_limit, control.limitLow);
+		checkedSetDoubleField(metadata.controlDouble->upper_ctrl_limit, control.limitHigh);
 	}
 }
 
@@ -538,10 +530,10 @@ void SingleSource::setControlMetadata(const Metadata& metadata, Value& value) {
  */
 void SingleSource::setAlarmLimitMetadata(const Metadata& metadata, Value& value) {
 	if (value["valueAlarm"]) {
-		value["valueAlarm.lowAlarmLimit"] = metadata.alarmDouble->lower_alarm_limit;
-		value["valueAlarm.lowWarningLimit"] = metadata.alarmDouble->lower_warning_limit;
-		value["valueAlarm.highWarningLimit"] = metadata.alarmDouble->upper_warning_limit;
-		value["valueAlarm.highAlarmLimit"] = metadata.alarmDouble->upper_alarm_limit;
+		checkedSetDoubleField(metadata.alarmDouble->lower_alarm_limit, valueAlarm.lowAlarmLimit);
+		checkedSetDoubleField(metadata.alarmDouble->lower_warning_limit, valueAlarm.lowWarningLimit);
+		checkedSetDoubleField(metadata.alarmDouble->upper_warning_limit, valueAlarm.highWarningLimit);
+		checkedSetDoubleField(metadata.alarmDouble->upper_alarm_limit, valueAlarm.highAlarmLimit);
 	}
 }
 
