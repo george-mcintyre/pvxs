@@ -25,7 +25,7 @@
 
 #define checkedSetField(_lvalue, _rvalue) \
 if (auto&& __field = value[#_rvalue] ) { \
-	__field = _lvalue; \
+    __field = _lvalue; \
 }
 
 #define checkedSetDoubleField(_lvalue, _rvalue) \
@@ -40,6 +40,26 @@ if (auto&& __field = value[#_rvalue] ) { \
     if ( strlen(_lvalue)) { \
         __field = _lvalue; \
     } \
+}
+
+#define getMetadataField(_buffer, _type, _field1) getMetadataFieldsEnclosure(_buffer, _type, metadataFieldGetter(_field1) )
+#define get2MetadataFields(_buffer, _type, _field1, _field2) getMetadataFieldsEnclosure(_buffer, _type, metadataFieldGetter(_field1) metadataFieldGetter(_field2) )
+#define get4MetadataFields(_buffer, _type, _field1, _field2, _field3, _field4) getMetadataFieldsEnclosure(_buffer, _type, metadataFieldGetter(_field1) metadataFieldGetter(_field2) metadataFieldGetter(_field3) metadataFieldGetter(_field4))
+#define getMetadataFieldsEnclosure(_buffer, _type, _getters) { \
+    auto* __pBuffer = (_type*)pValueBuffer;                     \
+    _getters                                                   \
+    (_buffer) = (void*)__pBuffer;                               \
+}
+#define metadataFieldGetter(_field) (_field) = *__pBuffer++;
+
+#define getMetadataBuffer(_buffer, _type, _field, _size) { \
+    (_field) = (_type*)(_buffer); \
+    (_buffer) = ((void*)&((const char*)(_buffer))[_size]); \
+}
+
+#define getMetadataString(_buffer, _field) { \
+    strcpy(_field, (const char*)(_buffer)); \
+    (_buffer) = ((void*)&((const char*)(_buffer))[sizeof(_field)]); \
 }
 
 namespace pvxs {

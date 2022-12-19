@@ -323,54 +323,17 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_
  * @param metadata to store the metadata
  */
 void SingleSource::getMetadata(void*& pValueBuffer, Metadata& metadata) {
-
 	// Read out the metadata from the buffer
-	// Alarm Status
-	auto* pStatus = (uint16_t*)pValueBuffer;
-	metadata.metadata.stat = *pStatus++;
-	metadata.metadata.sevr = *pStatus++;
-	metadata.metadata.acks = *pStatus++;
-	metadata.metadata.ackt = *pStatus++;
-	pValueBuffer = (char*)pStatus;
-
-	// Alarm message
-	strcpy(metadata.metadata.amsg, (const char*)pValueBuffer);
-	pValueBuffer = ((void*)&((const char*)pValueBuffer)[sizeof(metadata.metadata.amsg)]);
-
-	// Alarm message
-	metadata.pUnits = (const char*)pValueBuffer;
-	pValueBuffer = ((void*)&((const char*)pValueBuffer)[DB_UNITS_SIZE]);
-
-	// Precision
-	metadata.pPrecision = (const dbr_precision*)pValueBuffer;
-	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_precision_size]);
-
-	// Time
-	auto* pTime = (uint32_t*)pValueBuffer;
-	metadata.metadata.time.secPastEpoch = *pTime++;
-	metadata.metadata.time.nsec = *pTime++;
-	pValueBuffer = (char*)pTime;
-
-	// Utag
-	auto* pUTag = (uint64_t*)pValueBuffer;
-	metadata.metadata.utag = *pUTag++;
-	pValueBuffer = (char*)pUTag;
-
-	// Enum strings
-	metadata.enumStrings = (const dbr_enumStrs*)pValueBuffer;
-	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_enumStrs_size]);
-
-	// Graphics
-	metadata.graphicsDouble = (const struct dbr_grDouble*)pValueBuffer;
-	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_grDouble_size]);
-
-	// Control
-	metadata.controlDouble = (const struct dbr_ctrlDouble*)pValueBuffer;
-	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_ctrlDouble_size]);
-
-	// Alarm
-	metadata.alarmDouble = (const struct dbr_alDouble*)pValueBuffer;
-	pValueBuffer = ((void*)&((const char*)pValueBuffer)[dbr_alDouble_size]);
+	get4MetadataFields(pValueBuffer, uint16_t, metadata.metadata.stat, metadata.metadata.sevr, metadata.metadata.acks, metadata.metadata.ackt);
+	getMetadataString(pValueBuffer, metadata.metadata.amsg);
+	getMetadataBuffer(pValueBuffer, const char, metadata.pUnits, DB_UNITS_SIZE);
+	getMetadataBuffer(pValueBuffer, const dbr_precision, metadata.pPrecision, dbr_precision_size);
+	get2MetadataFields(pValueBuffer, uint32_t, metadata.metadata.time.secPastEpoch, metadata.metadata.time.nsec);
+	getMetadataField(pValueBuffer, uint64_t, metadata.metadata.utag);
+	getMetadataBuffer(pValueBuffer, const dbr_enumStrs, metadata.enumStrings, dbr_enumStrs_size);
+	getMetadataBuffer(pValueBuffer, const struct dbr_grDouble, metadata.graphicsDouble, dbr_grDouble_size);
+	getMetadataBuffer(pValueBuffer, const struct dbr_ctrlDouble, metadata.controlDouble, dbr_ctrlDouble_size);
+	getMetadataBuffer(pValueBuffer, const struct dbr_alDouble, metadata.alarmDouble, dbr_alDouble_size);
 }
 
 void SingleSource::onPut(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& putOperation,
