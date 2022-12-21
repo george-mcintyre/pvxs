@@ -35,8 +35,10 @@ class SingleSource : public server::Source {
 	//////////////////////////////
 	// Subscriptions
 	//////////////////////////////
+	__attribute__((unused))
 	static void subscriptionValueCallback(void* userArg, dbChannel* pChannel, int eventsRemaining,
 			db_field_log* pDbFieldLog);
+	__attribute__((unused))
 	static void subscriptionPropertiesCallback(void* userArg, dbChannel* pChannel, int eventsRemaining,
 			db_field_log* pDbFieldLog);
 	static void subscriptionCallback(SubscriptionCtx* subscriptionCtx, dbChannel* pChannel, int eventsRemaining,

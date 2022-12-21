@@ -204,7 +204,7 @@ void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::
  * @param eventsRemaining the remaining number of events to process
  * @param pDbFieldLog the database field log containing the changes to notify
  */
-void SingleSource::subscriptionValueCallback(void* userArg, struct dbChannel* pChannel, int eventsRemaining,
+__attribute__((unused)) void SingleSource::subscriptionValueCallback(void* userArg, struct dbChannel* pChannel, int eventsRemaining,
 		struct db_field_log* pDbFieldLog) {
 	auto subscriptionContext = (SubscriptionCtx*)userArg;
 	std::cout << "Got Value Callback" << std::endl;
@@ -220,7 +220,7 @@ void SingleSource::subscriptionValueCallback(void* userArg, struct dbChannel* pC
  * @param eventsRemaining the remaining number of events to process
  * @param pDbFieldLog the database field log containing the changes to notify
  */
-void SingleSource::subscriptionPropertiesCallback(void* userArg, struct dbChannel* pChannel, int eventsRemaining,
+__attribute__((unused)) void SingleSource::subscriptionPropertiesCallback(void* userArg, struct dbChannel* pChannel, int eventsRemaining,
 		struct db_field_log* pDbFieldLog) {
 	auto subscriptionContext = (SubscriptionCtx*)userArg;
 	std::cout << "Got Properties Callback" << std::endl;
