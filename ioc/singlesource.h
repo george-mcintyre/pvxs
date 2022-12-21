@@ -7,108 +7,88 @@
 #ifndef PVXS_SINGLESOURCE_H
 #define PVXS_SINGLESOURCE_H
 
-#include <dbEvent.h>
-#include <dbAddr.h>
-#include <pvxs/source.h>
-#include <dbAccess.h>
-
-#define IOC_OPTIONS (DBR_STATUS | \
-    DBR_AMSG | \
-    DBR_UNITS | \
-    DBR_PRECISION | \
-    DBR_TIME | \
-    DBR_UTAG | \
-    DBR_ENUM_STRS | \
-    DBR_GR_DOUBLE | \
-    DBR_CTRL_DOUBLE | \
-    DBR_AL_DOUBLE)
-
-#define checkedSetField(_lvalue, _rvalue) \
-if (auto&& __field = value[#_rvalue] ) { \
-    __field = _lvalue; \
-}
-
-#define checkedSetDoubleField(_lvalue, _rvalue) \
-if (auto&& __field = value[#_rvalue] ) { \
-    if ( !isnan(_lvalue)) { \
-        __field = _lvalue; \
-    } \
-}
-
-#define checkedSetStringField(_lvalue, _rvalue) \
-if (auto&& __field = value[#_rvalue] ) { \
-    if ( strlen(_lvalue)) { \
-        __field = _lvalue; \
-    } \
-}
-
-#define getMetadataField(_buffer, _type, _field1) getMetadataFieldsEnclosure(_buffer, _type, metadataFieldGetter(_field1) )
-#define get2MetadataFields(_buffer, _type, _field1, _field2) getMetadataFieldsEnclosure(_buffer, _type, metadataFieldGetter(_field1) metadataFieldGetter(_field2) )
-#define get4MetadataFields(_buffer, _type, _field1, _field2, _field3, _field4) getMetadataFieldsEnclosure(_buffer, _type, metadataFieldGetter(_field1) metadataFieldGetter(_field2) metadataFieldGetter(_field3) metadataFieldGetter(_field4))
-#define getMetadataFieldsEnclosure(_buffer, _type, _getters) { \
-    auto* __pBuffer = (_type*)pValueBuffer;                     \
-    _getters                                                   \
-    (_buffer) = (void*)__pBuffer;                               \
-}
-#define metadataFieldGetter(_field) (_field) = *__pBuffer++;
-
-#define getMetadataBuffer(_buffer, _type, _field, _size) { \
-    (_field) = (_type*)(_buffer); \
-    (_buffer) = ((void*)&((const char*)(_buffer))[_size]); \
-}
-
-#define getMetadataString(_buffer, _field) { \
-    strcpy(_field, (const char*)(_buffer)); \
-    (_buffer) = ((void*)&((const char*)(_buffer))[sizeof(_field)]); \
-}
+#include "dbeventcontextdeleter.h"
+#include "subscriptioncontext.h"
+#include "metadata.h"
 
 namespace pvxs {
 namespace ioc {
 
 /**
- * structure to store metadata internally
+ * Single Source class to handle initialisation, processing, and shutdown of single source database record support
+ *  - Handlers for get, put and subscriptions
+ *  - type converters to and from pvxs and db
  */
-typedef struct metadata {
-	dbCommon metadata;
-	const char* pUnits;
-	const dbr_precision* pPrecision;
-	const dbr_enumStrs* enumStrings;
-	const struct dbr_grDouble* graphicsDouble;
-	const struct dbr_ctrlDouble* controlDouble;
-	const struct dbr_alDouble* alarmDouble;
-} Metadata;
-
 class SingleSource : public server::Source {
-	List allrecords;
-	static dbEventCtx eventContext;
-	static epicsMutexId eventLock;
+	// List of all database records that this single source serves
+	List allRecords;
+	// The event context for all subscriptions
+	std::unique_ptr<std::remove_pointer<dbEventCtx>::type, DBEventContextDeleter> eventContext;
 
-//	static std::map<std::shared_ptr<dbChannel>, std::map<epicsEventId, std::vector<dbEventSubscription>>> subscriptions;
-	static void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& putOperation,
+	// Create request and subscription handlers for single record sources
+	void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& putOperation,
 			const std::shared_ptr<dbChannel>& pChannel);
+
+	// Utility function to get the TypeCode that the given database channel is configured for
 	static TypeCode getChannelValueType(const std::shared_ptr<dbChannel>& pChannel);
-	static void getMetadata(void*& pValueBuffer, Metadata& metadata);
-	static void onDisableSubscription(const std::shared_ptr<dbChannel>& pChannel);
+
+	//////////////////////////////
+	// Subscriptions
+	//////////////////////////////
+	static void subscriptionValueCallback(void* userArg, dbChannel* pChannel, int eventsRemaining,
+			db_field_log* pDbFieldLog);
+	static void subscriptionPropertiesCallback(void* userArg, dbChannel* pChannel, int eventsRemaining,
+			db_field_log* pDbFieldLog);
+	static void subscriptionCallback(SubscriptionCtx* subscriptionCtx, dbChannel* pChannel, int eventsRemaining,
+			db_field_log* pDbFieldLog);
+	// Called when a client pauses / stops a subscription it has been subscribed to
+	static void onDisableSubscription(const std::shared_ptr<subscriptionCtx>& subscriptionContext);
+	// Called when a client starts a subscription it has subscribed to
+	static void onStartSubscription(const std::shared_ptr<subscriptionCtx>& subscriptionContext);
+
+	//////////////////////////////
+	// Get
+	//////////////////////////////
+	// Handle the get operation
 	static void onGet(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& getOperation,
 			const Value& valuePrototype);
+
+	//////////////////////////////
+	// Put
+	//////////////////////////////
+	// Handler invoked when a peer sends data on a PUT
 	static void onPut(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& putOperation,
 			const Value& valuePrototype, const Value& value);
-	static void onStartSubscription(const std::shared_ptr<dbChannel>& pChannel);
-	static long nameToAddr(const char* pvName, DBADDR* pdbAddress);
-	static void setValue(Value& value, void* pValueBuffer);
-	template<typename valueType> static void setValue(Value& value, void* pValueBuffer);
-	static void setValue(Value& value, void* pValueBuffer, long nElements);
-	template<typename valueType> static void setValue(Value& value, void* pValueBuffer, long nElements);
 
+	//////////////////////////////
+	// Get & Subscription
+	//////////////////////////////
+	// Set a return value from the given database value buffer
+	static void setValue(Value& value, void* pValueBuffer);
+	// Set a return value from the given database value buffer
+	static void setValue(Value& value, void* pValueBuffer, long nElements);
+	// Set a return value from the given database value buffer (templated)
+	template<typename valueType> static void setValue(Value& value, void* pValueBuffer);
+	// Set a return value from the given database value buffer (templated)
+	template<typename valueType> static void setValue(Value& value, void* pValueBuffer, long nElements);
+	// Get metadata from the given value buffer and deliver it in the given metadata buffer
+	static void getMetadata(void*& pValueBuffer, Metadata& metadata);
+	// Set alarm metadata in the given return value
 	static void setAlarmMetadata(Metadata& metadata, Value& value);
+	// Set timestamp metadata in the given return value
 	static void setTimestampMetadata(Metadata& metadata, Value& value);
+	// Set display metadata in the given return value
 	static void setDisplayMetadata(Metadata& metadata, Value& value);
+	// Set control metadata in the given return value
 	static void setControlMetadata(const Metadata& metadata, Value& value);
+	// Set alarm limit metadata in the given return value
 	static void setAlarmLimitMetadata(const Metadata& metadata, Value& value);
-/*
-	static void subscriptionCallback(void* user_arg, const std::shared_ptr<dbChannel>& pChannel, int eventsRemaining,
-			db_field_log* pfl);
-*/
+
+	//////////////////////////////
+	// Common Utils
+	//////////////////////////////
+	// Utility function to get the corresponding database address structure given a pvName
+	static long nameToAddr(const char* pvName, DBADDR* pdbAddress);
 
 public:
 	SingleSource();

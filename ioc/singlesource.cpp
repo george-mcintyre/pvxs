@@ -30,11 +30,13 @@ DEFINE_LOGGER(_logname, "pvxs.ioc.search");
 
 /**
  * Constructor for SingleSource registrar.
- * For each record type and for each record in that type, add record name to the list of all records
  */
-SingleSource::SingleSource() {
+SingleSource::SingleSource()
+		:eventContext(db_init_events()) // Initialise event context
+{
 	auto names(std::make_shared<std::set<std::string >>());
 
+	//  For each record type and for each record in that type, add record name to the list of all records
 	DBEntry db;
 	for (long status = dbFirstRecordType(db); !status; status = dbNextRecordType(db)) {
 		for (status = dbFirstRecord(db); !status; status = dbNextRecord(db)) {
@@ -42,7 +44,7 @@ SingleSource::SingleSource() {
 		}
 	}
 
-	allrecords.names = names;
+	allRecords.names = names;
 }
 
 /**
@@ -73,7 +75,7 @@ void SingleSource::onCreate(std::unique_ptr<server::ChannelControl>&& channelCon
 }
 
 SingleSource::List SingleSource::onList() {
-	return allrecords;
+	return allRecords;
 }
 
 /**
@@ -97,7 +99,7 @@ void SingleSource::onSearch(Search& searchOperation) {
  */
 void SingleSource::show(std::ostream& outputStream) {
 	outputStream << "IOC";
-	for (auto& name: *SingleSource::allrecords.names) {
+	for (auto& name: *SingleSource::allRecords.names) {
 		outputStream << "\n" << indent{} << name;
 	}
 }
@@ -110,6 +112,15 @@ void SingleSource::show(std::ostream& outputStream) {
  */
 void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& channelControl,
 		const std::shared_ptr<dbChannel>& pChannel) {
+	auto subscriptionContext(std::make_shared<SubscriptionCtx>());
+	subscriptionContext->pValueChannel = pChannel;
+	subscriptionContext->pPropertiesChannel.reset(dbChannelCreate(dbChannelName(pChannel)), [](dbChannel* ch) {
+		if (ch) dbChannelDelete(ch);
+	});
+	if (subscriptionContext->pPropertiesChannel && dbChannelOpen(subscriptionContext->pPropertiesChannel.get())) {
+		throw std::bad_alloc();
+	}
+
 	auto dbChannel(pChannel.get());
 	short dbrType(dbChannelFinalFieldType(dbChannel));
 	auto valueType(getChannelValueType(pChannel));
@@ -145,26 +156,105 @@ void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::
 	});
 
 	// Subscription requests
+	// Shared ptr for one of captured vars below
+	subscriptionContext->prototype = valuePrototype.cloneEmpty();
 	channelControl
-			->onSubscribe([pChannel, valuePrototype](std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
-				auto subscriptionControl(subscriptionOperation->connect(valuePrototype));
+			->onSubscribe([this, subscriptionContext](
+					std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
+				std::cout << "Subscription started" << std::endl;
+				subscriptionContext->subscriptionControl = subscriptionOperation->connect(subscriptionContext->prototype);
 
-				// get event control mask
-				db_field_log eventControlMask;
+				// Two subscription are made for pvxs
+				// first subscription is for Value changes
+				subscriptionContext->pValueEventSubscription
+						.reset(db_add_event(eventContext.get(), subscriptionContext->pValueChannel.get(),
+										subscriptionValueCallback, (void*)&subscriptionContext, DBE_VALUE | DBE_ALARM),
+								[](dbEventSubscription pEventSubscription) {
+									if (pEventSubscription) {
+										db_cancel_event(pEventSubscription);
+									}
+								});
+				// second subscription is for Property changes
+				subscriptionContext->pPropertyEventSubscription
+						.reset(db_add_event(eventContext.get(), subscriptionContext->pPropertiesChannel.get(),
+										subscriptionPropertiesCallback, (void*)&subscriptionContext, DBE_PROPERTY),
+								[](dbEventSubscription pEventSubscription) {
+									if (pEventSubscription) {
+										db_cancel_event(pEventSubscription);
+									}
+								});
+				// If either fail to complete then raise an error (removes last ref to shared_ptr subscriptionContext)
+				if (!subscriptionContext->pValueEventSubscription || !subscriptionContext->pPropertyEventSubscription) {
+					throw std::runtime_error("Failed to create db subscription");
+				}
 
-//				std::map<epicsEventId, std::vector<dbEventSubscription>> channelMonitor = subscriptions[pChannel];
-
-//				void* eventSubscription = db_add_event(eventContext, pChannel, &subscriptionCallback, channelMonitor, eventControlMask);
-				void* eventSubscription(nullptr);
-
-				subscriptionControl->onStart([pChannel](bool isStarting) {
+				// If all goes well, Set up handlers for start and stop monitoring events
+				subscriptionContext->subscriptionControl->onStart([subscriptionContext](bool isStarting) {
 					if (isStarting) {
-						onStartSubscription(pChannel);
+						onStartSubscription(subscriptionContext);
 					} else {
-						onDisableSubscription(pChannel);
+						onDisableSubscription(subscriptionContext);
 					}
 				});
+				subscriptionContext->subscriptionControl->onHighMark([] {
+					// TODO What to do about this?
+					std::cout << "High Mark" << std::endl;
+				});
+				subscriptionContext->subscriptionControl->onLowMark([] {
+					// TODO What to do about this?
+					std::cout << "Low Mark" << std::endl;
+				});
 			});
+}
+
+/**
+ * This callback handles notifying of updates to subscribed-to pv values
+ *
+ * @param userArg the user argument passed to the callback function from the framework: the subscriptionContext
+ * @param pChannel pointer to the channel whose value has been updated
+ * @param eventsRemaining the remaining number of events to process
+ * @param pDbFieldLog the database field log containing the changes to notify
+ */
+void SingleSource::subscriptionValueCallback(void* userArg, struct dbChannel* pChannel, int eventsRemaining,
+		struct db_field_log* pDbFieldLog) {
+	auto subscriptionContext = (SubscriptionCtx*)userArg;
+	std::cout << "Got Value Callback" << std::endl;
+	setEventHandledFlag(subscriptionContext, hadValueEvent);
+	subscriptionCallback(subscriptionContext, pChannel, eventsRemaining, pDbFieldLog);
+}
+
+/**
+ * This callback handles notifying of updates to subscribed-to pv properties
+ *
+ * @param userArg the user argument passed to the callback function from the framework: the subscriptionContext
+ * @param pChannel pointer to the channel whose properties have been updated
+ * @param eventsRemaining the remaining number of events to process
+ * @param pDbFieldLog the database field log containing the changes to notify
+ */
+void SingleSource::subscriptionPropertiesCallback(void* userArg, struct dbChannel* pChannel, int eventsRemaining,
+		struct db_field_log* pDbFieldLog) {
+	auto subscriptionContext = (SubscriptionCtx*)userArg;
+	std::cout << "Got Properties Callback" << std::endl;
+	setEventHandledFlag(subscriptionContext, hadPropertyEvent);
+	subscriptionCallback(subscriptionContext, pChannel, eventsRemaining, pDbFieldLog);
+}
+
+void SingleSource::subscriptionCallback(SubscriptionCtx* subscriptionContext, struct dbChannel* pChannel,
+		int eventsRemaining, struct db_field_log* pDbFieldLog) {
+	// Make sure that the initial subscription update has occurred on both channels before continuing
+	if (!subscriptionContext->hadValueEvent || !subscriptionContext->hadPropertyEvent) {
+		return;
+	}
+
+	// Create holder for value
+	Value value = subscriptionContext->prototype.cloneEmpty();
+
+	// TODO Get value code goes here
+	value["value"] = 1;
+	std::cout << value << std::endl;
+
+	// Return value
+	subscriptionContext->subscriptionControl->tryPost(value);
 }
 
 /**
@@ -172,9 +262,12 @@ void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::
  *
  * @param pChannel the pointer to the database channel subscribed to
  */
-void SingleSource::onStartSubscription(const std::shared_ptr<dbChannel>& pChannel) {
-	// db_event_enable()
-	// db_post_single_event()
+void SingleSource::onStartSubscription(const std::shared_ptr<subscriptionCtx>& subscriptionContext) {
+	std::cout << "Enabling subscription" << std::endl;
+	db_event_enable(subscriptionContext->pValueEventSubscription.get());
+	db_event_enable(subscriptionContext->pPropertyEventSubscription.get());
+	db_post_single_event(subscriptionContext->pValueEventSubscription.get());
+	db_post_single_event(subscriptionContext->pPropertyEventSubscription.get());
 }
 
 /**
@@ -182,19 +275,11 @@ void SingleSource::onStartSubscription(const std::shared_ptr<dbChannel>& pChanne
  *
  * @param pChannel the pointer to the database channel subscribed to
  */
-void SingleSource::onDisableSubscription(const std::shared_ptr<dbChannel>& pChannel) {
-	// db_event_disable()
+void SingleSource::onDisableSubscription(const std::shared_ptr<subscriptionCtx>& subscriptionContext) {
+	std::cout << "Disabling subscription" << std::endl;
+	db_event_disable(subscriptionContext->pValueEventSubscription.get());
+	db_event_disable(subscriptionContext->pPropertyEventSubscription.get());
 }
-
-/*
-void SingleSource::subscriptionCallback(void* user_arg, const std::shared_ptr<dbChannel>& pChannel,
-		int eventsRemaining, struct db_field_log* pfl) {
-	epicsMutexMustLock(eventLock);
-	std::map<epicsEventId, std::vector<dbEventSubscription>> channelMonitor = subscriptions[pChannel];
-	epicsMutexUnlock(eventLock);
-//	epicsEventMustTrigger(channelMonitor[user_arg]);
-}
-*/
 
 /**
  * Utility function to get the TypeCode that the given database channel is configured for
@@ -252,7 +337,7 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_
 	}
 
 	if (dbAddress.precord->lset == nullptr) {
-		getOperation->error("pvName no specified in request");
+		getOperation->error("pvName not specified in request");
 		return;
 	}
 
@@ -317,7 +402,8 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_
  */
 void SingleSource::getMetadata(void*& pValueBuffer, Metadata& metadata) {
 	// Read out the metadata from the buffer
-	get4MetadataFields(pValueBuffer, uint16_t, metadata.metadata.stat, metadata.metadata.sevr, metadata.metadata.acks, metadata.metadata.ackt);
+	get4MetadataFields(pValueBuffer, uint16_t, metadata.metadata.stat, metadata.metadata.sevr, metadata.metadata.acks,
+			metadata.metadata.ackt);
 	getMetadataString(pValueBuffer, metadata.metadata.amsg);
 	getMetadataBuffer(pValueBuffer, const char, metadata.pUnits, DB_UNITS_SIZE);
 	getMetadataBuffer(pValueBuffer, const dbr_precision, metadata.pPrecision, dbr_precision_size);
@@ -329,9 +415,45 @@ void SingleSource::getMetadata(void*& pValueBuffer, Metadata& metadata) {
 	getMetadataBuffer(pValueBuffer, const struct dbr_alDouble, metadata.alarmDouble, dbr_alDouble_size);
 }
 
+/**
+ * Handler invoked when a peer sends data on a PUT
+ *
+ * @param channel
+ * @param putOperation
+ * @param valuePrototype
+ * @param value
+ */
 void SingleSource::onPut(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& putOperation,
 		const Value& valuePrototype, const Value& value) {
-	// dbPutField() ...
+	const char* pvName = channel->name;
+
+	epicsAny valueBuffer[100]; // value buffer to store the field we will get from the database.
+	void* pValueBuffer = &valueBuffer[0];
+	DBADDR dbAddress;   // Special struct for storing database addresses
+	long nElements;     // number of elements - 1 for scalar or enum, more for arrays
+
+	// Convert pvName to a dbAddress
+	if (DBErrMsg err = nameToAddr(pvName, &dbAddress)) {
+		putOperation->error(err.c_str());
+		return;
+	}
+
+	if (dbAddress.precord->lset == nullptr) {
+		putOperation->error("pvName not specified in request");
+		return;
+	}
+
+	// Calculate number of elements to save as lowest of actual number of elements and max number
+	// of elements we can store in the buffer we've allocated
+	nElements = MIN(dbAddress.no_elements, sizeof(valueBuffer) / dbAddress.field_size);
+
+	std::cout << value << std::endl;
+	std::cout << dbAddress.precord << std::endl;
+	std::cout << dbAddress.pfield << std::endl;
+	std::cout << dbAddress.no_elements << std::endl;
+//	if ( value
+
+//	dbPutField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, &nElements);
 }
 
 /**
@@ -351,10 +473,10 @@ long SingleSource::nameToAddr(const char* pvName, DBADDR* pdbAddress) {
 }
 
 /**
- * Set a value from the given database value
+ * Set a return value from the given database value buffer
  *
  * @param value the value to set
- * @param pValueBuffer pointer to the database value
+ * @param pValueBuffer pointer to the database value buffer
  */
 void SingleSource::setValue(Value& value, void* pValueBuffer) {
 	auto valueType(value["value"].type());
@@ -366,7 +488,7 @@ void SingleSource::setValue(Value& value, void* pValueBuffer) {
 }
 
 /**
- * Set a value from the given database value buffer.  This is the array version of the function
+ * Set a return value from the given database value buffer.  This is the array version of the function
  *
  * @param value the value to set
  * @param pValueBuffer the database value buffer
@@ -421,7 +543,7 @@ template<typename valueType> void SingleSource::setValue(Value& value, void* pVa
 }
 
 /**
- * Set alarm metadata in the given value.
+ * Set alarm metadata in the given return value.
  *
  * @param metadata metadata containing alarm metadata
  * @param value the value to set metadata for
@@ -435,7 +557,7 @@ void SingleSource::setAlarmMetadata(Metadata& metadata, Value& value) {
 }
 
 /**
- * Set timestamp metadata in the given value.
+ * Set timestamp metadata in the given return value.
  *
  * @param metadata metadata containing timestamp metadata
  * @param value the value to set metadata for
@@ -447,7 +569,7 @@ void SingleSource::setTimestampMetadata(Metadata& metadata, Value& value) {
 }
 
 /**
- * Set display metadata in the given value.
+ * Set display metadata in the given return value.
  * Only set the metadata if the display field is included in value's structure
  *
  * @param metadata metadata containing display metadata
@@ -464,7 +586,7 @@ void SingleSource::setDisplayMetadata(Metadata& metadata, Value& value) {
 }
 
 /**
- * Set control metadata in the given value.
+ * Set control metadata in the given return value.
  * Only set the metadata if the control field is included in value's structure
  *
  * @param metadata metadata containing control metadata
@@ -478,7 +600,7 @@ void SingleSource::setControlMetadata(const Metadata& metadata, Value& value) {
 }
 
 /**
- * Set alarm limit metadata in the given value.
+ * Set alarm limit metadata in the given return value.
  * Only set the metadata if the valueAlarm field is included in value's structure
  *
  * @param metadata metadata containing alarm limit metadata
