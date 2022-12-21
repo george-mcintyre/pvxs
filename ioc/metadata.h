@@ -42,6 +42,8 @@
     _getters                                                   \
     (_buffer) = (void*)__pBuffer;                               \
 }
+#define setBufferField(_buffer, _type, _value, _field) *(_type*)(_buffer) = (_value) [ #_field ].as< _type>()
+
 #define metadataFieldGetter(_field) (_field) = *__pBuffer++;
 
 #define getMetadataBuffer(_buffer, _type, _field, _size) { \
@@ -80,7 +82,7 @@ namespace ioc {
  * structure to store metadata
  */
 typedef struct metadata {
-	dbCommon metadata;
+	dbCommon metadata{};
 	const char* pUnits{};
 	const dbr_precision* pPrecision{};
 	const dbr_enumStrs* enumStrings{};

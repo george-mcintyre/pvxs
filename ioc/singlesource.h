@@ -62,6 +62,14 @@ class SingleSource : public server::Source {
 	// Handler invoked when a peer sends data on a PUT
 	static void onPut(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& putOperation,
 			const Value& valuePrototype, const Value& value);
+	// Get the value into the given database value buffer
+	static void setBuffer(const Value& value, void* pValueBuffer);
+	// Get the value into the given database value buffer
+	static void setBuffer(const Value& value, void* pValueBuffer, long nElements);
+	// Get the value into the given database value buffer (templated)
+	template<typename valueType> static void setBuffer(const Value& value, void* pValueBuffer);
+	// Get the value into the given database value buffer (templated)
+	template<typename valueType> static void setBuffer(const Value& value, void* pValueBuffer, long nElements);
 
 	//////////////////////////////
 	// Get & Subscription

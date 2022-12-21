@@ -486,13 +486,24 @@ void SingleSource::onPut(const std::shared_ptr<dbChannel>& channel, std::unique_
 	// of elements we can store in the buffer we've allocated
 	nElements = MIN(dbAddress.no_elements, sizeof(valueBuffer) / dbAddress.field_size);
 
-	std::cout << value << std::endl;
-	std::cout << dbAddress.precord << std::endl;
-	std::cout << dbAddress.pfield << std::endl;
-	std::cout << dbAddress.no_elements << std::endl;
-//	if ( value
+	if (dbAddress.dbr_field_type == DBR_ENUM) {
+		if (value["value.index"]) {
+			setBufferField(pValueBuffer, uint16_t, value, value.index);
+		} else {
+			putOperation->error("Programming error: Database enum record but not NTEnum value");
+			return;
+		}
+	} else if (nElements == 1) {
+		setBuffer(value, pValueBuffer);
+	} else {
+		setBuffer(value, pValueBuffer, nElements);
+	}
 
-//	dbPutField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, &nElements);
+	if (DBErrMsg err = dbPutField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, nElements)) {
+		putOperation->error(err.c_str());
+		return;
+	}
+	putOperation->reply();
 }
 
 /**
@@ -543,6 +554,41 @@ void SingleSource::setValue(Value& value, void* pValueBuffer, long nElements) {
 }
 
 /**
+ * Get value into given database buffer
+ *
+ * @param value the value to get
+ * @param pValueBuffer the database buffer to put it in
+ */
+void SingleSource::setBuffer(const Value& value, void* pValueBuffer){
+	auto valueType(value["value"].type());
+	if (valueType.code == TypeCode::String) {
+		auto strValue = value["value"].as<std::string>();
+		auto len = MIN(strValue.length(), MAX_STRING_SIZE-1);
+
+		strncpy((char *)pValueBuffer, value["value"].as<std::string>().c_str(), len);
+		((char *)pValueBuffer)[len] = '\0';
+	} else {
+		SwitchTypeCodeForTemplatedCall(valueType.code, setBuffer, (value, pValueBuffer));
+	}
+}
+
+void SingleSource::setBuffer(const Value& value, void* pValueBuffer, long nElements) {
+	auto valueType(value["value"].type());
+	if (valueType.code == TypeCode::StringA) {
+		char valueRef[20];
+		for (auto i = 0; i < nElements; i++) {
+			snprintf(valueRef, 20, "value[%d]", i);
+			auto strValue = value[valueRef].as<std::string>();
+			auto len = MIN(strValue.length(), MAX_STRING_SIZE-1);
+			strncpy((char*)pValueBuffer + MAX_STRING_SIZE * i, strValue.c_str(), len);
+			((char *)pValueBuffer + MAX_STRING_SIZE * i)[len] = '\0';
+		}
+	} else {
+		SwitchTypeCodeForTemplatedCall(valueType.code, setBuffer, (value, pValueBuffer, nElements));
+	}
+}
+
+/**
  * Set the value field of the given return value to a scalar pointed to by pValueBuffer
  * Supported types are:
  *   TypeCode::Int8 	TypeCode::UInt8
@@ -579,6 +625,20 @@ template<typename valueType> void SingleSource::setValue(Value& value, void* pVa
 		values[i] = ((valueType*)pValueBuffer)[i];
 	}
 	value["value"] = values.freeze().template castTo<const void>();
+}
+
+// Get the value into the given database value buffer (templated)
+template<typename valueType> void SingleSource::setBuffer(const Value& value, void* pValueBuffer) {
+	((valueType*)pValueBuffer)[0] = value["value"].as<valueType>();
+}
+
+// Get the value into the given database value buffer (templated)
+template<typename valueType> void SingleSource::setBuffer(const Value& value, void* pValueBuffer, long nElements) {
+	char valueRef[20];
+	for (auto i = 0; i < nElements; i++) {
+		snprintf(valueRef, 20, "value[%d]", i);
+		((valueType*)pValueBuffer)[i] = value[valueRef].as<valueType>();
+	}
 }
 
 /**
