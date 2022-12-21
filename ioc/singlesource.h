@@ -52,6 +52,9 @@ class SingleSource : public server::Source {
 	// Handle the get operation
 	static void onGet(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& getOperation,
 			const Value& valuePrototype);
+	static void onGet(const std::shared_ptr<dbChannel>& channel,
+			const Value& valuePrototype, bool forValues, bool forProperties,
+			const std::function<void(Value&)>& returnFn, const std::function<void(const char*)>& errorFn);
 
 	//////////////////////////////
 	// Put
@@ -72,7 +75,7 @@ class SingleSource : public server::Source {
 	// Set a return value from the given database value buffer (templated)
 	template<typename valueType> static void setValue(Value& value, void* pValueBuffer, long nElements);
 	// Get metadata from the given value buffer and deliver it in the given metadata buffer
-	static void getMetadata(void*& pValueBuffer, Metadata& metadata);
+	static void getMetadata(void*& pValueBuffer, Metadata& metadata, bool forValues, bool forProperties);
 	// Set alarm metadata in the given return value
 	static void setAlarmMetadata(Metadata& metadata, Value& value);
 	// Set timestamp metadata in the given return value

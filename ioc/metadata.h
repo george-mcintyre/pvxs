@@ -13,16 +13,26 @@
 #include <dbCommon.h>
 #include <dbAccess.h>
 
-#define IOC_OPTIONS (DBR_STATUS | \
+// Options when retrieving metadata for values and alarms
+#define IOC_VALUE_OPTIONS ( \
+    DBR_STATUS | \
     DBR_AMSG | \
+    DBR_TIME | \
+    DBR_UTAG | \
+    DBR_ENUM_STRS)
+
+// Options when retrieving metadata for properties
+#define IOC_PROPERTIES_OPTIONS ( \
     DBR_UNITS | \
     DBR_PRECISION | \
     DBR_TIME | \
     DBR_UTAG | \
-    DBR_ENUM_STRS | \
     DBR_GR_DOUBLE | \
     DBR_CTRL_DOUBLE | \
     DBR_AL_DOUBLE)
+
+// Options when retrieving all metadata
+#define IOC_OPTIONS (IOC_VALUE_OPTIONS | IOC_PROPERTIES_OPTIONS)
 
 #define getMetadataField(_buffer, _type, _field1) getMetadataFieldsEnclosure(_buffer, _type, metadataFieldGetter(_field1) )
 #define get2MetadataFields(_buffer, _type, _field1, _field2) getMetadataFieldsEnclosure(_buffer, _type, metadataFieldGetter(_field1) metadataFieldGetter(_field2) )
@@ -62,7 +72,6 @@ if (auto&& __field = value[#_rvalue] ) { \
         __field = _lvalue; \
     } \
 }
-
 
 namespace pvxs {
 namespace ioc {

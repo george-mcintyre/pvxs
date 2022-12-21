@@ -162,29 +162,18 @@ void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::
 			->onSubscribe([this, subscriptionContext](
 					std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
 				std::cout << "Subscription started" << std::endl;
-				subscriptionContext->subscriptionControl = subscriptionOperation->connect(subscriptionContext->prototype);
+				subscriptionContext->subscriptionControl = subscriptionOperation
+						->connect(subscriptionContext->prototype);
 
 				// Two subscription are made for pvxs
 				// first subscription is for Value changes
-				subscriptionContext->pValueEventSubscription
-						.reset(db_add_event(eventContext.get(), subscriptionContext->pValueChannel.get(),
-										subscriptionValueCallback, (void*)&subscriptionContext, DBE_VALUE | DBE_ALARM),
-								[](dbEventSubscription pEventSubscription) {
-									if (pEventSubscription) {
-										db_cancel_event(pEventSubscription);
-									}
-								});
+				addSubscriptionEvent(Value, eventContext, subscriptionContext, DBE_VALUE | DBE_ALARM);
 				// second subscription is for Property changes
-				subscriptionContext->pPropertyEventSubscription
-						.reset(db_add_event(eventContext.get(), subscriptionContext->pPropertiesChannel.get(),
-										subscriptionPropertiesCallback, (void*)&subscriptionContext, DBE_PROPERTY),
-								[](dbEventSubscription pEventSubscription) {
-									if (pEventSubscription) {
-										db_cancel_event(pEventSubscription);
-									}
-								});
+				addSubscriptionEvent(Properties, eventContext, subscriptionContext, DBE_PROPERTY);
+
 				// If either fail to complete then raise an error (removes last ref to shared_ptr subscriptionContext)
-				if (!subscriptionContext->pValueEventSubscription || !subscriptionContext->pPropertyEventSubscription) {
+				if (!subscriptionContext->pValueEventSubscription
+						|| !subscriptionContext->pPropertiesEventSubscription) {
 					throw std::runtime_error("Failed to create db subscription");
 				}
 
@@ -246,15 +235,16 @@ void SingleSource::subscriptionCallback(SubscriptionCtx* subscriptionContext, st
 		return;
 	}
 
-	// Create holder for value
-	Value value = subscriptionContext->prototype.cloneEmpty();
-
-	// TODO Get value code goes here
-	value["value"] = 1;
-	std::cout << value << std::endl;
-
-	// Return value
-	subscriptionContext->subscriptionControl->tryPost(value);
+	// Get and return the value to the monitor
+	auto pdbChannel = (subscriptionContext->pValueChannel.get() == pChannel) ? subscriptionContext->pValueChannel
+	                                                                         : subscriptionContext->pPropertiesChannel;
+	onGet(pdbChannel, subscriptionContext->prototype, true, true, [subscriptionContext](Value& value) {
+		std::cout << value << std::endl;
+		// Return value
+		subscriptionContext->subscriptionControl->tryPost(value);
+	}, [](const char* errorMessage) {
+		throw std::runtime_error(errorMessage);
+	});
 }
 
 /**
@@ -265,9 +255,9 @@ void SingleSource::subscriptionCallback(SubscriptionCtx* subscriptionContext, st
 void SingleSource::onStartSubscription(const std::shared_ptr<subscriptionCtx>& subscriptionContext) {
 	std::cout << "Enabling subscription" << std::endl;
 	db_event_enable(subscriptionContext->pValueEventSubscription.get());
-	db_event_enable(subscriptionContext->pPropertyEventSubscription.get());
+	db_event_enable(subscriptionContext->pPropertiesEventSubscription.get());
 	db_post_single_event(subscriptionContext->pValueEventSubscription.get());
-	db_post_single_event(subscriptionContext->pPropertyEventSubscription.get());
+	db_post_single_event(subscriptionContext->pPropertiesEventSubscription.get());
 }
 
 /**
@@ -278,7 +268,7 @@ void SingleSource::onStartSubscription(const std::shared_ptr<subscriptionCtx>& s
 void SingleSource::onDisableSubscription(const std::shared_ptr<subscriptionCtx>& subscriptionContext) {
 	std::cout << "Disabling subscription" << std::endl;
 	db_event_disable(subscriptionContext->pValueEventSubscription.get());
-	db_event_disable(subscriptionContext->pPropertyEventSubscription.get());
+	db_event_disable(subscriptionContext->pPropertiesEventSubscription.get());
 }
 
 /**
@@ -314,15 +304,9 @@ TypeCode SingleSource::getChannelValueType(const std::shared_ptr<dbChannel>& pCh
 	return valueType;
 }
 
-/**
- * Handle the get operation
- *
- * @param channel the channel that the request comes in on
- * @param getOperation the current executing operation
- * @param valuePrototype a value prototype that is made based on the expected type to be returned
- */
-void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& getOperation,
-		const Value& valuePrototype) {
+void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel,
+		const Value& valuePrototype, bool forValues, bool forProperties,
+		const std::function<void(Value&)>& returnFn, const std::function<void(const char*)>& errorFn) {
 	const char* pvName = channel->name;
 
 	epicsAny valueBuffer[100]; // value buffer to store the field we will get from the database.
@@ -332,12 +316,12 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_
 
 	// Convert pvName to a dbAddress
 	if (DBErrMsg err = nameToAddr(pvName, &dbAddress)) {
-		getOperation->error(err.c_str());
+		errorFn(err.c_str());
 		return;
 	}
 
 	if (dbAddress.precord->lset == nullptr) {
-		getOperation->error("pvName not specified in request");
+		errorFn("pvName not specified in request");
 		return;
 	}
 
@@ -348,50 +332,84 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_
 	// Get field value and all metadata
 	// Note that metadata will precede the value in the buffer and will be laid out in the order of the
 	// options bit mask LSB to MSB
-	long options = IOC_OPTIONS;
+	long options = 0;
+	if (forValues) {
+		options = IOC_VALUE_OPTIONS;
+	}
+	if (forProperties) {
+		options |= IOC_PROPERTIES_OPTIONS;
+	}
+
+	if (!options) {
+		throw std::runtime_error("call to get but neither values not properties requested");
+	}
 
 	if (DBErrMsg err = dbGetField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, &options, &nElements,
 			nullptr)) {
-		getOperation->error(err.c_str());
+		errorFn(err.c_str());
 		return;
 	}
 
 	// Extract metadata
 	Metadata metadata;
-	getMetadata(pValueBuffer, metadata);
+	getMetadata(pValueBuffer, metadata, forValues, forProperties);
 
 	// read out the value from the buffer
 	// Create a placeholder for the return value
 	auto value(valuePrototype.cloneEmpty());
-	// based on whether it is an enum, scalar or array then call the appropriate setter
-	if (dbAddress.dbr_field_type == DBR_ENUM) {
-		if (value["value.index"]) {
-			value["value.index"] = *((uint16_t*)pValueBuffer);
 
-			shared_array<std::string> choices(metadata.enumStrings->no_str);
-			for (auto i = 0; i < metadata.enumStrings->no_str; i++) {
-				choices[i] = metadata.enumStrings->strs[i];
+	// If we're setting values then,
+	// based on whether it is an enum, scalar or array then call the appropriate setter
+	if (forValues) {
+		if (dbAddress.dbr_field_type == DBR_ENUM) {
+			if (value["value.index"]) {
+				value["value.index"] = *((uint16_t*)pValueBuffer);
+
+				shared_array<std::string> choices(metadata.enumStrings->no_str);
+				for (auto i = 0; i < metadata.enumStrings->no_str; i++) {
+					choices[i] = metadata.enumStrings->strs[i];
+				}
+				value["value.choices"] = choices.freeze().castTo<const void>();
+			} else {
+				errorFn("Programming error: Database enum record but not NTEnum response");
+				return;
 			}
-			value["value.choices"] = choices.freeze().castTo<const void>();
+		} else if (nElements == 1) {
+			setValue(value, pValueBuffer);
 		} else {
-			getOperation->error("Programming error: Database enum record but not NTEnum response");
-			return;
+			setValue(value, pValueBuffer, nElements);
 		}
-	} else if (nElements == 1) {
-		setValue(value, pValueBuffer);
-	} else {
-		setValue(value, pValueBuffer, nElements);
 	}
 
 	// Add metadata to response
-	setAlarmMetadata(metadata, value);
 	setTimestampMetadata(metadata, value);
-	setDisplayMetadata(metadata, value);
-	setControlMetadata(metadata, value);
-	setAlarmLimitMetadata(metadata, value);
+	if (forValues) {
+		setAlarmMetadata(metadata, value);
+	}
+	if (forProperties) {
+		setDisplayMetadata(metadata, value);
+		setControlMetadata(metadata, value);
+		setAlarmLimitMetadata(metadata, value);
+	}
 
 	// Send reply
-	getOperation->reply(value);
+	returnFn(value);
+}
+
+/**
+ * Handle the get operation
+ *
+ * @param channel the channel that the request comes in on
+ * @param getOperation the current executing operation
+ * @param valuePrototype a value prototype that is made based on the expected type to be returned
+ */
+void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& getOperation,
+		const Value& valuePrototype) {
+	onGet(channel, valuePrototype, true, true, [&getOperation](Value& value) {
+		getOperation->reply(value);
+	}, [&getOperation](const char* errorMessage) {
+		getOperation->error(errorMessage);
+	});
 }
 
 /**
@@ -400,19 +418,40 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_
  * @param pValueBuffer The given value buffer
  * @param metadata to store the metadata
  */
-void SingleSource::getMetadata(void*& pValueBuffer, Metadata& metadata) {
+void SingleSource::getMetadata(void*& pValueBuffer, Metadata& metadata, bool forValues, bool forProperties) {
 	// Read out the metadata from the buffer
-	get4MetadataFields(pValueBuffer, uint16_t, metadata.metadata.stat, metadata.metadata.sevr, metadata.metadata.acks,
-			metadata.metadata.ackt);
-	getMetadataString(pValueBuffer, metadata.metadata.amsg);
-	getMetadataBuffer(pValueBuffer, const char, metadata.pUnits, DB_UNITS_SIZE);
-	getMetadataBuffer(pValueBuffer, const dbr_precision, metadata.pPrecision, dbr_precision_size);
+	if (forValues) {
+		// Alarm
+		get4MetadataFields(pValueBuffer, uint16_t, metadata.metadata.stat, metadata.metadata.sevr,
+				metadata.metadata.acks, metadata.metadata.ackt);
+		// Alarm message
+		getMetadataString(pValueBuffer, metadata.metadata.amsg);
+	}
+	if (forProperties) {
+		// Units
+		getMetadataBuffer(pValueBuffer, const char, metadata.pUnits, DB_UNITS_SIZE);
+		// Precision
+		getMetadataBuffer(pValueBuffer, const dbr_precision, metadata.pPrecision, dbr_precision_size);
+	}
+
+	// Time
 	get2MetadataFields(pValueBuffer, uint32_t, metadata.metadata.time.secPastEpoch, metadata.metadata.time.nsec);
+	// User tag
 	getMetadataField(pValueBuffer, uint64_t, metadata.metadata.utag);
-	getMetadataBuffer(pValueBuffer, const dbr_enumStrs, metadata.enumStrings, dbr_enumStrs_size);
-	getMetadataBuffer(pValueBuffer, const struct dbr_grDouble, metadata.graphicsDouble, dbr_grDouble_size);
-	getMetadataBuffer(pValueBuffer, const struct dbr_ctrlDouble, metadata.controlDouble, dbr_ctrlDouble_size);
-	getMetadataBuffer(pValueBuffer, const struct dbr_alDouble, metadata.alarmDouble, dbr_alDouble_size);
+
+	if (forValues) {
+		// Enum strings
+		getMetadataBuffer(pValueBuffer, const dbr_enumStrs, metadata.enumStrings, dbr_enumStrs_size);
+	}
+
+	if (forProperties) {
+		// Display
+		getMetadataBuffer(pValueBuffer, const struct dbr_grDouble, metadata.graphicsDouble, dbr_grDouble_size);
+		// Control
+		getMetadataBuffer(pValueBuffer, const struct dbr_ctrlDouble, metadata.controlDouble, dbr_ctrlDouble_size);
+		// Alarm limits
+		getMetadataBuffer(pValueBuffer, const struct dbr_alDouble, metadata.alarmDouble, dbr_alDouble_size);
+	}
 }
 
 /**
