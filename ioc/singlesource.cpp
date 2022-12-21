@@ -236,9 +236,9 @@ void SingleSource::subscriptionCallback(SubscriptionCtx* subscriptionContext, st
 	}
 
 	// Get and return the value to the monitor
-	auto pdbChannel = (subscriptionContext->pValueChannel.get() == pChannel) ? subscriptionContext->pValueChannel
-	                                                                         : subscriptionContext->pPropertiesChannel;
-	onGet(pdbChannel, subscriptionContext->prototype, true, true, [subscriptionContext](Value& value) {
+	bool forValue = (subscriptionContext->pValueChannel.get() == pChannel);
+	auto pdbChannel = forValue ? subscriptionContext->pValueChannel : subscriptionContext->pPropertiesChannel;
+	onGet(pdbChannel, subscriptionContext->prototype, forValue, !forValue, [subscriptionContext](Value& value) {
 		std::cout << value << std::endl;
 		// Return value
 		subscriptionContext->subscriptionControl->tryPost(value);
