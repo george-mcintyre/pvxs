@@ -42,7 +42,6 @@
     _getters                                                   \
     (_buffer) = (void*)__pBuffer;                               \
 }
-#define setBufferField(_buffer, _type, _value, _field) *(_type*)(_buffer) = (_value) [ #_field ].as< _type>()
 
 #define metadataFieldGetter(_field) (_field) = *__pBuffer++;
 

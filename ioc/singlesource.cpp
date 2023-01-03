@@ -45,6 +45,15 @@ SingleSource::SingleSource()
 	}
 
 	allRecords.names = names;
+
+	// Start event pump
+	if ( !eventContext) {
+		throw std::runtime_error("Event Context failed to initialise: db_init_events()");
+	}
+
+	if ( db_start_events(eventContext.get(), "qsrvSingle", nullptr, nullptr, epicsThreadPriorityCAServerLow-1) ) {
+		throw std::runtime_error("Could not start event thread: db_start_events()");
+	}
 }
 
 /**
@@ -161,7 +170,6 @@ void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::
 	channelControl
 			->onSubscribe([this, subscriptionContext](
 					std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
-				std::cout << "Subscription started" << std::endl;
 				subscriptionContext->subscriptionControl = subscriptionOperation
 						->connect(subscriptionContext->prototype);
 
@@ -185,14 +193,6 @@ void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::
 						onDisableSubscription(subscriptionContext);
 					}
 				});
-				subscriptionContext->subscriptionControl->onHighMark([] {
-					// TODO What to do about this?
-					std::cout << "High Mark" << std::endl;
-				});
-				subscriptionContext->subscriptionControl->onLowMark([] {
-					// TODO What to do about this?
-					std::cout << "Low Mark" << std::endl;
-				});
 			});
 }
 
@@ -207,8 +207,10 @@ void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::
 __attribute__((unused)) void SingleSource::subscriptionValueCallback(void* userArg, struct dbChannel* pChannel, int eventsRemaining,
 		struct db_field_log* pDbFieldLog) {
 	auto subscriptionContext = (SubscriptionCtx*)userArg;
-	std::cout << "Got Value Callback" << std::endl;
-	setEventHandledFlag(subscriptionContext, hadValueEvent);
+	{
+		epicsGuard<epicsMutex> G((subscriptionContext)->eventLock);
+		subscriptionContext->hadValueEvent = true;
+	}
 	subscriptionCallback(subscriptionContext, pChannel, eventsRemaining, pDbFieldLog);
 }
 
@@ -223,8 +225,10 @@ __attribute__((unused)) void SingleSource::subscriptionValueCallback(void* userA
 __attribute__((unused)) void SingleSource::subscriptionPropertiesCallback(void* userArg, struct dbChannel* pChannel, int eventsRemaining,
 		struct db_field_log* pDbFieldLog) {
 	auto subscriptionContext = (SubscriptionCtx*)userArg;
-	std::cout << "Got Properties Callback" << std::endl;
-	setEventHandledFlag(subscriptionContext, hadPropertyEvent);
+	{
+		epicsGuard<epicsMutex> G((subscriptionContext)->eventLock);
+		subscriptionContext->hadPropertyEvent = true;
+	}
 	subscriptionCallback(subscriptionContext, pChannel, eventsRemaining, pDbFieldLog);
 }
 
@@ -239,7 +243,6 @@ void SingleSource::subscriptionCallback(SubscriptionCtx* subscriptionContext, st
 	bool forValue = (subscriptionContext->pValueChannel.get() == pChannel);
 	auto pdbChannel = forValue ? subscriptionContext->pValueChannel : subscriptionContext->pPropertiesChannel;
 	onGet(pdbChannel, subscriptionContext->prototype, forValue, !forValue, [subscriptionContext](Value& value) {
-		std::cout << value << std::endl;
 		// Return value
 		subscriptionContext->subscriptionControl->tryPost(value);
 	}, [](const char* errorMessage) {
@@ -253,7 +256,6 @@ void SingleSource::subscriptionCallback(SubscriptionCtx* subscriptionContext, st
  * @param pChannel the pointer to the database channel subscribed to
  */
 void SingleSource::onStartSubscription(const std::shared_ptr<subscriptionCtx>& subscriptionContext) {
-	std::cout << "Enabling subscription" << std::endl;
 	db_event_enable(subscriptionContext->pValueEventSubscription.get());
 	db_event_enable(subscriptionContext->pPropertiesEventSubscription.get());
 	db_post_single_event(subscriptionContext->pValueEventSubscription.get());
@@ -266,7 +268,6 @@ void SingleSource::onStartSubscription(const std::shared_ptr<subscriptionCtx>& s
  * @param pChannel the pointer to the database channel subscribed to
  */
 void SingleSource::onDisableSubscription(const std::shared_ptr<subscriptionCtx>& subscriptionContext) {
-	std::cout << "Disabling subscription" << std::endl;
 	db_event_disable(subscriptionContext->pValueEventSubscription.get());
 	db_event_disable(subscriptionContext->pPropertiesEventSubscription.get());
 }
@@ -362,18 +363,14 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel,
 	// based on whether it is an enum, scalar or array then call the appropriate setter
 	if (forValues) {
 		if (dbAddress.dbr_field_type == DBR_ENUM) {
-			if (value["value.index"]) {
-				value["value.index"] = *((uint16_t*)pValueBuffer);
+			value["value.index"] = *((uint16_t*)pValueBuffer);
 
-				shared_array<std::string> choices(metadata.enumStrings->no_str);
-				for (auto i = 0; i < metadata.enumStrings->no_str; i++) {
-					choices[i] = metadata.enumStrings->strs[i];
-				}
-				value["value.choices"] = choices.freeze().castTo<const void>();
-			} else {
-				errorFn("Programming error: Database enum record but not NTEnum response");
-				return;
+			// TODO Don't output choices for subscriptions unless changed
+			shared_array<std::string> choices(metadata.enumStrings->no_str);
+			for (auto i = 0; i < metadata.enumStrings->no_str; i++) {
+				choices[i] = metadata.enumStrings->strs[i];
 			}
+			value["value.choices"] = choices.freeze().castTo<const void>();
 		} else if (nElements == 1) {
 			setValue(value, pValueBuffer);
 		} else {
@@ -487,12 +484,7 @@ void SingleSource::onPut(const std::shared_ptr<dbChannel>& channel, std::unique_
 	nElements = MIN(dbAddress.no_elements, sizeof(valueBuffer) / dbAddress.field_size);
 
 	if (dbAddress.dbr_field_type == DBR_ENUM) {
-		if (value["value.index"]) {
-			setBufferField(pValueBuffer, uint16_t, value, value.index);
-		} else {
-			putOperation->error("Programming error: Database enum record but not NTEnum value");
-			return;
-		}
+		*(uint16_t*)(pValueBuffer) = (value)["value.index"].as<uint16_t>();
 	} else if (nElements == 1) {
 		setBuffer(value, pValueBuffer);
 	} else {
@@ -575,6 +567,7 @@ void SingleSource::setBuffer(const Value& value, void* pValueBuffer){
 void SingleSource::setBuffer(const Value& value, void* pValueBuffer, long nElements) {
 	auto valueType(value["value"].type());
 	if (valueType.code == TypeCode::StringA) {
+//		auto s = value.as<shared_array<const std::string>>()
 		char valueRef[20];
 		for (auto i = 0; i < nElements; i++) {
 			snprintf(valueRef, 20, "value[%d]", i);
@@ -635,6 +628,7 @@ template<typename valueType> void SingleSource::setBuffer(const Value& value, vo
 // Get the value into the given database value buffer (templated)
 template<typename valueType> void SingleSource::setBuffer(const Value& value, void* pValueBuffer, long nElements) {
 	char valueRef[20];
+	// auto s = value.as<shared_array<const valueType>>();
 	for (auto i = 0; i < nElements; i++) {
 		snprintf(valueRef, 20, "value[%d]", i);
 		((valueType*)pValueBuffer)[i] = value[valueRef].as<valueType>();

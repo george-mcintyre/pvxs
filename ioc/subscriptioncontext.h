@@ -11,18 +11,6 @@
 #define PVXS_SUBSCRIPTIONCONTEXT_H
 
 /**
- * Sets the given event-handled flag on the specified subscription context
- * @param _subscriptionCtx the subscription context
- * @param _event the event-handled flag to set
- */
-#define setEventHandledFlag(_subscriptionCtx, _event) \
-if ( !(_subscriptionCtx)->_event ) { \
-    epicsMutexMustLock ( (_subscriptionCtx)->eventLock ); \
-    (_subscriptionCtx)->_event = true; \
-    epicsMutexUnlock ( (_subscriptionCtx)->eventLock ); \
-}
-
-/**
  * Add a subscription event by calling db_add_event using the given subscriptionCtx
  * and selecting the correct elements based on the given type of event being added.
  * You need to specify the correct options that correspond to the event type.
@@ -38,7 +26,7 @@ if ( !(_subscriptionCtx)->_event ) { \
     .reset(db_add_event((_eventContext) .get(),                                    \
         (_subscriptionContext) ->p ## _type ## Channel.get(),                      \
 		subscription ## _type ## Callback,                                         \
-		(void*)& (_subscriptionContext),                                           \
+		(void*) (_subscriptionContext).get(),                                      \
 		_options                                                                   \
 	),                                                                             \
 	[](dbEventSubscription pEventSubscription) {                                   \
@@ -55,7 +43,7 @@ namespace ioc {
  */
 typedef struct subscriptionCtx {
 	// For locking access to subscription context
-	epicsMutexId eventLock{};
+	epicsMutex eventLock{};
 	std::shared_ptr<dbChannel> pValueChannel{};
 	std::shared_ptr<dbChannel> pPropertiesChannel{};
 	std::shared_ptr<void> pValueEventSubscription{};
