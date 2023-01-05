@@ -20,6 +20,14 @@ namespace ioc {
  *  - type converters to and from pvxs and db
  */
 class SingleSource : public server::Source {
+public:
+	SingleSource();
+	void onCreate(std::unique_ptr<server::ChannelControl>&& channelControl) final;
+	List onList() final;
+	void onSearch(Search& searchOperation) final;
+	void show(std::ostream& outputStream) final;
+
+private:
 	// List of all database records that this single source serves
 	List allRecords;
 	// The event context for all subscriptions
@@ -100,13 +108,6 @@ class SingleSource : public server::Source {
 	//////////////////////////////
 	// Utility function to get the corresponding database address structure given a pvName
 	static long nameToAddr(const char* pvName, DBADDR* pdbAddress);
-
-public:
-	SingleSource();
-	void onCreate(std::unique_ptr<server::ChannelControl>&& channelControl) final;
-	List onList() final;
-	void onSearch(Search& searchOperation) final;
-	void show(std::ostream& outputStream) final;
 };
 
 } // ioc

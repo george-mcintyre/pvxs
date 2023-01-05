@@ -48,7 +48,7 @@ SingleSource::SingleSource()
 
 	// Start event pump
 	if ( !eventContext) {
-		throw std::runtime_error("Event Context failed to initialise: db_init_events()");
+		throw std::runtime_error("Single Source: Event Context failed to initialise: db_init_events()");
 	}
 
 	if ( db_start_events(eventContext.get(), "qsrvSingle", nullptr, nullptr, epicsThreadPriorityCAServerLow-1) ) {
