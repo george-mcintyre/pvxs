@@ -50,17 +50,17 @@ record(compress,"$(user):compressExample")
 	field(HOPR,"10")
 	field(EGU,"Counts")
 }
-record(stringin, "$(user):string")
+record(stringin, "$(user):stringExample")
 {
-        field(VAL,"Some random value")
-        field(PINI,"YES")
+    field(VAL,"Some random value")
+    field(PINI,"YES")
 }
-record(waveform,"$(user):array")
+record(waveform,"$(user):arrayExample")
 {
-        field(FTVL, "DOUBLE")
-        field(NELM, "5")
+    field(FTVL, "DOUBLE")
+    field(NELM, "5")
 }
-record(longin, "$(user):long") {
+record(longin, "$(user):longExample") {
   field(VAL, "102042")
   field(SEVR, "1")
   field(STAT, "1")
@@ -69,7 +69,7 @@ record(longin, "$(user):long") {
   field(LOPR, "10")
   info(Q:form, "Hex")
 }
-record(mbbi, "$(user):enum") {
+record(mbbi, "$(user):enumExample") {
   field(RVAL, "10")
   field(VAL, "2")
   field(ZRST, "zero")
