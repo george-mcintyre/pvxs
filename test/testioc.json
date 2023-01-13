@@ -1,0 +1,61 @@
+{
+  "george:tableExample2": {
+    "+id": "epics:nt/NTTable:1.0",
+    "": {
+      "+type": "meta",
+      "+channel": "george:vectorExampleD1.VAL"
+    },
+    "labels": {
+      "+channel": "george:groupExampleAS.VAL",
+      "+type": "plain"
+    },
+    "value.A": {
+      "+channel": "george:vectorExampleD1.VAL",
+      "+type": "plain",
+      "+putorder": 1
+    },
+    "value.B": {
+      "+channel": "george:vectorExampleD2.VAL",
+      "+type": "plain",
+      "+putorder": 1
+    },
+    "_save": {
+      "+channel": "george:groupExampleSave.VAL",
+      "+type": "proc",
+      "+putorder": 2,
+      "+trigger": "*"
+    }
+  },
+  "george:structExample2": {
+    "ai": {
+      "+channel": "george:aiExample.VAL",
+      "+putorder": 0
+    },
+    "calc": {
+      "+channel": "george:calcExample.VAL",
+      "+putorder": 1
+    },
+    "string": {
+      "+channel": "george:stringExample.VAL",
+      "+putorder": 0
+    },
+    "array": {
+      "+channel": "george:arrayExample.VAL",
+      "+putorder": 0
+    },
+    "long": {
+      "+channel": "george:longExample.VAL",
+      "+putorder": 1
+    },
+    "enum": {
+      "+channel": "george:enumExample.VAL",
+      "+putorder": 0
+    },
+    "_save": {
+      "+channel": "george:structExampleSave.VAL",
+      "+type": "proc",
+      "+putorder": 2,
+      "+trigger": "*"
+    }
+  }
+}

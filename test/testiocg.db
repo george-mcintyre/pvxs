@@ -20,6 +20,7 @@ record(aao, "$(user):vectorExampleD1") {
     field(NELM, "10")
     info(Q:group, {
         "$(user):tableExample":{
+            "":{+type:"meta", +channel:"VAL"},
             "value.A":{+type:"plain", +channel:"VAL", +putorder:1}
         }
     })
@@ -31,7 +32,6 @@ record(aao, "$(user):vectorExampleD2") {
     field(NELM, "10")
     info(Q:group, {
         "$(user):tableExample":{
-            "":{+type:"meta", +channel:"VAL"},
             "value.B":{+type:"plain", +channel:"VAL", +putorder:1}
         }
     })
