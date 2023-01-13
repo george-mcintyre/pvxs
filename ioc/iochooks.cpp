@@ -89,57 +89,8 @@ void pvxsAtExit(void* pep) {
 }
 
 ////////////////////////////////////
-// Three ioc shell commands for pvxs
+// Two ioc shell commands for pvxs
 ////////////////////////////////////
-
-/**
- * List db record/field names that are registered with the pvxs IOC server
- * With no arguments this will list all the record names.
- * With the optional showDetails arguments it will additionally display detailed information.
- *
- * @param pShowDetails if "yes", "YES", "true","TRUE", "1" then show details, otherwise don't show details
- */
-void pvxsl(const char* pShowDetails) {
-	runOnPvxsServer([&pShowDetails](server::Server* pPvxsServer) {
-		auto showDetails = false;
-
-		if (pShowDetails && (!strcasecmp(pShowDetails, "yes") || !strcasecmp(pShowDetails, "true")
-				|| !strcmp(pShowDetails, "1"))) {
-			showDetails = true;
-		}
-
-		// For each registered source/IOID pair print a line of either detailed or regular information
-		for (auto& pair: pPvxsServer->listSource()) {
-			auto& record = pair.first;
-			auto& ioId = pair.second;
-
-			auto source = pPvxsServer->getSource(record, ioId);
-			if (!source) {
-				// if the source is not yet available in the server then we're in a race condition
-				// silently skip source
-				continue;
-			}
-
-			auto list = source->onList();
-
-			if (list.names && !list.names->empty()) {
-				if (showDetails) {
-					std::cout << "------------------" << std::endl;
-					std::cout << "SOURCE: " << record.c_str() << "@" << pair.second
-					          << (list.dynamic ? " [dynamic]" : "") << std::endl;
-					std::cout << "------------------" << std::endl;
-					std::cout << "RECORDS: " << std::endl;
-				}
-				for (auto& name: *list.names) {
-					if (showDetails) {
-						std::cout << "  ";
-					}
-					std::cout << name.c_str() << std::endl;
-				}
-			}
-		}
-	});
-}
 
 /**
  * Show the PVXS server report.
@@ -260,16 +211,11 @@ void pvxsBaseRegistrar() {
 	try {
 		pvxs::logger_config_env();
 
-		// Register commands to be available in the IOC shell
-		IOCShCommand<const char*>("pvxsl", "[<show_detailed_information?>]", "PVXS Sources list.\n"
-		                                                                     "List record/field names.\n"
-		                                                                     "If `show_detailed_information?` flag is `yes`, `true` or `1` then show detailed information.\n")
-				.implementation<&pvxsl>();
 		IOCShCommand<int>("pvxsr", "[<show_detailed_information?>]", "PVXS Server Report.  "
 		                                                             "Shows information about server config (level==0)\n"
-		                                                             "or about connected clients (level>0).")
+		                                                             "or about connected clients (level>0).\n")
 				.implementation<&pvxsr>();
-		IOCShCommand<>("pvxsi").implementation<&pvxsi>();
+		IOCShCommand<>("pvxsi", "Show detailed server information\n").implementation<&pvxsi>();
 
 		// Initialise the PVXS Server
 		initialisePvxsServer();
