@@ -63,68 +63,75 @@ MAIN(testioc) {
 		ioc::server();
 	});
 
-	// Test loading configuration file
+	// Test (1) loading configuration file
 	testDiag("dbLoadDatabase(\"testioc.dbd\")");
 	testdbReadDatabase("testioc.dbd", nullptr, nullptr);
+	// Test (2)
 	testEq(0, testioc_registerRecordDeviceDriver(pdbbase));
+	// Test (3)
 	testEq(0, iocshCmd("pvxsr"));
+	// Test (4)
 	testEq(0, iocshCmd("pvxsi"));
 
 	// Loading database
 	testdbReadDatabase(EPICS_BASE OSI_PATH_SEPARATOR "test" OSI_PATH_SEPARATOR "testioc.db", nullptr, "user=test");
 
-	// Test starting server
+	// (5) Test starting server
 	testTrue((bool)ioc::server());
 
+	// (5)
 	pvxsTestIocInitOk();
 
-	// Test fields loaded ok
+	// Test (6) fields loaded ok
 	testEq(0, iocshCmd("dbl"));
 
-	// Test ability to get fields via shell
+	// Test (7-11) ability to get fields via shell
 	testEq(0, iocshCmd("dbgf test:aiExample"));
 	testEq(0, iocshCmd("dbgf test:calcExample"));
 	testEq(0, iocshCmd("dbgf test:compressExample"));
-	testEq(0, iocshCmd("dbgf test:string"));
-	testEq(0, iocshCmd("dbgf test:array"));
+	testEq(0, iocshCmd("dbgf test:stringExample"));
+	testEq(0, iocshCmd("dbgf test:arrayExample"));
 
-	// Test value of fields correct
+	// Test (12-16) value of fields correct
 	testdbGetFieldEqual("test:aiExample", DBR_DOUBLE, 42.2);
 	testdbGetFieldEqual("test:calcExample", DBR_DOUBLE, 0);
 	testdbGetFieldEqual("test:compressExample", DBR_DOUBLE, 42.2);
-	testdbGetFieldEqual("test:string", DBR_STRING, "Some random value");
+	testdbGetFieldEqual("test:stringExample", DBR_STRING, "Some random value");
 	double expected = 0.0;
-	testdbGetArrFieldEqual("test:array", DBR_DOUBLE, 0, 0, &expected);
+	testdbGetArrFieldEqual("test:arrayExample", DBR_DOUBLE, 0, 0, &expected);
 
 	// Get a client config to connect to server for network testing
 	client::Context cli(ioc::server().clientConfig().build());
 
-	// Test client access to ioc
+	// Test (17) client access to ioc
 	auto val = cli.get("test:aiExample").exec()->wait(5.0);
 	auto aiExample = val["value"].as<double>();
 	testEq(42.2, aiExample);
 
+	// Test (18)
 	val = cli.get("test:calcExample").exec()->wait(5.0);
 	auto calcExample = val["value"].as<double>();
 	testEq(0.0, calcExample);
 
-	// Set test values into array
+	// Set test (19) values into array
 	shared_array<double> testArray({ 1.0, 2.0, 3.0, 4.0, 5.0 });
-	testdbPutArrFieldOk("test:array", DBR_DOUBLE, testArray.size(), testArray.data());
-
-	val = cli.get("test:array").exec()->wait(5.0);
+	testdbPutArrFieldOk("test:arrayExample", DBR_DOUBLE, testArray.size(), testArray.data());
+	val = cli.get("test:arrayExample").exec()->wait(5.0);
 	auto array = val["value"].as<shared_array<const double>>();
+	// (20)
 	testArrEq(testArray, array);
 
 //	val = cli.get("test:compressExample").exec()->wait(5.0);
 //	auto compressExample = val["value"].as<double>();
 //	testEq(42.2, compressExample);
 
-	val = cli.get("test:long").exec()->wait(5.0);
+	// (21)
+	val = cli.get("test:longExample").exec()->wait(5.0);
 	auto longValue = val["value"].as<long>();
 	testEq(102042, longValue);
 
-	val = cli.get("test:string").exec()->wait(5.0);
+	// (22)
+	val = cli.get("test:stringExample").exec()->wait(5.0);
 	auto testString = val["value"];
 	testStrEq(std::string(SB() << testString), "string = \"Some random value\"\n");
 
