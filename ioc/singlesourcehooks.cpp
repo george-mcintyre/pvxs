@@ -19,13 +19,13 @@ namespace pvxs {
 namespace ioc {
 /**
  * List single db record/field names that are registered with the pvxs IOC server
- * With no arguments this will list all the record names.
+ * With no arguments this will list all the single record names.
  * With the optional showDetails arguments it will additionally display detailed information.
  *
  * @param pShowDetails if "yes", "YES", "true","TRUE", "1" then show details, otherwise don't show details
  */
 void pvxsl(const char* pShowDetails) {
-	runOnPvxsServer([&pShowDetails](server::Server* pPvxsServer) {
+	runOnPvxsServer([&pShowDetails](IOCServer* pPvxsServer) {
 		auto showDetails = false;
 
 		if (pShowDetails && (!strcasecmp(pShowDetails, "yes") || !strcasecmp(pShowDetails, "true")
@@ -66,8 +66,8 @@ void pvxsl(const char* pShowDetails) {
 	});
 }
 
-} // ioc
-} // pvxs
+}
+} // namespace pvxs::ioc
 
 using namespace pvxs::ioc;
 
@@ -97,11 +97,11 @@ void qsrvSingleSourceInit(initHookState theInitHookState) {
  * single record type sources defined so far.  Note that you can define sources up until the `iocInit()` call,
  * after which point the `initHookAfterIocBuilt` handlers are called and will register all the defined records.
  */
-void pvxsSingleSourceRegistrar(void) {
+void pvxsSingleSourceRegistrar() {
 	// Register commands to be available in the IOC shell
-	IOCShCommand<const char*>("pvxsl", "[<show_detailed_information?>]", "PVXS Sources list.\n"
-	                                                                     "List record/field names.\n"
-	                                                                     "If `show_detailed_information?` flag is `yes`, `true` or `1` then show detailed information.\n")
+	IOCShCommand<const char*>("pvxsl", "[show_detailed_information?]", "Single Sources list.\n"
+																	   "List record/field names.\n"
+																	   "If `show_detailed_information?` flag is `yes`, `true` or `1` then show detailed information.\n")
 			.implementation<&pvxsl>();
 
 	initHookRegister(&qsrvSingleSourceInit);

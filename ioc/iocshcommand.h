@@ -81,7 +81,7 @@ public:
 	}
 };
 
-void runOnServer(const std::function <void (server::Server *)>& function, const char *method = nullptr, const char *context = nullptr);
+void runOnServer(const std::function <void (IOCServer *)>& function, const char *method = nullptr, const char *context = nullptr);
 
 } // pvxs
 } // ioc

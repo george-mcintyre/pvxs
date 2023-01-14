@@ -7,6 +7,7 @@
 #define PVXS_IOCHOOKS_H
 
 #include <pvxs/version.h>
+#include "IOCServer.h"
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 
@@ -67,7 +68,7 @@ namespace ioc {
  * @endcode
  */
 PVXS_IOC_API
-server::Server server();
+IOCServer &server();
 
 }} // namespace pvxs::ioc
 #endif // PVXS_IOCHOOKS_H

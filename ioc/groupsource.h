@@ -15,6 +15,16 @@
 namespace pvxs {
 namespace ioc {
 
+/**
+ * Load JSON group definition file.
+ * This function does not actually parse the given file, but adds it to the list of files to be loaded,
+ * at the appropriate time in the startup process.
+ *
+ * @param jsonFilename the json file containing the group definitions
+ * @return 0 for success, 1 for failure
+ */
+long dbLoadGroup(const char* jsonFilename);
+
 class GroupSource : public server::Source {
 public:
 	// List of all database records that this single source serves

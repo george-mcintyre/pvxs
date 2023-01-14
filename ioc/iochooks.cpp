@@ -25,6 +25,7 @@
 #include <epicsExport.h>
 
 #include "iocshcommand.h"
+#include "IOCServer.h"
 
 namespace pvxs {
 namespace ioc {
@@ -32,14 +33,14 @@ namespace ioc {
 DEFINE_LOGGER(log, "pvxs.ioc");
 
 // The pvxs server singleton
-std::atomic<server::Server*> pvxsServer{};
+std::atomic<IOCServer*> pvxsServer{};
 
 /**
  * Get the pvxs server instance
  *
  * @return the pvxs server instance
  */
-server::Server server() {
+IOCServer &server() {
 	if (auto pPvxsServer = pvxsServer.load()) {
 		return *pPvxsServer;
 	} else {
@@ -54,7 +55,7 @@ server::Server server() {
  * @param method the string method from which this is called.  Use the __func__ macro by default
  * @param context the activity being attempted when the error occurred
  */
-void runOnServer(const std::function<void(server::Server*)>& function, const char* method, const char* context) {
+void runOnServer(const std::function<void(IOCServer*)>& function, const char* method, const char* context) {
 	try {
 		if (auto pPvxsServer = pvxsServer.load()) {
 			function(pPvxsServer);
@@ -66,7 +67,7 @@ void runOnServer(const std::function<void(server::Server*)>& function, const cha
 		if (method) {
 			std::cerr << "Error in " << method << ": ";
 		}
-		std::cerr << e.what();
+		std::cerr << e.what() << std::endl;
 	}
 }
 
@@ -78,10 +79,10 @@ void runOnServer(const std::function<void(server::Server*)>& function, const cha
  * @param pep - The pointer to the exit parameter list - unused
  */
 void pvxsAtExit(void* pep) {
-	runOnPvxsServerWhile_("In IOC exit event handler", [](server::Server* pPvxsServer) {
+	runOnPvxsServerWhile_("In IOC exit event handler", [](IOCServer* pPvxsServer) {
 		if (pvxsServer.compare_exchange_strong(pPvxsServer, nullptr)) {
 			// take ownership
-			std::unique_ptr<server::Server> serverInstance(pPvxsServer);
+			std::unique_ptr<IOCServer> serverInstance(pPvxsServer);
 			serverInstance->stop();
 			log_debug_printf(log, "Stopped Server%s", "\n");
 		}
@@ -100,7 +101,7 @@ void pvxsAtExit(void* pep) {
  * @param detail
  */
 void pvxsr(int detail) {
-	runOnPvxsServer([&detail](server::Server* pPvxsServer) {
+	runOnPvxsServer([&detail](IOCServer* pPvxsServer) {
 		std::ostringstream strm;
 		Detailed D(strm, detail);
 		strm << *pPvxsServer;
@@ -151,14 +152,14 @@ void pvxsInitHook(initHookState theInitHookState) {
 	} else
 		// iocRun()
 	if (theInitHookState == initHookAfterCaServerRunning) {
-		runOnPvxsServer([](server::Server* pPvxsServer) {
+		runOnPvxsServer([](IOCServer* pPvxsServer) {
 			pPvxsServer->start();
 			log_debug_printf(log, "Started Server %p", pPvxsServer);
 		});
 	} else
 		// iocPause()
 	if (theInitHookState == initHookAfterCaServerPaused) {
-		runOnPvxsServer([](server::Server* pPvxsServer) {
+		runOnPvxsServer([](IOCServer* pPvxsServer) {
 			pPvxsServer->stop();
 			log_debug_printf(log, "Stopped Server %p", pPvxsServer);
 		});
@@ -182,13 +183,14 @@ void pvxsBaseRegistrar();
  * Create the pvxs server instance.  We use the global pvxsServer atomic
  */
 void initialisePvxsServer() {
+	using namespace pvxs::server;
 	auto serv = pvxsServer.load();
 	if (!serv) {
-		std::unique_ptr<pvxs::server::Server> temp(new pvxs::server::Server(pvxs::server::Config::from_env()));
+		std::unique_ptr<IOCServer> temp(new IOCServer(Config::from_env()));
 
 		if (pvxsServer.compare_exchange_strong(serv, temp.get())) {
 			log_debug_printf(log, "Installing Server %p\n", temp.get());
-			temp.release();
+			(void)temp.release();
 		} else {
 			log_crit_printf(log, "Race installing Server? %p\n", serv);
 		}
@@ -211,9 +213,9 @@ void pvxsBaseRegistrar() {
 	try {
 		pvxs::logger_config_env();
 
-		IOCShCommand<int>("pvxsr", "[<show_detailed_information?>]", "PVXS Server Report.  "
-		                                                             "Shows information about server config (level==0)\n"
-		                                                             "or about connected clients (level>0).\n")
+		IOCShCommand<int>("pvxsr", "[show_detailed_information?]", "PVXS Server Report.  "
+		                                                           "Shows information about server config (level==0)\n"
+		                                                           "or about connected clients (level>0).\n")
 				.implementation<&pvxsr>();
 		IOCShCommand<>("pvxsi", "Show detailed server information\n").implementation<&pvxsi>();
 
@@ -223,7 +225,7 @@ void pvxsBaseRegistrar() {
 		// Register our hook handler to intercept certain state changes
 		initHookRegister(&pvxsInitHook);
 	} catch (std::exception& e) {
-		std::cerr << "Error in " << __func__ << " : " << e.what() << std::endl ;
+		std::cerr << "Error in " << __func__ << " : " << e.what() << std::endl;
 	}
 }
 } // namespace
