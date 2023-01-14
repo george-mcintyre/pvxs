@@ -7,7 +7,6 @@
 #define PVXS_IOCHOOKS_H
 
 #include <pvxs/version.h>
-#include "IOCServer.h"
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 
@@ -56,7 +55,7 @@ namespace ioc {
  *         return;
  *
  *     server::SharedPV mypv(...);
- *     ioc::server()
+ *     ioc::iocServer()
  *           .addPV("my:pv:name", mypv);
  * }
  * static void myregistrar() {
@@ -68,7 +67,7 @@ namespace ioc {
  * @endcode
  */
 PVXS_IOC_API
-IOCServer &server();
+server::Server &server();
 
 }} // namespace pvxs::ioc
 #endif // PVXS_IOCHOOKS_H

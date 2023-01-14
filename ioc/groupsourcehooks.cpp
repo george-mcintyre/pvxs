@@ -125,7 +125,7 @@ void qsrvGroupSourceInit(initHookState theInitHookState) {
 	if (theInitHookState != initHookAfterIocBuilt) {
 		return;
 	}
-	pvxs::ioc::server().addSource("qsrv", std::make_shared<pvxs::ioc::GroupSource>(), 1);
+	pvxs::ioc::iocServer().addSource("qsrv", std::make_shared<pvxs::ioc::GroupSource>(), 1);
 }
 
 /**

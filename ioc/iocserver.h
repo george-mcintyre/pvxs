@@ -24,6 +24,8 @@ public:
 	epicsMutex pvMapMutex{};
 };
 
+IOCServer &iocServer();
+
 } // pvxs
 } // ioc
 

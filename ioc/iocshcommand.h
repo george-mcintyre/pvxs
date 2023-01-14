@@ -15,6 +15,7 @@
 
 #include "iocshargument.h"
 #include "iocshindex.h"
+#include "iocserver.h"
 
 namespace pvxs {
 namespace ioc {

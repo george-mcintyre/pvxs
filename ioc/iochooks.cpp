@@ -25,7 +25,7 @@
 #include <epicsExport.h>
 
 #include "iocshcommand.h"
-#include "IOCServer.h"
+#include "iocserver.h"
 
 namespace pvxs {
 namespace ioc {
@@ -36,11 +36,20 @@ DEFINE_LOGGER(log, "pvxs.ioc");
 std::atomic<IOCServer*> pvxsServer{};
 
 /**
+ * Get the plain pvxs server instance
+ *
+ * @return the pvxs server instance
+ */
+server::Server &server() {
+	return iocServer();
+}
+
+/**
  * Get the pvxs server instance
  *
  * @return the pvxs server instance
  */
-IOCServer &server() {
+IOCServer &iocServer() {
 	if (auto pPvxsServer = pvxsServer.load()) {
 		return *pPvxsServer;
 	} else {

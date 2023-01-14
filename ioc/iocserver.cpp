@@ -4,7 +4,7 @@
  * in file LICENSE that is included with this distribution.
  */
 
-#include "IOCServer.h"
+#include "iocserver.h"
 
 namespace pvxs {
 namespace ioc {
