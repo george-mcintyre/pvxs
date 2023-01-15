@@ -8,19 +8,34 @@
 #define PVXS_GROUPPV_H
 
 #include <map>
+#include <vector>
+#include "grouppvchannel.h"
 
 namespace pvxs {
 namespace ioc {
 
-class GroupPV {
-	GroupPV() = default;
-	virtual ~GroupPV() = default;
+/**
+ * A Group PV
+ * This class represents a group PV.  It contains a set of channels
+ * `GroupPvChannels` that link the group to regular db channels.  Each of these channels
+ * define fields that are scalar, array or processing placeholders
+ */
+class GroupPv {
+	GroupPv() = default;
+	virtual ~GroupPv() = default;
+	bool atomicPutGet{ false }, atomicMonitor{ false };
+	GroupPvChannels channels;
 
 public:
-	virtual void show(int lvl) {}
+	/**
+	 * Show details for this group
+	 * @param level the level of detail to show.  0 fields only
+	 */
+	void show(int level);
 };
 
-typedef std::map<std::string, std::shared_ptr<GroupPV>> GroupPvMap;
+// A map of group name to GroupPv
+typedef std::map<std::string, std::shared_ptr<GroupPv>> GroupPvMap;
 
 } // pvxs
 } // ioc
