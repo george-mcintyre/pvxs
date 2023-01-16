@@ -19,11 +19,6 @@ class GroupProcessorContext {
 	const std::string channelPrefix;
 	IOCServer* iocServer;
 
-	// depth 0 - invalid
-	// depth 1 - top Object
-	// depth 2 - Group
-	// depth 3 - field
-
 public:
 	std::string msg;
 	unsigned depth; // number of '{'s
