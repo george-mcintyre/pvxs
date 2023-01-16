@@ -9,10 +9,25 @@
 
 #include <map>
 #include <vector>
+#include <set>
 #include "grouppvchannel.h"
 
 namespace pvxs {
 namespace ioc {
+
+/**
+ * Group pv channel trigger map, maps field name to set of related field it is triggered by
+ */
+typedef std::map<std::string, FieldTriggers> GroupPvChannelTriggersMap;
+
+/**
+ * Tristate value for status flags
+ */
+typedef enum {
+	Unset,
+	True,
+	False
+} TriState;
 
 /**
  * A Group PV
@@ -21,17 +36,24 @@ namespace ioc {
  * define fields that are scalar, array or processing placeholders
  */
 class GroupPv {
+	GroupPvChannelTriggersMap triggerMap;   // The trigger map, mapping fields to related triggering fields
+
+	bool atomicPutGet{ false }, atomicMonitor{ false }, hasTriggers{ false };
+public:
 	GroupPv() = default;
 	virtual ~GroupPv() = default;
-	bool atomicPutGet{ false }, atomicMonitor{ false };
-	GroupPvChannels channels;
 
-public:
+	GroupPvChannels channels;               // The channels vector, listing all channels in this group
+	GroupPvChannelsMap channelMap;          // The channel map, mapping field name to the field index number in the channel's fields vector
+	GroupPvFieldsMap fieldMap;              // The fields map, mapping field name to the GroupPvChannelField
+	TriState atomic{ Unset };
+	std::string structureId;                // The Normative Type structure ID or any other arbitrary string if not a normative type
+
 	/**
 	 * Show details for this group
 	 * @param level the level of detail to show.  0 fields only
 	 */
-	void show(int level);
+	void show(int level) const;
 };
 
 // A map of group name to GroupPv

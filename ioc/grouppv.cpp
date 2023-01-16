@@ -16,7 +16,7 @@ namespace ioc {
  * Show details for this group
  * @param level the level of detail to show.  0 fields only
  */
-void GroupPv::show(int level) {
+void GroupPv::show(int level) const {
 	// no locking as we only print things which are const after initialization
 
 	// Group field information
@@ -36,6 +36,5 @@ void GroupPv::show(int level) {
 		}
 	}
 }
-
 } // pvxs
 } // ioc

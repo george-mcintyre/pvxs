@@ -17,11 +17,14 @@ class IOCServer : public server::Server {
 
 public:
 	explicit IOCServer(const server::Config& config);
-	GroupPvMap pvMap;
+	GroupPvMap groupPvMap;
 	std::list<std::string> groupDefinitionFiles;
 
 	// For locking access to GroupPvMap
 	epicsMutex pvMapMutex{};
+
+	// Group processing warning messages if not empty
+	std::string groupProcessingWarnings;
 };
 
 IOCServer &iocServer();

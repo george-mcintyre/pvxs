@@ -8,7 +8,6 @@
 #include <vector>
 
 #include <pvxs/source.h>
-#include <pvxs/iochooks.h>
 #include <initHooks.h>
 #include <epicsExport.h>
 
@@ -79,10 +78,9 @@ namespace {
  * @param theInitHookState the initHook state - we only want to trigger on the initHookAfterIocBuilt state - ignore all others
  */
 void qsrvSingleSourceInit(initHookState theInitHookState) {
-	if (theInitHookState != initHookAfterIocBuilt) {
-		return;
+	if (theInitHookState == initHookAfterIocBuilt) {
+		pvxs::ioc::iocServer().addSource("qsrv", std::make_shared<pvxs::ioc::SingleSource>(), 0);
 	}
-	pvxs::ioc::iocServer().addSource("qsrv", std::make_shared<pvxs::ioc::SingleSource>(), 0);
 }
 
 /**

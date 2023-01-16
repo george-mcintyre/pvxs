@@ -30,10 +30,13 @@ pvxsIoc_SRCS += groupsourcehooks.cpp
 pvxsIoc_SRCS += grouppv.cpp
 pvxsIoc_SRCS += grouppvchannel.cpp
 pvxsIoc_SRCS += grouppvchannelfield.cpp
+pvxsIoc_SRCS += groupconfigprocessor.cpp
+pvxsIoc_SRCS += groupprocessorcontext.cpp
 pvxsIoc_SRCS += singlesource.cpp
 pvxsIoc_SRCS += groupsource.cpp
 pvxsIoc_SRCS += typeutils.cpp
 pvxsIoc_SRCS += dbeventcontextdeleter.cpp
+pvxsIoc_SRCS += yajlcallbackhandler.cpp
 
 LIB_LIBS += pvxs
 LIB_LIBS += $(EPICS_BASE_IOC_LIBS)

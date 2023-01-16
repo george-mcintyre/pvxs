@@ -13,10 +13,10 @@
 #include <dbEvent.h>
 #include <dbChannel.h>
 
-
 #include "dbentry.h"
 #include "dberrmsg.h"
 #include "groupsource.h"
+#include "iocshcommand.h"
 
 namespace pvxs {
 namespace ioc {
@@ -29,29 +29,22 @@ DEFINE_LOGGER(_logname, "pvxs.ioc.search");
 GroupSource::GroupSource()
 		:eventContext(db_init_events()) // Initialise event context
 {
-	auto names(std::make_shared<std::set<std::string >>());
+	// Get GroupPv configuration and register each pv name in the server
+	runOnPvxsServer([](IOCServer* pPvxsServer) {
+		auto names(std::make_shared<std::set<std::string >>());
 
-	//  For each group record type and for each record in that type, add record name to the list of all records
-	// TODO Implement
-	DBEntry db;
-/*
-	for (long status = dbFirstRecordType(db); !status; status = dbNextRecordType(db)) {
-		for (status = dbFirstRecord(db); !status; status = dbNextRecord(db)) {
-			names->insert(db->precnode->recordname);
+		// Get copy of Group PV Map
+		GroupPvMap map;
+		{
+			epicsGuard<epicsMutex> G(pPvxsServer->pvMapMutex);
+			map = pPvxsServer->groupPvMap;  // copy map
 		}
-	}
-*/
 
-	allRecords.names = names;
-
-	// Start event pump
-	if ( !eventContext) {
-		throw std::runtime_error("Group Source: Event Context failed to initialise: db_init_events()");
-	}
-
-	if ( db_start_events(eventContext.get(), "qsrvGroup", nullptr, nullptr, epicsThreadPriorityCAServerLow-1) ) {
-		throw std::runtime_error("Could not start event thread: db_start_events()");
-	}
+		// For each defined group, add group name to the list of all records
+		for (GroupPvMap::const_iterator it(map.begin()), end(map.end()); it != end; ++it) {
+			names->insert(it->first);
+		}
+	});
 }
 
 /**

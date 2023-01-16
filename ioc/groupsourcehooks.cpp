@@ -8,7 +8,6 @@
 #include <iostream>
 
 #include <pvxs/source.h>
-#include <pvxs/iochooks.h>
 #include <initHooks.h>
 #include <epicsExport.h>
 #include <epicsString.h>
@@ -16,6 +15,7 @@
 #include "iocshcommand.h"
 #include "groupsource.h"
 #include "grouppv.h"
+#include "groupconfigprocessor.h"
 
 namespace pvxs {
 namespace ioc {
@@ -48,7 +48,7 @@ void pvxsgl(int level, const char* pattern) {
 			GroupPvMap map;
 			{
 				epicsGuard<epicsMutex> G(pPvxsServer->pvMapMutex);
-				map = pPvxsServer->pvMap;  // copy map
+				map = pPvxsServer->groupPvMap;  // copy map
 			}
 
 			// For each group
@@ -122,10 +122,18 @@ using namespace pvxs;
  * @param theInitHookState the initHook state - we only want to trigger on the initHookAfterIocBuilt state - ignore all others
  */
 void qsrvGroupSourceInit(initHookState theInitHookState) {
-	if (theInitHookState != initHookAfterIocBuilt) {
-		return;
+	if (theInitHookState == initHookAfterInitDatabase) {
+		GroupConfigProcessor processor;
+		// Parse all info(Q:Group... records to configure groups
+		processor.parseDbConfig();
+
+		// Load group configuration files
+		processor.parseConfigFiles();
+
+	} else if (theInitHookState == initHookAfterIocBuilt) {
+		// Load group configuration from parsed groups in iocServer
+		pvxs::ioc::iocServer().addSource("qsrv", std::make_shared<pvxs::ioc::GroupSource>(), 1);
 	}
-	pvxs::ioc::iocServer().addSource("qsrv", std::make_shared<pvxs::ioc::GroupSource>(), 1);
 }
 
 /**

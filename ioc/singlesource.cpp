@@ -37,10 +37,10 @@ SingleSource::SingleSource()
 	auto names(std::make_shared<std::set<std::string >>());
 
 	//  For each record type and for each record in that type, add record name to the list of all records
-	DBEntry db;
-	for (long status = dbFirstRecordType(db); !status; status = dbNextRecordType(db)) {
-		for (status = dbFirstRecord(db); !status; status = dbNextRecord(db)) {
-			names->insert(db->precnode->recordname);
+	DBEntry dbEntry;
+	for (long status = dbFirstRecordType(dbEntry); !status; status = dbNextRecordType(dbEntry)) {
+		for (status = dbFirstRecord(dbEntry); !status; status = dbNextRecord(dbEntry)) {
+			names->insert(dbEntry->precnode->recordname);
 		}
 	}
 

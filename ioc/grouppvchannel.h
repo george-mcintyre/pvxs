@@ -9,6 +9,8 @@
 
 #include <vector>
 #include <dbChannel.h>
+#include <map>
+#include <set>
 #include "grouppvchannelfield.h"
 
 namespace pvxs {
@@ -22,11 +24,12 @@ namespace ioc {
  */
 class GroupPvChannel {
 public:
+	GroupPvChannel() = default;
+
 	// The related dbChannel
 	std::shared_ptr<dbChannel> pdbChannel;
 	// The fields that map to fields in the related dbChannel
 	GroupPvChannelFields fields;
-	GroupPvChannel() = default;
 
 	/**
 	 * To show the detail of the group fields related to this dbChannel
@@ -36,6 +39,8 @@ public:
 
 // A list of GroupPvChannels found in a GroupPv
 typedef std::shared_ptr<std::vector<GroupPvChannel>> GroupPvChannels;
+typedef std::map<std::string, size_t> GroupPvChannelsMap;
+typedef std::map<std::string, std::shared_ptr<GroupPvChannelField>> GroupPvFieldsMap;
 
 } // pvxs
 } // ioc
