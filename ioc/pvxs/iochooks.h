@@ -69,5 +69,16 @@ namespace ioc {
 PVXS_IOC_API
 server::Server &server();
 
+/**
+ * Load JSON group definition file.
+ * This function does not actually parse the given file, but adds it to the list of files to be loaded,
+ * at the appropriate time in the startup process.
+ *
+ * @param jsonFilename the json file containing the group definitions
+ * @return 0 for success, 1 for failure
+ */
+PVXS_IOC_API
+long dbLoadGroup(const char* jsonFilename);
+
 }} // namespace pvxs::ioc
 #endif // PVXS_IOCHOOKS_H

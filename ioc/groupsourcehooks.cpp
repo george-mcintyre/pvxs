@@ -16,6 +16,7 @@
 #include "groupsource.h"
 #include "grouppv.h"
 #include "groupconfigprocessor.h"
+#include "pvxs/iochooks.h"
 
 namespace pvxs {
 namespace ioc {

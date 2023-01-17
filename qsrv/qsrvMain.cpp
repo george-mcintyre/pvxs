@@ -17,6 +17,7 @@
 #include <subRecord.h>
 #include <asDbLib.h>
 #include <iocInit.h>
+#include "pvxs/iochooks.h"
 
 #include "qsrvMain.h"
 
@@ -236,7 +237,7 @@ int parseOptions(int argc, char* argv[], std::string& databaseInitialisationFile
 			dbIsLoaded = true;
 			break;
 		case 'G':
-			// dbLoadGroup(optarg);
+			 pvxs::ioc::dbLoadGroup(optarg);
 			break;
 		case 'h':
 			usage(iocExecutableName, databaseInitialisationFile);
