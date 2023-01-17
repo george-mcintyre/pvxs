@@ -1,3 +1,14 @@
+/*
+ * This file defines two groups equivalent to the groups defined in testiocg.db
+ * Dependencies: testioc.db
+ */
+
+/*
+ * Group george:tableExample2
+ * Use +id mapping: to present as a epics NTTable
+ * with two columns of doubles taken from $(user):vectorExampleD1 and $(user):vectorExampleD2
+ * Get metadata (alarms, etc) from $(user):vectorExampleD1
+ */
 {
   "george:tableExample2": {
     "+id": "epics:nt/NTTable:1.0",
@@ -26,6 +37,10 @@
       "+trigger": "*"
     }
   },
+  /*
+   * Group george:structExample2
+   * This is an example of a structure that does not correspond to an EPICS normative type
+   */
   "george:structExample2": {
     "ai": {
       "+channel": "george:aiExample.VAL",

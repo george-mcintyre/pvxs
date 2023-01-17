@@ -1,7 +1,10 @@
+# This file defines two groups equivalent to the groups defined in testioc.json
+# Dependencies: testioc.db
+
 # Group $(user):tableExample
 # Use +id mapping: to present as a epics NTTable
 # with two columns of doubles taken from $(user):vectorExampleD1 and $(user):vectorExampleD2
-# Get metadata (alarms, etc) from $(user):vectorExampleD2
+# Get metadata (alarms, etc) from $(user):vectorExampleD1
 record(aai, "$(user):groupExampleAS") {
     field(FTVL, "STRING")
     field(NELM, "2")
@@ -52,9 +55,7 @@ record(longout, "$(user):groupExampleSave") {
 }
 
 # Group $(user):structExample
-# Use +id mapping: to present as a epics NTTable
-# with two columns of doubles taken from $(user):vectorExampleD1 and $(user):vectorExampleD2
-# Get metadata (alarms, etc) from $(user):vectorExampleD2
+# This is an example of a structure that does not correspond to an EPICS normative type
 record("*", "$(user):aiExample") {
   info(Q:group, {
     "$(user):structExample":{
