@@ -40,7 +40,7 @@ public:
 // A list of GroupPvChannels found in a GroupPv
 typedef std::shared_ptr<std::vector<GroupPvChannel>> GroupPvChannels;
 typedef std::map<std::string, size_t> GroupPvChannelsMap;
-typedef std::map<std::string, std::shared_ptr<GroupPvChannelField>> GroupPvFieldsMap;
+typedef std::map<std::string, GroupPvChannelField> GroupPvFieldsMap;
 
 } // pvxs
 } // ioc

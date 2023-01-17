@@ -57,7 +57,7 @@ public:
 };
 
 // A map of group name to GroupPv
-typedef std::map<std::string, std::shared_ptr<GroupPv>> GroupPvMap;
+typedef std::map<std::string, GroupPv> GroupPvMap;
 
 } // pvxs
 } // ioc

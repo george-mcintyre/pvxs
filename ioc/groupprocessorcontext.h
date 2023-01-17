@@ -9,7 +9,6 @@
 
 #include <string>
 #include <utility>
-#include <pv/anyscalar.h>
 #include "iocserver.h"
 
 namespace pvxs {
@@ -28,7 +27,7 @@ public:
 			:channelPrefix(std::move(channelPrefix)), iocServer(iocServer), depth(0u) {
 	}
 	void canAssign() const;
-	void assign(const epics::pvData::AnyScalar& value);
+	void assign(const Value& value);
 
 };
 

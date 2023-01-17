@@ -52,6 +52,7 @@ void pvxsgl(int level, const char* pattern) {
 			}
 
 			// For each group
+			// TODO for ( auto it: map) { ... }
 			for (GroupPvMap::const_iterator it(map.begin()), end(map.end()); it != end; ++it) {
 				// if no pattern specified or the pattern matches
 				if (!pattern[0] || !!epicsStrGlobMatch(it->first.c_str(), pattern)) {
@@ -59,7 +60,7 @@ void pvxsgl(int level, const char* pattern) {
 					std::cout << it->first << std::endl;
 					// print sub-levels if required
 					if (level > 0) {
-						it->second->show(level);
+						it->second.show(level);
 					}
 				}
 			}
@@ -132,7 +133,7 @@ void qsrvGroupSourceInit(initHookState theInitHookState) {
 
 	} else if (theInitHookState == initHookAfterIocBuilt) {
 		// Load group configuration from parsed groups in iocServer
-		pvxs::ioc::iocServer().addSource("qsrv", std::make_shared<pvxs::ioc::GroupSource>(), 1);
+		pvxs::ioc::iocServer().addSource("qsrvGroup", std::make_shared<pvxs::ioc::GroupSource>(), 1);
 	}
 }
 

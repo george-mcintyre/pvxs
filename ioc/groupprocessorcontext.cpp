@@ -25,16 +25,16 @@ void GroupProcessorContext::canAssign() const {
  *
  * @param value the value to assign
  */
-void GroupProcessorContext::assign(const epics::pvData::AnyScalar& value) {
+void GroupProcessorContext::assign(const Value& value) {
 	canAssign();
-	auto groupPvConfig = iocServer->groupPvMap[groupName].get();
+	auto &groupPvConfig = iocServer->groupPvMap[groupName];
 
 	if (depth == 2) {
 		if (field == "+atomic") {
-			groupPvConfig->atomic = value.as<epics::pvData::boolean>() ? True : False;
+			groupPvConfig.atomic = value.as<bool>() ? True : False;
 
 		} else if (field == "+id") {
-			groupPvConfig->structureId = value.as<std::string>();
+			groupPvConfig.structureId = value.as<std::string>();
 
 		} else {
 			iocServer->groupProcessingWarnings += "Unknown group option ";
@@ -43,22 +43,22 @@ void GroupProcessorContext::assign(const epics::pvData::AnyScalar& value) {
 		field.clear();
 
 	} else if (depth == 3) {
-		auto groupField = groupPvConfig->fieldMap[field].get();
+		auto &groupField = groupPvConfig.fieldMap[field];
 
 		if (key == "+type") {
-			groupField->type = value.ref<std::string>();
+			groupField.type = value.as<std::string>();
 
 		} else if (key == "+channel") {
-			groupField->channel = channelPrefix + value.ref<std::string>();
+			groupField.channel = channelPrefix + value.as<std::string>();
 
 		} else if (key == "+id") {
-			groupField->structureId = value.ref<std::string>();
+			groupField.structureId = value.as<std::string>();
 
 		} else if (key == "+trigger") {
-			groupField->trigger = value.ref<std::string>();
+			groupField.trigger = value.as<std::string>();
 
 		} else if (key == "+putorder") {
-			groupField->putOrder = value.as<epics::pvData::int32>();
+			groupField.putOrder = value.as<int64_t>();
 
 		} else {
 			iocServer->groupProcessingWarnings += "Unknown group field option ";

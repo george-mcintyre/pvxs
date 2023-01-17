@@ -79,7 +79,7 @@ namespace {
  */
 void qsrvSingleSourceInit(initHookState theInitHookState) {
 	if (theInitHookState == initHookAfterIocBuilt) {
-		pvxs::ioc::iocServer().addSource("qsrv", std::make_shared<pvxs::ioc::SingleSource>(), 0);
+		pvxs::ioc::iocServer().addSource("qsrvSingle", std::make_shared<pvxs::ioc::SingleSource>(), 0);
 	}
 }
 

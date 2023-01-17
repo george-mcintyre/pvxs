@@ -181,7 +181,7 @@ int GroupConfigProcessor::processKey(void* parserContext, const unsigned char* k
  */
 int GroupConfigProcessor::processNull(void* parserContext) {
 	return GroupConfigProcessor::yajlProcess(parserContext, [](GroupProcessorContext* self) {
-		self->assign(epics::pvData::AnyScalar());
+		self->assign(Value());
 		return 1;
 	});
 }
@@ -195,7 +195,9 @@ int GroupConfigProcessor::processNull(void* parserContext) {
  */
 int GroupConfigProcessor::processBoolean(void* parserContext, int booleanValue) {
 	return GroupConfigProcessor::yajlProcess(parserContext, [&booleanValue](GroupProcessorContext* self) {
-		self->assign(epics::pvData::AnyScalar(epics::pvData::boolean(booleanValue)));
+		auto value  = pvxs::TypeDef(TypeCode::Bool).create();
+		value = booleanValue;
+		self->assign(value);
 		return 1;
 	});
 }
@@ -209,7 +211,9 @@ int GroupConfigProcessor::processBoolean(void* parserContext, int booleanValue) 
  */
 int GroupConfigProcessor::processInteger(void* parserContext, long long integerVal) {
 	return GroupConfigProcessor::yajlProcess(parserContext, [&integerVal](GroupProcessorContext* self) {
-		self->assign(epics::pvData::AnyScalar(epics::pvData::int64(integerVal)));
+		auto value  = pvxs::TypeDef(TypeCode::Int64).create();
+		value = (int64_t)integerVal;
+		self->assign(value);
 		return 1;
 	});
 }
@@ -223,7 +227,9 @@ int GroupConfigProcessor::processInteger(void* parserContext, long long integerV
  */
 int GroupConfigProcessor::processDouble(void* parserContext, double doubleVal) {
 	return GroupConfigProcessor::yajlProcess(parserContext, [&doubleVal](GroupProcessorContext* self) {
-		self->assign(epics::pvData::AnyScalar(doubleVal));
+		auto value  = pvxs::TypeDef(TypeCode::Float64).create();
+		value = doubleVal;
+		self->assign(value);
 		return 1;
 	});
 }
@@ -239,7 +245,9 @@ int GroupConfigProcessor::processDouble(void* parserContext, double doubleVal) {
 int GroupConfigProcessor::processString(void* parserContext, const unsigned char* stringVal, size_t stringLen) {
 	return GroupConfigProcessor::yajlProcess(parserContext, [&stringVal, &stringLen](GroupProcessorContext* self) {
 		std::string val((const char*)stringVal, stringLen);
-		self->assign(epics::pvData::AnyScalar(val));
+		auto value  = pvxs::TypeDef(TypeCode::String).create();
+		value = val;
+		self->assign(value);
 		return 1;
 	});
 }
