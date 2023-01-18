@@ -30,7 +30,7 @@ GroupSource::GroupSource()
 		:eventContext(db_init_events()) // Initialise event context
 {
 	// Get GroupPv configuration and register each pv name in the server
-	runOnPvxsServer([](IOCServer* pPvxsServer) {
+	runOnPvxsServer([this](IOCServer* pPvxsServer) {
 		auto names(std::make_shared<std::set<std::string >>());
 
 		// Get copy of Group PV Map
@@ -43,6 +43,17 @@ GroupSource::GroupSource()
 		// For each defined group, add group name to the list of all records
 		for (GroupPvMap::const_iterator it(map.begin()), end(map.end()); it != end; ++it) {
 			names->insert(it->first);
+		}
+
+		allRecords.names = names;
+
+		// Start event pump
+		if ( !eventContext) {
+			throw std::runtime_error("Group Source: Event Context failed to initialise: db_init_events()");
+		}
+
+		if ( db_start_events(eventContext.get(), "qsrvGroup", nullptr, nullptr, epicsThreadPriorityCAServerLow-1) ) {
+			throw std::runtime_error("Could not start event thread: db_start_events()");
 		}
 	});
 }
@@ -84,12 +95,18 @@ GroupSource::List GroupSource::onList() {
  * @param searchOperation the search operation
  */
 void GroupSource::onSearch(Search& searchOperation) {
-	for (auto& pv: searchOperation) {
-		if (!dbChannelTest(pv.name())) {
-			pv.claim();
-			log_debug_printf(_logname, "Claiming '%s'\n", pv.name());
+	std::pair<GroupSource&,Search&> searchContext(*this,searchOperation);
+
+	runOnPvxsServer([&searchContext](IOCServer* pPvxsServer) {
+	auto &groupSource = searchContext.first;
+	auto &searchOperation = searchContext.second;
+		for (auto& pv: searchOperation) {
+			if (groupSource.allRecords.names->count(pv.name()) == 1) {
+				pv.claim();
+				log_debug_printf(_logname, "Claiming '%s'\n", pv.name());
+			}
 		}
-	}
+	});
 }
 
 /**
