@@ -27,6 +27,10 @@
 #include "iocshcommand.h"
 #include "iocserver.h"
 
+#if EPICS_VERSION_INT >= VERSION_INT(7, 0, 4, 0)
+#  define USE_DEINIT_HOOKS
+#endif
+
 namespace pvxs {
 namespace ioc {
 
@@ -40,7 +44,7 @@ std::atomic<IOCServer*> pvxsServer{};
  *
  * @return the pvxs server instance
  */
-server::Server &server() {
+server::Server& server() {
 	return iocServer();
 }
 
@@ -49,7 +53,7 @@ server::Server &server() {
  *
  * @return the pvxs server instance
  */
-IOCServer &iocServer() {
+IOCServer& iocServer() {
 	if (auto pPvxsServer = pvxsServer.load()) {
 		return *pPvxsServer;
 	} else {
@@ -153,11 +157,9 @@ void pvxsInitHook(initHookState theInitHookState) {
 	// iocBuild()
 	if (theInitHookState == initHookAfterInitDatabase) {
 		// function to run before exitDatabase
-		try {
-			epicsAtExit(&pvxsAtExit, nullptr);
-		} catch (std::exception& e) {
-			fprintf(stderr, "Error in %s : %s\n", __func__, e.what());
-		}
+#ifndef USE_DEINIT_HOOKS
+		epicsAtExit(&pvxsAtExit, nullptr);
+#endif
 	} else
 		// iocRun()
 	if (theInitHookState == initHookAfterCaServerRunning) {
@@ -172,7 +174,14 @@ void pvxsInitHook(initHookState theInitHookState) {
 			pPvxsServer->stop();
 			log_debug_printf(log, "Stopped Server %p", pPvxsServer);
 		});
+	} else
+
+#ifdef USE_DEINIT_HOOKS
+	// iocShutdown()  (called from exitDatabase() at exit, and testIocShutdownOk() )
+	if (theInitHookState == initHookAtShutdown) {
+		pvxsAtExit(nullptr);
 	}
+#endif
 }
 
 }
