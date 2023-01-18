@@ -19,8 +19,6 @@ namespace ioc {
 class GroupProcessorContext;
 
 class GroupConfigProcessor {
-	static bool yajlParseHelper(std::istream& jsonGroupDefinitionStream, yajl_handle handle);
-
 	/**
 	 * These are the callbacks designated by yajl for its parser functions
 	 * They must be defined in this order.
@@ -40,6 +38,7 @@ class GroupConfigProcessor {
 			nullptr,            // end_array,
 	};
 
+	static bool yajlParseHelper(std::istream& jsonGroupDefinitionStream, yajl_handle handle);
 	static int processNull(void* parserContext);
 	static int processBoolean(void* parserContext, int booleanValue);
 	static int processInteger(void* parserContext, long long int integerVal);
@@ -58,12 +57,12 @@ public:
 	GroupConfigProcessor() = default;
 	void parseDbConfig();
 	void parseConfigFiles();
+	void resolveTriggers();
 	void parseConfigString(const char* jsonGroupDefinition, const char* dbRecordName = nullptr);
 	static const char* infoField(DBEntry& dbEntry, const char* key, const char* defaultValue = nullptr);
 	static int yajlProcess(void* parserContext, const std::function <int (GroupProcessorContext *)>&pFunction);
 	static void checkForTrailingCommentsAtEnd(const std::string& line);
 	void configureGroups();
-	void resolveTriggers();
 };
 
 } // ioc

@@ -193,80 +193,80 @@ void GroupConfigProcessor::configureGroups() {
 		}
 
 		resolveTriggers();
-
 	});
 }
 
-void GroupConfigProcessor::resolveTriggers()     {
-/*	FOREACH(groups_t::iterator, it, end, groups) { // for each group
-		GroupInfo& info = it->second;
+/**
+ * Resolve all trigger references to the specified fields
+ */
+void GroupConfigProcessor::resolveTriggers() {
+	runOnPvxsServer([this](IOCServer* pPvxsServer) {
+		// For all groups
+		for (auto&& mapEntry: pPvxsServer->groupPvMap) {
+			auto& groupName = mapEntry.first;
+			auto& currentGroup = mapEntry.second;
 
-		if(info.hastriggers) {
-			FOREACH(GroupInfo::triggers_t::iterator, it2, end2, info.triggers) { // for each trigger source
-				const std::string& src = it2->first;
-				GroupInfo::triggers_set_t& targets = it2->second;
+			// If it has triggers
+			if (currentGroup.hasTriggers) {
+				// Then for all triggers
+				for (auto&& triggerMapEntry: currentGroup.triggerMap) {
+					const std::string& field = triggerMapEntry.first;
+					Triggers& targets = triggerMapEntry.second;
 
-				GroupInfo::members_map_t::iterator it2x = info.members_map.find(src);
-				if(it2x==info.members_map.end()) {
-					fprintf(stderr, "Error: Group \"%s\" defines triggers from non-existant field \"%s\"\n",
-							info.name.c_str(), src.c_str());
-					continue;
-				}
-				GroupMemberInfo& srcmem = info.members[it2x->second];
+					if (currentGroup.fieldMap.count(field) == 0) {
+						std::cerr << "Error: Group \"" << groupName << "\" defines triggers from nonexistent field \""
+						          << field << "\"" << std::endl;
+						continue;
+					}
 
-				if(PDBProviderDebug>2)
-					fprintf(stderr, "  pdb trg '%s.%s'  -> ",
-							info.name.c_str(), src.c_str());
+					auto& sourceMemberIndex = currentGroup.fieldMap[field];
+					auto& sourceMember = currentGroup.fields[sourceMemberIndex];
 
-				FOREACH(GroupInfo::triggers_set_t::const_iterator, it3, end3, targets) { // for each trigger target
-					const std::string& target = *it3;
+					log_debug_printf(_logname, "  pvxs trigger '%s.%s'  -> ", groupName.c_str(), field.c_str());
 
-					if(target=="*") {
-						for(size_t i=0; i<info.members.size(); i++) {
-							if(info.members[i].pvname.empty())
-								continue;
-							srcmem.triggers.insert(info.members[i].pvfldname);
-							if(PDBProviderDebug>2)
-								fprintf(stderr, "%s, ", info.members[i].pvfldname.c_str());
-						}
-
-					} else {
-
-						GroupInfo::members_map_t::iterator it3x = info.members_map.find(target);
-						if(it3x==info.members_map.end()) {
-							fprintf(stderr, "Error: Group \"%s\" defines triggers to non-existant field \"%s\"\n",
-									info.name.c_str(), target.c_str());
-							continue;
-						}
-						const GroupMemberInfo& targetmem = info.members[it3x->second];
-
-						if(targetmem.pvname.empty()) {
-							if(PDBProviderDebug>2)
-								fprintf(stderr, "<ignore: %s>, ", targetmem.pvfldname.c_str());
-
+					// For all of this trigger's targets
+					for (auto&& target: targets) {
+						// If the target is star then map to all fields
+						if (target == "*") {
+							for (auto & targetedField : currentGroup.fields) {
+								if (!targetedField.channel.empty()) {
+									sourceMember.triggers.insert(targetedField.name);
+									log_debug_printf(_logname, "%s, ", targetedField.name.c_str());
+								}
+							}
 						} else {
-							// and finally, update source BitSet
-							srcmem.triggers.insert(targetmem.pvfldname);
-							if(PDBProviderDebug>2)
-								fprintf(stderr, "%s, ", targetmem.pvfldname.c_str());
+							// otherwise map to the specific target if it exists
+							if ( currentGroup.fieldMap.count(target) == 0) {
+								std::cerr << "Error: Group \"" << groupName << "\" defines triggers to nonexistent field \""
+								          << target << "\"" << std::endl;
+								continue;
+							}
+							auto& targetMemberIndex = currentGroup.fieldMap[target];
+							auto& targetMember = currentGroup.fields[targetMemberIndex];
+
+							// And if it references a PV
+							if (targetMember.channel.empty()) {
+								log_debug_printf(_logname, "<ignore: %s>, ", targetMember.name.c_str());
+							} else {
+								sourceMember.triggers.insert(targetMember.name);
+								log_debug_printf(_logname, "%s, ", targetMember.name.c_str());
+							}
 						}
 					}
+					log_debug_printf(_logname, "%s\n", "");
 				}
+			} else {
+				// If no trigger specified for this group then set all fields to trigger themselves
+				log_debug_printf(_logname, "  pvxs default triggers for '%s'\n", groupName.c_str());
 
-				if(PDBProviderDebug>2) fprintf(stderr, "\n");
-			}
-		} else {
-			if(PDBProviderDebug>1) fprintf(stderr, "  pdb default triggers for '%s'\n", info.name.c_str());
-
-			FOREACH(GroupInfo::members_t::iterator, it2, end2, info.members) {
-				GroupMemberInfo& mem = *it2;
-				if(mem.pvname.empty())
-					continue;
-
-				mem.triggers.insert(mem.pvfldname); // default is self trigger
+				for ( auto &&field: currentGroup.fields) {
+					if (!field.channel.empty()) {
+						field.triggers.insert(field.name);  // default is self trigger
+					}
+				}
 			}
 		}
-	}*/
+	});
 }
 
 /**
