@@ -47,11 +47,11 @@ SingleSource::SingleSource()
 	allRecords.names = names;
 
 	// Start event pump
-	if ( !eventContext) {
+	if (!eventContext) {
 		throw std::runtime_error("Single Source: Event Context failed to initialise: db_init_events()");
 	}
 
-	if ( db_start_events(eventContext.get(), "qsrvSingle", nullptr, nullptr, epicsThreadPriorityCAServerLow-1) ) {
+	if (db_start_events(eventContext.get(), "qsrvSingle", nullptr, nullptr, epicsThreadPriorityCAServerLow - 1)) {
 		throw std::runtime_error("Could not start event thread: db_start_events()");
 	}
 }
@@ -204,7 +204,7 @@ void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::
  * @param eventsRemaining the remaining number of events to process
  * @param pDbFieldLog the database field log containing the changes to notify
  */
-__attribute__((unused)) void SingleSource::subscriptionValueCallback(void* userArg, struct dbChannel* pChannel, int eventsRemaining,
+void SingleSource::subscriptionValueCallback(void* userArg, struct dbChannel* pChannel, int eventsRemaining,
 		struct db_field_log* pDbFieldLog) {
 	auto subscriptionContext = (SubscriptionCtx*)userArg;
 	{
@@ -222,7 +222,7 @@ __attribute__((unused)) void SingleSource::subscriptionValueCallback(void* userA
  * @param eventsRemaining the remaining number of events to process
  * @param pDbFieldLog the database field log containing the changes to notify
  */
-__attribute__((unused)) void SingleSource::subscriptionPropertiesCallback(void* userArg, struct dbChannel* pChannel, int eventsRemaining,
+void SingleSource::subscriptionPropertiesCallback(void* userArg, struct dbChannel* pChannel, int eventsRemaining,
 		struct db_field_log* pDbFieldLog) {
 	auto subscriptionContext = (SubscriptionCtx*)userArg;
 	{
@@ -551,14 +551,14 @@ void SingleSource::setValue(Value& value, void* pValueBuffer, long nElements) {
  * @param value the value to get
  * @param pValueBuffer the database buffer to put it in
  */
-void SingleSource::setBuffer(const Value& value, void* pValueBuffer){
+void SingleSource::setBuffer(const Value& value, void* pValueBuffer) {
 	auto valueType(value["value"].type());
 	if (valueType.code == TypeCode::String) {
 		auto strValue = value["value"].as<std::string>();
-		auto len = MIN(strValue.length(), MAX_STRING_SIZE-1);
+		auto len = MIN(strValue.length(), MAX_STRING_SIZE - 1);
 
-		strncpy((char *)pValueBuffer, value["value"].as<std::string>().c_str(), len);
-		((char *)pValueBuffer)[len] = '\0';
+		strncpy((char*)pValueBuffer, value["value"].as<std::string>().c_str(), len);
+		((char*)pValueBuffer)[len] = '\0';
 	} else {
 		SwitchTypeCodeForTemplatedCall(valueType.code, setBuffer, (value, pValueBuffer));
 	}
@@ -572,9 +572,9 @@ void SingleSource::setBuffer(const Value& value, void* pValueBuffer, long nEleme
 		for (auto i = 0; i < nElements; i++) {
 			snprintf(valueRef, 20, "value[%d]", i);
 			auto strValue = value[valueRef].as<std::string>();
-			auto len = MIN(strValue.length(), MAX_STRING_SIZE-1);
+			auto len = MIN(strValue.length(), MAX_STRING_SIZE - 1);
 			strncpy((char*)pValueBuffer + MAX_STRING_SIZE * i, strValue.c_str(), len);
-			((char *)pValueBuffer + MAX_STRING_SIZE * i)[len] = '\0';
+			((char*)pValueBuffer + MAX_STRING_SIZE * i)[len] = '\0';
 		}
 	} else {
 		SwitchTypeCodeForTemplatedCall(valueType.code, setBuffer, (value, pValueBuffer, nElements));
