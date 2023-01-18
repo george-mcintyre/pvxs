@@ -133,7 +133,6 @@ void qsrvGroupSourceInit(initHookState theInitHookState) {
 		processor.parseConfigFiles();
 
 		processor.configureGroups();
-
 	} else if (theInitHookState == initHookAfterIocBuilt) {
 		// Load group configuration from parsed groups in iocServer
 		pvxs::ioc::iocServer().addSource("qsrvGroup", std::make_shared<pvxs::ioc::GroupSource>(), 1);

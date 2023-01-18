@@ -63,6 +63,7 @@ public:
 	static int yajlProcess(void* parserContext, const std::function <int (GroupProcessorContext *)>&pFunction);
 	static void checkForTrailingCommentsAtEnd(const std::string& line);
 	void configureGroups();
+	void resolveTriggers();
 };
 
 } // ioc

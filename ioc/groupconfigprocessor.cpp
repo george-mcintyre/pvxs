@@ -7,6 +7,7 @@
 #include <iostream>
 #include <pvxs/log.h>
 #include <fstream>
+#include <dbChannel.h>
 
 #include "yajl_alloc.h"
 #include "yajl_parse.h"
@@ -14,6 +15,7 @@
 #include "groupconfigprocessor.h"
 #include "iocshcommand.h"
 #include "dbentry.h"
+#include "grouppv.h"
 #include "groupprocessorcontext.h"
 #include "yajlcallbackhandler.h"
 
@@ -65,7 +67,6 @@ void GroupConfigProcessor::parseConfigFiles() {
 		// For each file load the configuration file
 		std::list<std::string>::iterator it;
 		for (it = groupDefinitionFiles.begin(); it != groupDefinitionFiles.end(); ++it) {
-			auto& groupDefinitionFile = it;
 			auto groupDefinitionFileName = it->c_str();
 
 			// Get contents of group definition file
@@ -99,111 +100,173 @@ void GroupConfigProcessor::parseConfigFiles() {
  * this function is called to evaluate it and create groups in pvxs::ioc::IOCServer::groupConfig
  */
 void GroupConfigProcessor::configureGroups() {
-/*	for (GroupConfig::groups_t::const_iterator git = conf.groups.begin(), gend = conf.groups.end();
-	     git != gend; ++git) {
-		const std::string& grpname = git->first;
-		const GroupConfig::Group& grp = git->second;
-		try {
+	runOnPvxsServer([this](IOCServer* pPvxsServer) {
+		for (auto& groupIterator: groupConfigMap) {
+			const std::string& groupName = groupIterator.first;
+			const GroupConfig& groupConfig = groupIterator.second;
 
-			if (dbChannelTest(grpname.c_str()) == 0) {
-				fprintf(stderr, "%s : Error: Group name conflicts with record name.  Ignoring...\n", grpname.c_str());
-				continue;
-			}
-
-			groups_t::iterator it = groups.find(grpname);
-			if (it == groups.end()) {
-				// lazy creation of group
-				std::pair<groups_t::iterator, bool> ins(groups.insert(std::make_pair(grpname, GroupInfo(grpname))));
-				it = ins.first;
-			}
-			GroupInfo* curgroup = &it->second;
-
-			if (!grp.id.empty())
-				curgroup->structID = grp.id;
-
-			for (GroupConfig::Group::fields_t::const_iterator fit = grp.fields.begin(), fend = grp.fields.end();
-			     fit != fend; ++fit) {
-				const std::string& fldname = fit->first;
-				const GroupConfig::Field& fld = fit->second;
-
-				if (curgroup->members_map.find(fldname) != curgroup->members_map.end()) {
-					fprintf(stderr, "%s.%s Warning: ignoring duplicate mapping %s\n",
-							grpname.c_str(), fldname.c_str(),
-							fld.channel.c_str());
+			try {
+				// If the configured group name is the same as a record name then ignore it
+				if (dbChannelTest(groupName.c_str()) == 0) {
+					std::cerr << groupName << " : Error: Group name conflicts with record name.  Ignoring..."
+					          << std::endl;
 					continue;
 				}
 
-				curgroup->members.push_back(GroupMemberInfo());
-				GroupMemberInfo& info = curgroup->members.back();
-				info.pvname = fld.channel;
-				info.pvfldname = fldname;
-				info.structID = fld.id;
-				info.putorder = fld.putorder;
-				info.type = fld.type;
-				curgroup->members_map[fldname] = (size_t)-1; // placeholder  see below
+				// Create group when it is first referenced
+				auto&& currentGroup = pPvxsServer->groupPvMap[groupName];
 
-				if (PDBProviderDebug > 2) {
-					fprintf(stderr, "  pdb map '%s.%s' <-> '%s'\n",
-							curgroup->name.c_str(),
-							curgroup->members.back().pvfldname.c_str(),
-							curgroup->members.back().pvname.c_str());
+				// If the structure ID is not already set then set it
+				if (!groupConfig.structureId.empty()) {
+					pPvxsServer->groupPvMap[groupName].structureId = groupConfig.structureId;
 				}
 
-				if (!fld.trigger.empty()) {
-					GroupInfo::triggers_t::iterator it = curgroup->triggers.find(fldname);
-					if (it == curgroup->triggers.end()) {
-						std::pair<GroupInfo::triggers_t::iterator, bool> ins(curgroup->triggers.insert(
-								std::make_pair(fldname, GroupInfo::triggers_set_t())));
-						it = ins.first;
+				std::cout << groupName << " group id: " << pPvxsServer->groupPvMap[groupName].structureId << std::endl;
+
+				// for each field configure the fields
+				for (auto&& fieldIterator: groupConfig.groupFields) {
+					const std::string& fieldName = fieldIterator.first;
+					const GroupFieldConfig& fieldConfig = fieldIterator.second;
+
+					if (currentGroup.fieldMap.count(fieldName)) {
+						std::cerr << groupName << "." << fieldName << " Warning: ignoring duplicate mapping "
+						          << fieldConfig.channel << std::endl;
+						continue;
 					}
 
-					Splitter sep(fld.trigger.c_str(), ',');
-					std::string target;
+					currentGroup.fields.emplace_back();
+					auto& currentField = currentGroup.fields.back();
+					currentField.channel = fieldConfig.channel;
+					currentField.name = fieldName;
+					currentField.structureId = fieldConfig.structureId;
+					currentField.putOrder = fieldConfig.putOrder;
+					currentField.type = fieldConfig.type;
 
-					while (sep.snip(target)) {
-						curgroup->hastriggers = true;
-						it->second.insert(target);
+					currentGroup.fieldMap[fieldName] = (size_t)-1;      // placeholder  see below
+
+					log_debug_printf(_logname, "  pvxs map '%s.%s' <-> '%s'\n",
+							groupName.c_str(),
+							fieldName.c_str(),
+							currentField.channel.c_str());
+
+					if (!fieldConfig.trigger.empty()) {
+						Triggers triggers;
+						std::string trigger;
+						std::stringstream splitter(fieldConfig.trigger);
+						currentGroup.hasTriggers = true;
+
+						while (std::getline(splitter, trigger, ',')) {
+							triggers.insert(trigger);
+						}
+						currentGroup.triggerMap[fieldName] = triggers;
 					}
 				}
+
+				if (groupConfig.atomic_set) {
+					TriState atomicity = groupConfig.atomic ? TriState::True : TriState::False;
+
+					if (currentGroup.atomic != TriState::Unset && currentGroup.atomic != atomicity) {
+						std::cerr << groupName << " Warning: pvxs atomic setting inconsistent '" << std::endl;
+					}
+
+					currentGroup.atomic = atomicity;
+
+					log_debug_printf(_logname, "  pvxs atomic '%s' %s\n",
+							groupName.c_str(),
+							currentGroup.atomic ? "YES" : "NO");
+				}
+
+			} catch (std::exception& e) {
+				std::cerr << "Error configuring group \"" << groupName << "\": " << e.what() << std::endl;
 			}
-
-			if (grp.atomic_set) {
-				GroupInfo::tribool V = grp.atomic ? GroupInfo::True : GroupInfo::False;
-
-				if (curgroup->atomic != GroupInfo::Unset && curgroup->atomic != V)
-					fprintf(stderr, "%s Warning: pdb atomic setting inconsistent '%s'\n",
-							grpname.c_str(), curgroup->name.c_str());
-
-				curgroup->atomic = V;
-
-				if (PDBProviderDebug > 2)
-					fprintf(stderr, "  pdb atomic '%s' %s\n",
-							curgroup->name.c_str(), curgroup->atomic ? "YES" : "NO");
-			}
-
-		} catch (std::exception& e) {
-			fprintf(stderr, "Error processing Q:group \"%s\" : %s\n",
-					grpname.c_str(), e.what());
 		}
-	}
 
-	// re-sort GroupInfo::members to ensure the shorter names appear first
-	// allows use of 'existing' PVIFBuilder on leaves.
-	for (groups_t::iterator it = groups.begin(), end = groups.end(); it != end; ++it) {
+		// re-sort fields to ensure the shorter names appear first
+		for (auto&& mapEntry: pPvxsServer->groupPvMap) {
+			auto& currentGroup = mapEntry.second;
+			std::sort(currentGroup.fields.begin(), currentGroup.fields.end());
+			currentGroup.fieldMap.clear();
+
+			for (size_t i = 0, N = currentGroup.fields.size(); i < N; i++) {
+				currentGroup.fieldMap[currentGroup.fields[i].name] = i;
+			}
+		}
+
+		resolveTriggers();
+
+	});
+}
+
+void GroupConfigProcessor::resolveTriggers()     {
+/*	FOREACH(groups_t::iterator, it, end, groups) { // for each group
 		GroupInfo& info = it->second;
-		std::sort(info.members.begin(),
-				info.members.end());
 
-		info.members_map.clear();
+		if(info.hastriggers) {
+			FOREACH(GroupInfo::triggers_t::iterator, it2, end2, info.triggers) { // for each trigger source
+				const std::string& src = it2->first;
+				GroupInfo::triggers_set_t& targets = it2->second;
 
-		for (size_t i = 0, N = info.members.size(); i < N; i++) {
-			info.members_map[info.members[i].pvfldname] = i;
+				GroupInfo::members_map_t::iterator it2x = info.members_map.find(src);
+				if(it2x==info.members_map.end()) {
+					fprintf(stderr, "Error: Group \"%s\" defines triggers from non-existant field \"%s\"\n",
+							info.name.c_str(), src.c_str());
+					continue;
+				}
+				GroupMemberInfo& srcmem = info.members[it2x->second];
+
+				if(PDBProviderDebug>2)
+					fprintf(stderr, "  pdb trg '%s.%s'  -> ",
+							info.name.c_str(), src.c_str());
+
+				FOREACH(GroupInfo::triggers_set_t::const_iterator, it3, end3, targets) { // for each trigger target
+					const std::string& target = *it3;
+
+					if(target=="*") {
+						for(size_t i=0; i<info.members.size(); i++) {
+							if(info.members[i].pvname.empty())
+								continue;
+							srcmem.triggers.insert(info.members[i].pvfldname);
+							if(PDBProviderDebug>2)
+								fprintf(stderr, "%s, ", info.members[i].pvfldname.c_str());
+						}
+
+					} else {
+
+						GroupInfo::members_map_t::iterator it3x = info.members_map.find(target);
+						if(it3x==info.members_map.end()) {
+							fprintf(stderr, "Error: Group \"%s\" defines triggers to non-existant field \"%s\"\n",
+									info.name.c_str(), target.c_str());
+							continue;
+						}
+						const GroupMemberInfo& targetmem = info.members[it3x->second];
+
+						if(targetmem.pvname.empty()) {
+							if(PDBProviderDebug>2)
+								fprintf(stderr, "<ignore: %s>, ", targetmem.pvfldname.c_str());
+
+						} else {
+							// and finally, update source BitSet
+							srcmem.triggers.insert(targetmem.pvfldname);
+							if(PDBProviderDebug>2)
+								fprintf(stderr, "%s, ", targetmem.pvfldname.c_str());
+						}
+					}
+				}
+
+				if(PDBProviderDebug>2) fprintf(stderr, "\n");
+			}
+		} else {
+			if(PDBProviderDebug>1) fprintf(stderr, "  pdb default triggers for '%s'\n", info.name.c_str());
+
+			FOREACH(GroupInfo::members_t::iterator, it2, end2, info.members) {
+				GroupMemberInfo& mem = *it2;
+				if(mem.pvname.empty())
+					continue;
+
+				mem.triggers.insert(mem.pvfldname); // default is self trigger
+			}
 		}
-	}
-
-	resolveTriggers();
-	// must not re-sort members after this point as resolveTriggers()
-	// has stored array indicies.*/
+	}*/
 }
 
 /**

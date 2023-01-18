@@ -7,7 +7,6 @@
 #include <iostream>
 
 #include "grouppv.h"
-#include "grouppvchannel.h"
 
 namespace pvxs {
 namespace ioc {
@@ -22,17 +21,29 @@ void GroupPv::show(int level) const {
 	// Group field information
 	std::cout << "  Atomic Get/Put:" << (atomicPutGet ? "yes" : "no")
 	          << " Atomic Monitor:" << (atomicMonitor ? "yes" : "no")
-	          << " Members:" << channels->size()
+	          << " Members:" << fields.size()
 	          << std::endl;
 
 	// If we need to show detailed information then iterate through all fields showing details
 	if (level > 1) {
-		for (std::vector<GroupPvChannel>::const_iterator it(channels->begin()), end(channels->end());
-		     it != end; ++it) {
-			const GroupPvChannel& groupPvInfo = *it;
-			std::cout << "  ";
-			groupPvInfo.showFields();
-			std::cout << "\t<-> " << groupPvInfo.pdbChannel->name << std::endl;
+		std::cout << "  ";
+		if (fields.empty()) {
+			std::cout << "/";
+		} else {
+			bool first = true;
+			for (auto& field: fields) {
+				if (first) {
+					first = false;
+				} else {
+					std::cout << ".";
+				}
+
+				std::cout << field.name;
+				if (field.isArray) {
+					std::cout << "[]";
+				}
+				std::cout << "\t<-> " << field.channel << std::endl;
+			}
 		}
 	}
 }
