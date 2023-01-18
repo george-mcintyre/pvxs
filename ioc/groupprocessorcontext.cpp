@@ -27,23 +27,24 @@ void GroupProcessorContext::canAssign() const {
  */
 void GroupProcessorContext::assign(const Value& value) {
 	canAssign();
-	auto &groupPvConfig = iocServer->groupPvMap[groupName];
+	auto &groupPvConfig = groupConfigProcessor->groupConfigMap[groupName];
 
 	if (depth == 2) {
 		if (field == "+atomic") {
-			groupPvConfig.atomic = value.as<bool>() ? True : False;
+			groupPvConfig.atomic = value.as<bool>();
+			groupPvConfig.atomic_set = true;
 
 		} else if (field == "+id") {
 			groupPvConfig.structureId = value.as<std::string>();
 
 		} else {
-			iocServer->groupProcessingWarnings += "Unknown group option ";
-			iocServer->groupProcessingWarnings += field;
+			groupConfigProcessor->groupProcessingWarnings += "Unknown group option ";
+			groupConfigProcessor->groupProcessingWarnings += field;
 		}
 		field.clear();
 
 	} else if (depth == 3) {
-		auto &groupField = groupPvConfig.fieldMap[field];
+		auto &groupField = groupPvConfig.groupFields[field];
 
 		if (key == "+type") {
 			groupField.type = value.as<std::string>();
@@ -61,8 +62,8 @@ void GroupProcessorContext::assign(const Value& value) {
 			groupField.putOrder = value.as<int64_t>();
 
 		} else {
-			iocServer->groupProcessingWarnings += "Unknown group field option ";
-			iocServer->groupProcessingWarnings += field + ":" + key ;
+			groupConfigProcessor->groupProcessingWarnings += "Unknown group field option ";
+			groupConfigProcessor->groupProcessingWarnings += field + ":" + key ;
 		}
 		key.clear();
 	}

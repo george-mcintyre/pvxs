@@ -10,9 +10,13 @@
 #include <yajl_parse.h>
 #include "iocserver.h"
 #include "dbentry.h"
-#include "groupprocessorcontext.h"
+#include "groupconfig.h"
+
 namespace pvxs {
 namespace ioc {
+
+// Pre-declare context class
+class GroupProcessorContext;
 
 class GroupConfigProcessor {
 	static bool yajlParseHelper(std::istream& jsonGroupDefinitionStream, yajl_handle handle);
@@ -46,14 +50,19 @@ class GroupConfigProcessor {
 	static int processEndBlock(void* parserContext);
 
 public:
+	GroupConfigMap groupConfigMap;
+
+	// Group processing warning messages if not empty
+	std::string groupProcessingWarnings;
 
 	GroupConfigProcessor() = default;
 	void parseDbConfig();
 	void parseConfigFiles();
-	void parseConfigString(IOCServer* iocServer, const char* dbRecordName, const char * jsonGroupDefinition);
+	void parseConfigString(const char* jsonGroupDefinition, const char* dbRecordName = nullptr);
 	static const char* infoField(DBEntry& dbEntry, const char* key, const char* defaultValue = nullptr);
 	static int yajlProcess(void* parserContext, const std::function <int (GroupProcessorContext *)>&pFunction);
 	static void checkForTrailingCommentsAtEnd(const std::string& line);
+	void configureGroups();
 };
 
 } // ioc

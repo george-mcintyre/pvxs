@@ -28,30 +28,28 @@ DEFINE_LOGGER(_logname, "pvxs.ioc.search");
  * and converting them to GroupPv configuration information.
  */
 void GroupConfigProcessor::parseDbConfig() {
-	runOnPvxsServer([this](IOCServer* pPvxsServer) {
-		// process info blocks named Q:Group to get group configuration
-		DBEntry dbEntry;
-		for (long status = dbFirstRecordType(dbEntry); !status; status = dbNextRecordType(dbEntry)) {
-			for (status = dbFirstRecord(dbEntry); !status; status = dbNextRecord(dbEntry)) {
-				const char* jsonGroupDefinition = infoField(dbEntry, "Q:group");
-				if (jsonGroupDefinition != nullptr) {
-					auto& dbRecordName(dbEntry->precnode->recordname);
-					log_debug_printf(_logname, "%s: info(Q:Group, ...\n", dbRecordName);
+	// process info blocks named Q:Group to get group configuration
+	DBEntry dbEntry;
+	for (long status = dbFirstRecordType(dbEntry); !status; status = dbNextRecordType(dbEntry)) {
+		for (status = dbFirstRecord(dbEntry); !status; status = dbNextRecord(dbEntry)) {
+			const char* jsonGroupDefinition = infoField(dbEntry, "Q:group");
+			if (jsonGroupDefinition != nullptr) {
+				auto& dbRecordName(dbEntry->precnode->recordname);
+				log_debug_printf(_logname, "%s: info(Q:Group, ...\n", dbRecordName);
 
-					try {
-						parseConfigString(pPvxsServer, dbRecordName, jsonGroupDefinition);
-						if (!pPvxsServer->groupProcessingWarnings.empty()) {
-							std::cout << dbRecordName << ": warning(s) from info(\"Q:group\", ..." << std::endl
-							          << pPvxsServer->groupProcessingWarnings.c_str();
-						}
-					} catch (std::exception& e) {
-						std::cerr << dbRecordName << ": Error parsing info(\"Q:group\", ..." << std::endl
-						          << e.what();
+				try {
+					parseConfigString(jsonGroupDefinition, dbRecordName);
+					if (!groupProcessingWarnings.empty()) {
+						std::cout << dbRecordName << ": warning(s) from info(\"Q:group\", ..." << std::endl
+						          << groupProcessingWarnings.c_str();
 					}
+				} catch (std::exception& e) {
+					std::cerr << dbRecordName << ": Error parsing info(\"Q:group\", ..." << std::endl
+					          << e.what();
 				}
 			}
 		}
-	});
+	}
 }
 
 /**
@@ -83,10 +81,10 @@ void GroupConfigProcessor::parseConfigFiles() {
 			log_debug_printf(_logname, "Process dbGroup file \"%s\"\n", groupDefinitionFileName);
 
 			try {
-				parseConfigString(pPvxsServer, nullptr, jsonGroupDefinition.c_str());
-				if (!pPvxsServer->groupProcessingWarnings.empty()) {
+				parseConfigString(jsonGroupDefinition.c_str());
+				if (!groupProcessingWarnings.empty()) {
 					std::cerr << "warning(s) from group definition file \"" << groupDefinitionFileName << "\""
-					          << std::endl << pPvxsServer->groupProcessingWarnings << std::endl;
+					          << std::endl << groupProcessingWarnings << std::endl;
 				}
 			} catch (std::exception& e) {
 				std::cerr << "Error reading group definition file \"" << groupDefinitionFileName << "\""
@@ -97,15 +95,125 @@ void GroupConfigProcessor::parseConfigFiles() {
 }
 
 /**
+ * After the group configuration has been read into pvxs::ioc::IOCServer::groupConfig
+ * this function is called to evaluate it and create groups in pvxs::ioc::IOCServer::groupConfig
+ */
+void GroupConfigProcessor::configureGroups() {
+/*	for (GroupConfig::groups_t::const_iterator git = conf.groups.begin(), gend = conf.groups.end();
+	     git != gend; ++git) {
+		const std::string& grpname = git->first;
+		const GroupConfig::Group& grp = git->second;
+		try {
+
+			if (dbChannelTest(grpname.c_str()) == 0) {
+				fprintf(stderr, "%s : Error: Group name conflicts with record name.  Ignoring...\n", grpname.c_str());
+				continue;
+			}
+
+			groups_t::iterator it = groups.find(grpname);
+			if (it == groups.end()) {
+				// lazy creation of group
+				std::pair<groups_t::iterator, bool> ins(groups.insert(std::make_pair(grpname, GroupInfo(grpname))));
+				it = ins.first;
+			}
+			GroupInfo* curgroup = &it->second;
+
+			if (!grp.id.empty())
+				curgroup->structID = grp.id;
+
+			for (GroupConfig::Group::fields_t::const_iterator fit = grp.fields.begin(), fend = grp.fields.end();
+			     fit != fend; ++fit) {
+				const std::string& fldname = fit->first;
+				const GroupConfig::Field& fld = fit->second;
+
+				if (curgroup->members_map.find(fldname) != curgroup->members_map.end()) {
+					fprintf(stderr, "%s.%s Warning: ignoring duplicate mapping %s\n",
+							grpname.c_str(), fldname.c_str(),
+							fld.channel.c_str());
+					continue;
+				}
+
+				curgroup->members.push_back(GroupMemberInfo());
+				GroupMemberInfo& info = curgroup->members.back();
+				info.pvname = fld.channel;
+				info.pvfldname = fldname;
+				info.structID = fld.id;
+				info.putorder = fld.putorder;
+				info.type = fld.type;
+				curgroup->members_map[fldname] = (size_t)-1; // placeholder  see below
+
+				if (PDBProviderDebug > 2) {
+					fprintf(stderr, "  pdb map '%s.%s' <-> '%s'\n",
+							curgroup->name.c_str(),
+							curgroup->members.back().pvfldname.c_str(),
+							curgroup->members.back().pvname.c_str());
+				}
+
+				if (!fld.trigger.empty()) {
+					GroupInfo::triggers_t::iterator it = curgroup->triggers.find(fldname);
+					if (it == curgroup->triggers.end()) {
+						std::pair<GroupInfo::triggers_t::iterator, bool> ins(curgroup->triggers.insert(
+								std::make_pair(fldname, GroupInfo::triggers_set_t())));
+						it = ins.first;
+					}
+
+					Splitter sep(fld.trigger.c_str(), ',');
+					std::string target;
+
+					while (sep.snip(target)) {
+						curgroup->hastriggers = true;
+						it->second.insert(target);
+					}
+				}
+			}
+
+			if (grp.atomic_set) {
+				GroupInfo::tribool V = grp.atomic ? GroupInfo::True : GroupInfo::False;
+
+				if (curgroup->atomic != GroupInfo::Unset && curgroup->atomic != V)
+					fprintf(stderr, "%s Warning: pdb atomic setting inconsistent '%s'\n",
+							grpname.c_str(), curgroup->name.c_str());
+
+				curgroup->atomic = V;
+
+				if (PDBProviderDebug > 2)
+					fprintf(stderr, "  pdb atomic '%s' %s\n",
+							curgroup->name.c_str(), curgroup->atomic ? "YES" : "NO");
+			}
+
+		} catch (std::exception& e) {
+			fprintf(stderr, "Error processing Q:group \"%s\" : %s\n",
+					grpname.c_str(), e.what());
+		}
+	}
+
+	// re-sort GroupInfo::members to ensure the shorter names appear first
+	// allows use of 'existing' PVIFBuilder on leaves.
+	for (groups_t::iterator it = groups.begin(), end = groups.end(); it != end; ++it) {
+		GroupInfo& info = it->second;
+		std::sort(info.members.begin(),
+				info.members.end());
+
+		info.members_map.clear();
+
+		for (size_t i = 0, N = info.members.size(); i < N; i++) {
+			info.members_map[info.members[i].pvfldname] = i;
+		}
+	}
+
+	resolveTriggers();
+	// must not re-sort members after this point as resolveTriggers()
+	// has stored array indicies.*/
+}
+
+/**
  * Parse the given json string as a group definition part for the given dbRecord
  * name and extract group pv definition into the given iocServer
  *
- * @param iocServer the iocServer to add the group definition info to
  * @param dbRecordName the name of the dbRecord
  * @param jsonGroupDefinition the given json string representing a group definition
  */
-void GroupConfigProcessor::parseConfigString(IOCServer* iocServer, const char* dbRecordName,
-		const char* jsonGroupDefinition) {
+void GroupConfigProcessor::parseConfigString(const char* jsonGroupDefinition, const char* dbRecordName) {
 #ifndef EPICS_YAJL_VERSION
 	yajl_parser_config parserConfig;
 	memset(&parserConfig, 0, sizeof(parserConfig));
@@ -124,7 +232,7 @@ void GroupConfigProcessor::parseConfigString(IOCServer* iocServer, const char* d
 	}
 
 	// Create a parser context for the parser
-	GroupProcessorContext parserContext(channelPrefix, iocServer);
+	GroupProcessorContext parserContext(channelPrefix, this);
 
 #ifndef EPICS_YAJL_VERSION
 	YajlHandler handle(yajl_alloc(&yajlParserCallbacks, &parserConfig, NULL, &parserContext));
@@ -195,7 +303,7 @@ int GroupConfigProcessor::processNull(void* parserContext) {
  */
 int GroupConfigProcessor::processBoolean(void* parserContext, int booleanValue) {
 	return GroupConfigProcessor::yajlProcess(parserContext, [&booleanValue](GroupProcessorContext* self) {
-		auto value  = pvxs::TypeDef(TypeCode::Bool).create();
+		auto value = pvxs::TypeDef(TypeCode::Bool).create();
 		value = booleanValue;
 		self->assign(value);
 		return 1;
@@ -211,7 +319,7 @@ int GroupConfigProcessor::processBoolean(void* parserContext, int booleanValue) 
  */
 int GroupConfigProcessor::processInteger(void* parserContext, long long integerVal) {
 	return GroupConfigProcessor::yajlProcess(parserContext, [&integerVal](GroupProcessorContext* self) {
-		auto value  = pvxs::TypeDef(TypeCode::Int64).create();
+		auto value = pvxs::TypeDef(TypeCode::Int64).create();
 		value = (int64_t)integerVal;
 		self->assign(value);
 		return 1;
@@ -227,7 +335,7 @@ int GroupConfigProcessor::processInteger(void* parserContext, long long integerV
  */
 int GroupConfigProcessor::processDouble(void* parserContext, double doubleVal) {
 	return GroupConfigProcessor::yajlProcess(parserContext, [&doubleVal](GroupProcessorContext* self) {
-		auto value  = pvxs::TypeDef(TypeCode::Float64).create();
+		auto value = pvxs::TypeDef(TypeCode::Float64).create();
 		value = doubleVal;
 		self->assign(value);
 		return 1;
@@ -245,7 +353,7 @@ int GroupConfigProcessor::processDouble(void* parserContext, double doubleVal) {
 int GroupConfigProcessor::processString(void* parserContext, const unsigned char* stringVal, size_t stringLen) {
 	return GroupConfigProcessor::yajlProcess(parserContext, [&stringVal, &stringLen](GroupProcessorContext* self) {
 		std::string val((const char*)stringVal, stringLen);
-		auto value  = pvxs::TypeDef(TypeCode::String).create();
+		auto value = pvxs::TypeDef(TypeCode::String).create();
 		value = val;
 		self->assign(value);
 		return 1;

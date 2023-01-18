@@ -22,9 +22,6 @@ public:
 
 	// For locking access to GroupPvMap
 	epicsMutex pvMapMutex{};
-
-	// Group processing warning messages if not empty
-	std::string groupProcessingWarnings;
 };
 
 IOCServer &iocServer();

@@ -11,20 +11,22 @@
 #include <utility>
 #include "iocserver.h"
 
+#include "groupconfigprocessor.h"
+
 namespace pvxs {
 namespace ioc {
 
 class GroupProcessorContext {
 	const std::string channelPrefix;
-	IOCServer* iocServer;
+	GroupConfigProcessor* groupConfigProcessor;
 
 public:
 	std::string msg;
 	unsigned depth; // number of '{'s
 	std::string groupName, field, key;
 
-	GroupProcessorContext(std::string channelPrefix, IOCServer* iocServer)
-			:channelPrefix(std::move(channelPrefix)), iocServer(iocServer), depth(0u) {
+	GroupProcessorContext(std::string channelPrefix, GroupConfigProcessor* groupConfigProcessor)
+			:channelPrefix(std::move(channelPrefix)), groupConfigProcessor(groupConfigProcessor), depth(0u) {
 	}
 	void canAssign() const;
 	void assign(const Value& value);
