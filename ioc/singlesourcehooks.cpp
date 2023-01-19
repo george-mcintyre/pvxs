@@ -27,9 +27,13 @@ void pvxsl(const char* pShowDetails) {
 	runOnPvxsServer([&pShowDetails](IOCServer* pPvxsServer) {
 		auto showDetails = false;
 
-		if (pShowDetails && (!strcasecmp(pShowDetails, "yes") || !strcasecmp(pShowDetails, "true")
-				|| !strcmp(pShowDetails, "1"))) {
-			showDetails = true;
+		if (pShowDetails) {
+			std::string showDetailsValue(pShowDetails);
+			std::transform(showDetailsValue.begin(), showDetailsValue.end(), showDetailsValue.begin(),
+					[](unsigned char c) { return std::tolower(c); });
+			if (showDetailsValue == "yes" || showDetailsValue == "true" || showDetailsValue == "1") {
+				showDetails = true;
+			}
 		}
 
 		// For each registered source/IOID pair print a line of either detailed or regular information
@@ -98,8 +102,8 @@ void qsrvSingleSourceInit(initHookState theInitHookState) {
 void pvxsSingleSourceRegistrar() {
 	// Register commands to be available in the IOC shell
 	IOCShCommand<const char*>("pvxsl", "[show_detailed_information?]", "Single Sources list.\n"
-																	   "List record/field names.\n"
-																	   "If `show_detailed_information?` flag is `yes`, `true` or `1` then show detailed information.\n")
+	                                                                   "List record/field names.\n"
+	                                                                   "If `show_detailed_information?` flag is `yes`, `true` or `1` then show detailed information.\n")
 			.implementation<&pvxsl>();
 
 	initHookRegister(&qsrvSingleSourceInit);

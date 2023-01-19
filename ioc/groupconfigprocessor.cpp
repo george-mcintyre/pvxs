@@ -200,7 +200,7 @@ void GroupConfigProcessor::configureGroups() {
  * Resolve all trigger references to the specified fields
  */
 void GroupConfigProcessor::resolveTriggers() {
-	runOnPvxsServer([this](IOCServer* pPvxsServer) {
+	runOnPvxsServer([](IOCServer* pPvxsServer) {
 		// For all groups
 		for (auto&& mapEntry: pPvxsServer->groupPvMap) {
 			auto& groupName = mapEntry.first;
