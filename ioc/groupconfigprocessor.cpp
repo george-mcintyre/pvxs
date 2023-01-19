@@ -9,8 +9,8 @@
 #include <fstream>
 #include <dbChannel.h>
 
-#include "yajl_alloc.h"
-#include "yajl_parse.h"
+#include <yajl_alloc.h>
+#include <yajl_parse.h>
 
 #include "groupconfigprocessor.h"
 #include "iocshcommand.h"
