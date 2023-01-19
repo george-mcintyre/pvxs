@@ -198,7 +198,7 @@ jobs:
             manylinux: manylinux1
             arch: x86_64
 
-          - name: linux 3.9 amd64
+          - name: linux 3.6 amd64
             os: ubuntu-latest
             pyver: cp35-cp35m
             manylinux: manylinux1
