@@ -4,16 +4,6 @@
  * in file LICENSE that is included with this distribution.
  */
 
-#pragma clang diagnostic push
-/*
- * Copyright - See the COPYRIGHT that is included with this distribution.
- * pvxs is distributed subject to a Software License Agreement found
- * in file LICENSE that is included with this distribution.
- */
-
-// Created on 13/12/2022.
-//
-
 #ifndef PVXS_TYPEUTILS_H
 #define PVXS_TYPEUTILS_H
 
