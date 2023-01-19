@@ -51,8 +51,8 @@ ServerConn::ServerConn(ServIface* iface, evutil_socket_t sock, struct sockaddr *
     ,iface(iface)
     ,tcp_tx_limit(evsocket::get_buffer_size(sock, true) * tcp_tx_limit_mult)
 {
-    log_debug_printf(connio, "Client %s connects, RX readahead %zu TX limit %zu\n",
-                     peerName.c_str(), readahead, tcp_tx_limit);
+    log_debug_printf(connio, "Client %s connects, RX readahead %lu TX limit %lu\n",
+                     peerName.c_str(), (unsigned long)readahead, (unsigned long)tcp_tx_limit);
 
     {
         auto cred(std::make_shared<server::ClientCredentials>());
