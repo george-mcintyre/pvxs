@@ -30,7 +30,7 @@ jobs:
         include:
           - name: linux64 test
             os: ubuntu-latest
-            python: "3.9"
+            python: "3.6"
             source: true
 
           # OSX py builds
