@@ -78,11 +78,21 @@ if (auto&& __field = value[#_rvalue] ) { \
 namespace pvxs {
 namespace ioc {
 
+
+struct CommonMetadata {
+	DBRstatus
+	DBRamsg
+	DBRtime
+	DBRutag
+
+	enum {mask = DBR_STATUS | DBR_AMSG | DBR_TIME | DBR_UTAG};
+};
+
 /**
  * structure to store metadata
  */
 typedef struct metadata {
-	dbCommon metadata{};
+	CommonMetadata metadata{};
 	const char* pUnits{};
 	const dbr_precision* pPrecision{};
 	const dbr_enumStrs* enumStrings{};

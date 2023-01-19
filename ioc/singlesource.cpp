@@ -420,7 +420,8 @@ void SingleSource::getMetadata(void*& pValueBuffer, Metadata& metadata, bool for
 	// Read out the metadata from the buffer
 	if (forValues) {
 		// Alarm
-		get4MetadataFields(pValueBuffer, uint16_t, metadata.metadata.stat, metadata.metadata.sevr,
+		get4MetadataFields(pValueBuffer, uint16_t,
+				metadata.metadata.status, metadata.metadata.severity,
 				metadata.metadata.acks, metadata.metadata.ackt);
 		// Alarm message
 		getMetadataString(pValueBuffer, metadata.metadata.amsg);
@@ -643,8 +644,8 @@ template<typename valueType> void SingleSource::setBuffer(const Value& value, vo
  * @param value the value to set metadata for
  */
 void SingleSource::setAlarmMetadata(Metadata& metadata, Value& value) {
-	checkedSetField(metadata.metadata.stat, alarm.status);
-	checkedSetField(metadata.metadata.sevr, alarm.severity);
+	checkedSetField(metadata.metadata.status, alarm.status);
+	checkedSetField(metadata.metadata.severity, alarm.severity);
 	checkedSetField(metadata.metadata.acks, alarm.acks);
 	checkedSetField(metadata.metadata.ackt, alarm.ackt);
 	checkedSetStringField(metadata.metadata.amsg, alarm.message);
