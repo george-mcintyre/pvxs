@@ -34,7 +34,7 @@
 namespace pvxs {
 namespace ioc {
 
-DEFINE_LOGGER(log, "pvxs.ioc");
+DEFINE_LOGGER(_logname, "pvxs.ioc");
 
 // The pvxs server singleton
 std::atomic<IOCServer*> pvxsServer{};
@@ -97,7 +97,7 @@ void pvxsAtExit(void* pep) {
 			// take ownership
 			std::unique_ptr<IOCServer> serverInstance(pPvxsServer);
 			serverInstance->stop();
-			log_debug_printf(log, "Stopped Server%s", "\n");
+			log_debug_printf(_logname, "Stopped Server%s", "\n");
 		}
 	});
 }
@@ -165,14 +165,14 @@ void pvxsInitHook(initHookState theInitHookState) {
 	if (theInitHookState == initHookAfterCaServerRunning) {
 		runOnPvxsServer([](IOCServer* pPvxsServer) {
 			pPvxsServer->start();
-			log_debug_printf(log, "Started Server %p", pPvxsServer);
+			log_debug_printf(_logname, "Started Server %p", pPvxsServer);
 		});
 	} else
 		// iocPause()
 	if (theInitHookState == initHookAfterCaServerPaused) {
 		runOnPvxsServer([](IOCServer* pPvxsServer) {
 			pPvxsServer->stop();
-			log_debug_printf(log, "Stopped Server %p", pPvxsServer);
+			log_debug_printf(_logname, "Stopped Server %p", pPvxsServer);
 		});
 	} else
 
@@ -207,13 +207,13 @@ void initialisePvxsServer() {
 		std::unique_ptr<IOCServer> temp(new IOCServer(Config::from_env()));
 
 		if (pvxsServer.compare_exchange_strong(serv, temp.get())) {
-			log_debug_printf(log, "Installing Server %p\n", temp.get());
+			log_debug_printf(_logname, "Installing Server %p\n", temp.get());
 			(void)temp.release();
 		} else {
-			log_crit_printf(log, "Race installing Server? %p\n", serv);
+			log_crit_printf(_logname, "Race installing Server? %p\n", serv);
 		}
 	} else {
-		log_err_printf(log, "Stale Server? %p\n", serv);
+		log_err_printf(_logname, "Stale Server? %p\n", serv);
 	}
 }
 

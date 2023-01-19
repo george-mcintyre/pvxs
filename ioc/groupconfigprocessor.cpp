@@ -22,7 +22,7 @@
 namespace pvxs {
 namespace ioc {
 
-DEFINE_LOGGER(_logname, "pvxs.ioc.search");
+DEFINE_LOGGER(_logname, "pvxs.ioc.group.processor");
 
 /**
  * Parse group configuration that has been defined in db configuration files.

@@ -21,7 +21,7 @@
 namespace pvxs {
 namespace ioc {
 
-DEFINE_LOGGER(_logname, "pvxs.ioc.search");
+DEFINE_LOGGER(_logname, "pvxs.ioc.group.source");
 
 /**
  * Constructor for GroupSource registrar.
