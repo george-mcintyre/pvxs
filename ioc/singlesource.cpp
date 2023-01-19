@@ -4,6 +4,7 @@
  * in file LICENSE that is included with this distribution.
  */
 
+#include <string.h>
 #include <vector>
 #include <iostream>
 
@@ -557,7 +558,7 @@ void SingleSource::setBuffer(const Value& value, void* pValueBuffer) {
 		auto strValue = value["value"].as<std::string>();
 		auto len = MIN(strValue.length(), MAX_STRING_SIZE - 1);
 
-		strncpy((char*)pValueBuffer, value["value"].as<std::string>().c_str(), len);
+		value["value"].as<std::string>().copy((char*)pValueBuffer, len);
 		((char*)pValueBuffer)[len] = '\0';
 	} else {
 		SwitchTypeCodeForTemplatedCall(valueType.code, setBuffer, (value, pValueBuffer));
@@ -573,7 +574,7 @@ void SingleSource::setBuffer(const Value& value, void* pValueBuffer, long nEleme
 			snprintf(valueRef, 20, "value[%d]", i);
 			auto strValue = value[valueRef].as<std::string>();
 			auto len = MIN(strValue.length(), MAX_STRING_SIZE - 1);
-			strncpy((char*)pValueBuffer + MAX_STRING_SIZE * i, strValue.c_str(), len);
+			strValue.copy((char*)pValueBuffer + MAX_STRING_SIZE * i, len);
 			((char*)pValueBuffer + MAX_STRING_SIZE * i)[len] = '\0';
 		}
 	} else {
