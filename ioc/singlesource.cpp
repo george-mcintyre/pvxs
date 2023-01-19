@@ -5,6 +5,7 @@
  */
 
 #include <string.h>
+#include <algorithm>
 #include <vector>
 #include <iostream>
 
@@ -314,7 +315,6 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel,
 	epicsAny valueBuffer[100]; // value buffer to store the field we will get from the database.
 	void* pValueBuffer = &valueBuffer[0];
 	DBADDR dbAddress;   // Special struct for storing database addresses
-	long nElements;     // Calculated number of elements to retrieve.  For single values its 1 but for arrays it can be any number
 
 	// Convert pvName to a dbAddress
 	if (DBErrMsg err = nameToAddr(pvName, &dbAddress)) {
@@ -329,7 +329,7 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel,
 
 	// Calculate number of elements to retrieve as lowest of actual number of elements and max number
 	// of elements we can store in the buffer we've allocated
-	nElements = MIN(dbAddress.no_elements, sizeof(valueBuffer) / dbAddress.field_size);
+	auto nElements = (long )std::min((size_t)dbAddress.no_elements, sizeof(valueBuffer) / dbAddress.field_size);
 
 	// Get field value and all metadata
 	// Note that metadata will precede the value in the buffer and will be laid out in the order of the
