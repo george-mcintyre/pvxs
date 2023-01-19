@@ -10,9 +10,10 @@
 namespace pvxs {
 namespace ioc {
 
+#define DBERRMSG_LEN 40
 class DBErrMsg {
 	long status = 0;
-	char msg[40]{};
+	char msg[DBERRMSG_LEN]{};
 public:
 	DBErrMsg(long sts = 0);
 	DBErrMsg& operator=(long sts);
