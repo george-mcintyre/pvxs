@@ -20,7 +20,7 @@ namespace ioc {
 class GroupFieldConfig {
 public:
 	std::string type, channel, trigger, structureId;
-	long putOrder;
+	int64_t putOrder;
 };
 
 typedef std::map<std::string, GroupFieldConfig> GroupFieldsConfigMap;

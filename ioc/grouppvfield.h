@@ -28,7 +28,7 @@ public:
 	std::string structureId;                // Field's Normative Type structure ID or any other arbitrary string if not a normative type
 	std::string type;                       // Database field type
 	Triggers triggers;                      // Fields in this group which are posted on events from channel
-	int putOrder;                           // Order to serialise the field for put operations
+	int64_t putOrder;                       // Order to serialise the field for put operations
 	bool isArray{false};                    // Is this field an array field
 
 	bool operator<(const GroupPvField& o) const {
