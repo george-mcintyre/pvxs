@@ -48,5 +48,3 @@ TypeCode::code_t toTypeCode(dbfType databaseTypeCode);
 }
 
 #endif //PVXS_TYPEUTILS_H
-
-#pragma clang diagnostic pop
