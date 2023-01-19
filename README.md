@@ -1,9 +1,7 @@
-PVXS - PVAccess protocol library
-================================
+# PVXS client/server for PVA Protocol
 [![PVXS EPICS](https://github.com/george-mcintyre/pvxs/actions/workflows/ci-scripts-build.yml/badge.svg)](https://github.com/george-mcintyre/pvxs/actions/workflows/ci-scripts-build.yml)
 [![PVXS Python](https://github.com/george-mcintyre/pvxs/actions/workflows/python.yml/badge.svg)](https://github.com/george-mcintyre/pvxs/actions/workflows/python.yml)
 
-# PVXS client/server for PVA Protocol
 This module provides a library (libpvxs.so or pvxs.dll) and a set of CLI utilities acting as PVAccess protocol client and/or server.
 
 PVXS is functionally equivilant to the pvDataCPP and pvAccessCPP modules.
