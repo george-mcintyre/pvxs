@@ -10,6 +10,7 @@
 #ifndef PVXS_METADATA_H
 #define PVXS_METADATA_H
 
+#include <cmath>
 #include <dbCommon.h>
 #include <dbAccess.h>
 
@@ -62,7 +63,7 @@ if (auto&& __field = value[#_rvalue] ) { \
 
 #define checkedSetDoubleField(_lvalue, _rvalue) \
 if (auto&& __field = value[#_rvalue] ) { \
-    if ( !isnan(_lvalue)) { \
+    if ( !std::isnan(_lvalue)) { \
         __field = _lvalue; \
     } \
 }
