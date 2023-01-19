@@ -52,17 +52,16 @@ void pvxsl(const char* pShowDetails) {
 
 			if (list.names && !list.names->empty()) {
 				if (showDetails) {
-					std::cout << "------------------" << std::endl;
-					std::cout << "SOURCE: " << record.c_str() << "@" << pair.second
-					          << (list.dynamic ? " [dynamic]" : "") << std::endl;
-					std::cout << "------------------" << std::endl;
-					std::cout << "RECORDS: " << std::endl;
+					printf("------------------\n");
+					printf("SOURCE: %s@%d%s\n", record.c_str(), pair.second, (list.dynamic ? " [dynamic]" : ""));
+					printf("------------------\n");
+					printf("RECORDS: \n");
 				}
 				for (auto& name: *list.names) {
 					if (showDetails) {
-						std::cout << "  ";
+						printf("  ");
 					}
-					std::cout << name.c_str() << std::endl;
+					printf("%s\n", name.c_str());
 				}
 			}
 		}

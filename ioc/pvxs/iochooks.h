@@ -76,6 +76,7 @@ server::Server &server();
  *
  * @param jsonFilename the json file containing the group definitions
  * @return 0 for success, 1 for failure
+ * @since UNRELEASED
  */
 PVXS_IOC_API
 long dbLoadGroup(const char* jsonFilename);

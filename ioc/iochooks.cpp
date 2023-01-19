@@ -75,12 +75,12 @@ void runOnServer(const std::function<void(IOCServer*)>& function, const char* me
 		}
 	} catch (std::exception& e) {
 		if (context) {
-			std::cerr << context << ": ";
+			fprintf(stderr, "%s: ", context);
 		}
 		if (method) {
-			std::cerr << "Error in " << method << ": ";
+			fprintf(stderr, "Error in %s: ", method);
 		}
-		std::cerr << e.what() << std::endl;
+		fprintf(stderr, "%s\n", e.what());
 	}
 }
 
@@ -118,7 +118,7 @@ void pvxsr(int detail) {
 		std::ostringstream strm;
 		Detailed D(strm, detail);
 		strm << *pPvxsServer;
-		std::cout << strm.str().c_str();
+		printf("%s", strm.str().c_str());
 	});
 }
 
@@ -177,7 +177,7 @@ void pvxsInitHook(initHookState theInitHookState) {
 	} else
 
 #ifdef USE_DEINIT_HOOKS
-	// iocShutdown()  (called from exitDatabase() at exit, and testIocShutdownOk() )
+		// iocShutdown()  (called from exitDatabase() at exit, and testIocShutdownOk() )
 	if (theInitHookState == initHookAtShutdown) {
 		pvxsAtExit(nullptr);
 	}
@@ -243,7 +243,7 @@ void pvxsBaseRegistrar() {
 		// Register our hook handler to intercept certain state changes
 		initHookRegister(&pvxsInitHook);
 	} catch (std::exception& e) {
-		std::cerr << "Error in " << __func__ << " : " << e.what() << std::endl;
+		fprintf(stderr, "Error in %s : %s\n", __func__, e.what());
 	}
 }
 } // namespace

@@ -58,7 +58,7 @@ void pvxsgl(int level, const char* pattern) {
 				// if no pattern specified or the pattern matches
 				if (!pattern[0] || !!epicsStrGlobMatch(it->first.c_str(), pattern)) {
 					// Print the group name
-					std::cout << it->first << std::endl;
+					printf("%s", it->first.c_str());
 					// print sub-levels if required
 					if (level > 0) {
 						it->second.show(level);
@@ -66,7 +66,7 @@ void pvxsgl(int level, const char* pattern) {
 				}
 			}
 		} catch (std::exception& e) {
-			std::cerr << e.what() << std::endl;
+			fprintf(stderr, "%s\n", e.what());
 		}
 	}));
 }
@@ -84,9 +84,9 @@ void pvxsgl(int level, const char* pattern) {
 long dbLoadGroup(const char* jsonFilename) {
 	try {
 		if (!jsonFilename || !jsonFilename[0]) {
-			std::cout << "dbLoadGroup(\"file.json\")" << std::endl
-			          << "Load additional DB group definitions from file." << std::endl;
-			std::cerr << "Missing filename" << std::endl;
+			printf("dbLoadGroup(\"file.json\")\n"
+			       "Load additional DB group definitions from file.\n");
+			fprintf(stderr, "Missing filename\n");
 			return 1;
 		}
 

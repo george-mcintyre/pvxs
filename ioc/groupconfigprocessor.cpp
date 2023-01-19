@@ -42,12 +42,11 @@ void GroupConfigProcessor::parseDbConfig() {
 				try {
 					parseConfigString(jsonGroupDefinition, dbRecordName);
 					if (!groupProcessingWarnings.empty()) {
-						std::cout << dbRecordName << ": warning(s) from info(\"Q:group\", ..." << std::endl
+						std::cerr << dbRecordName << ": warning(s) from info(\"Q:group\", ..." << std::endl
 						          << groupProcessingWarnings.c_str();
 					}
 				} catch (std::exception& e) {
-					std::cerr << dbRecordName << ": Error parsing info(\"Q:group\", ..." << std::endl
-					          << e.what();
+					fprintf(stderr, "%s: Error parsing info(\"Q:group\", ...\n%s", dbRecordName, e.what());
 				}
 			}
 		}
@@ -72,7 +71,7 @@ void GroupConfigProcessor::parseConfigFiles() {
 			// Get contents of group definition file
 			std::ifstream jsonGroupDefinitionStream(groupDefinitionFileName, std::ifstream::in);
 			if (!jsonGroupDefinitionStream.is_open()) {
-				std::cerr << "Error opening \"" << groupDefinitionFileName << "\"" << std::endl;
+				fprintf(stderr, "Error opening \"%s\"\n", groupDefinitionFileName);
 				continue;
 			}
 			std::stringstream buffer;
@@ -84,12 +83,12 @@ void GroupConfigProcessor::parseConfigFiles() {
 			try {
 				parseConfigString(jsonGroupDefinition.c_str());
 				if (!groupProcessingWarnings.empty()) {
-					std::cerr << "warning(s) from group definition file \"" << groupDefinitionFileName << "\""
-					          << std::endl << groupProcessingWarnings << std::endl;
+					fprintf(stderr, "warning(s) from group definition file \"%s\"\n%s\n",
+							groupDefinitionFileName, groupProcessingWarnings.c_str());
 				}
 			} catch (std::exception& e) {
-				std::cerr << "Error reading group definition file \"" << groupDefinitionFileName << "\""
-				          << std::endl << e.what() << std::endl;
+				fprintf(stderr, "Error reading group definition file \"%s\"\n%s\n",
+						groupDefinitionFileName, e.what());
 			}
 		}
 	});
@@ -108,8 +107,8 @@ void GroupConfigProcessor::configureGroups() {
 			try {
 				// If the configured group name is the same as a record name then ignore it
 				if (dbChannelTest(groupName.c_str()) == 0) {
-					std::cerr << groupName << " : Error: Group name conflicts with record name.  Ignoring..."
-					          << std::endl;
+					fprintf(stderr, "%s : Error: Group name conflicts with record name.  Ignoring...\n",
+							groupName.c_str());
 					continue;
 				}
 
@@ -121,7 +120,7 @@ void GroupConfigProcessor::configureGroups() {
 					pPvxsServer->groupPvMap[groupName].structureId = groupConfig.structureId;
 				}
 
-				std::cout << groupName << " group id: " << pPvxsServer->groupPvMap[groupName].structureId << std::endl;
+				printf(" group id: %s\n", pPvxsServer->groupPvMap[groupName].structureId.c_str());
 
 				// for each field configure the fields
 				for (auto&& fieldIterator: groupConfig.groupFields) {
@@ -129,8 +128,8 @@ void GroupConfigProcessor::configureGroups() {
 					const GroupFieldConfig& fieldConfig = fieldIterator.second;
 
 					if (currentGroup.fieldMap.count(fieldName)) {
-						std::cerr << groupName << "." << fieldName << " Warning: ignoring duplicate mapping "
-						          << fieldConfig.channel << std::endl;
+						fprintf(stderr, "%s.%s Warning: ignoring duplicate mapping %s\n",
+								groupName.c_str(), fieldName.c_str(), fieldConfig.channel.c_str());
 						continue;
 					}
 
@@ -166,7 +165,7 @@ void GroupConfigProcessor::configureGroups() {
 					TriState atomicity = groupConfig.atomic ? TriState::True : TriState::False;
 
 					if (currentGroup.atomic != TriState::Unset && currentGroup.atomic != atomicity) {
-						std::cerr << groupName << " Warning: pvxs atomic setting inconsistent '" << std::endl;
+						fprintf(stderr, "%s  Warning: pvxs atomic setting inconsistent\n", groupName.c_str());
 					}
 
 					currentGroup.atomic = atomicity;
@@ -177,7 +176,7 @@ void GroupConfigProcessor::configureGroups() {
 				}
 
 			} catch (std::exception& e) {
-				std::cerr << "Error configuring group \"" << groupName << "\": " << e.what() << std::endl;
+				fprintf(stderr, "Error configuring group \"%s\" : %s\n", groupName.c_str(), e.what());
 			}
 		}
 
@@ -214,8 +213,8 @@ void GroupConfigProcessor::resolveTriggers() {
 					Triggers& targets = triggerMapEntry.second;
 
 					if (currentGroup.fieldMap.count(field) == 0) {
-						std::cerr << "Error: Group \"" << groupName << "\" defines triggers from nonexistent field \""
-						          << field << "\"" << std::endl;
+						fprintf(stderr, "Error: Group \"%s\" defines triggers from nonexistent field \"%s\" \n",
+								groupName.c_str(), field.c_str());
 						continue;
 					}
 
@@ -228,7 +227,7 @@ void GroupConfigProcessor::resolveTriggers() {
 					for (auto&& target: targets) {
 						// If the target is star then map to all fields
 						if (target == "*") {
-							for (auto & targetedField : currentGroup.fields) {
+							for (auto& targetedField: currentGroup.fields) {
 								if (!targetedField.channel.empty()) {
 									sourceMember.triggers.insert(targetedField.name);
 									log_debug_printf(_logname, "%s, ", targetedField.name.c_str());
@@ -236,9 +235,9 @@ void GroupConfigProcessor::resolveTriggers() {
 							}
 						} else {
 							// otherwise map to the specific target if it exists
-							if ( currentGroup.fieldMap.count(target) == 0) {
-								std::cerr << "Error: Group \"" << groupName << "\" defines triggers to nonexistent field \""
-								          << target << "\"" << std::endl;
+							if (currentGroup.fieldMap.count(target) == 0) {
+								fprintf(stderr, "Error: Group \"%s\" defines triggers to nonexistent field \"%s\" \n",
+										groupName.c_str(), target.c_str());
 								continue;
 							}
 							auto& targetMemberIndex = currentGroup.fieldMap[target];
@@ -259,7 +258,7 @@ void GroupConfigProcessor::resolveTriggers() {
 				// If no trigger specified for this group then set all fields to trigger themselves
 				log_debug_printf(_logname, "  pvxs default triggers for '%s'\n", groupName.c_str());
 
-				for ( auto &&field: currentGroup.fields) {
+				for (auto&& field: currentGroup.fields) {
 					if (!field.channel.empty()) {
 						field.triggers.insert(field.name);  // default is self trigger
 					}

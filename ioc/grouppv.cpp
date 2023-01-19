@@ -19,30 +19,30 @@ void GroupPv::show(int level) const {
 	// no locking as we only print things which are const after initialization
 
 	// Group field information
-	std::cout << "  Atomic Get/Put:" << (atomicPutGet ? "yes" : "no")
-	          << " Atomic Monitor:" << (atomicMonitor ? "yes" : "no")
-	          << " Members:" << fields.size()
-	          << std::endl;
+	printf("  Atomic Get/Put:%s Atomic Monitor:%s Members:%ld\n",
+			(atomicPutGet ? "yes" : "no"),
+			(atomicMonitor ? "yes" : "no"),
+			fields.size());
 
 	// If we need to show detailed information then iterate through all fields showing details
 	if (level > 1) {
-		std::cout << "  ";
+		printf("  ");
 		if (fields.empty()) {
-			std::cout << "/";
+			printf("/");
 		} else {
 			bool first = true;
 			for (auto& field: fields) {
 				if (first) {
 					first = false;
 				} else {
-					std::cout << ".";
+					printf(".");
 				}
 
-				std::cout << field.name;
+				printf("%s", field.name.c_str());
 				if (field.isArray) {
-					std::cout << "[]";
+					printf("[]");
 				}
-				std::cout << "\t<-> " << field.channel << std::endl;
+				printf("\t<-> %s\n", field.channel.c_str());
 			}
 		}
 	}
