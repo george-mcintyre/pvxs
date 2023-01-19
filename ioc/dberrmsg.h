@@ -7,13 +7,14 @@
 #ifndef PVXS_DBERRMSG_H
 #define PVXS_DBERRMSG_H
 
+#include <epicsTypes.h>
+
 namespace pvxs {
 namespace ioc {
 
-#define DBERRMSG_LEN 40
 class DBErrMsg {
 	long status = 0;
-	char msg[DBERRMSG_LEN]{};
+	char msg[MAX_STRING_SIZE]{};
 public:
 	DBErrMsg(long sts = 0);
 	DBErrMsg& operator=(long sts);

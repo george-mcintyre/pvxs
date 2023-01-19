@@ -4,7 +4,8 @@
  * in file LICENSE that is included with this distribution.
  */
 
-#include <string>
+#include <errlog.h>
+#include <errSymTbl.h>
 #include "dberrmsg.h"
 
 namespace pvxs {
@@ -19,10 +20,8 @@ DBErrMsg& DBErrMsg::operator=(long sts) {
 	if (!sts) {
 		msg[0] = '\0';
 	} else {
-// TODO ci fails with: ‘errSymLookup’ was not declared in this scope, so don't lookup error
-		std::snprintf( msg, DBERRMSG_LEN, "database error: %ld", sts );
-//		errSymLookup(sts, msg, sizeof(msg));
-//		msg[sizeof(msg) - 1] = '\0';
+		errSymLookup(sts, msg, sizeof(msg));
+		msg[sizeof(msg) - 1] = '\0';
 	}
 	return *this;
 }
