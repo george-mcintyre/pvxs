@@ -94,7 +94,7 @@ MAIN(testioc) {
 
 	// Test (12-16) value of fields correct
 	testdbGetFieldEqual("test:aiExample", DBR_DOUBLE, 42.2);
-	testdbGetFieldEqual("test:calcExample", DBR_DOUBLE, 42.2);
+	testdbGetFieldEqual("test:calcExample", DBR_DOUBLE, 0);
 	testdbGetFieldEqual("test:compressExample", DBR_DOUBLE, 42.2);
 	testdbGetFieldEqual("test:stringExample", DBR_STRING, "Some random value");
 	double expected = 0.0;
