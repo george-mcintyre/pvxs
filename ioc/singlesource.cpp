@@ -368,7 +368,7 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel,
 
 			// TODO Don't output choices for subscriptions unless changed
 			shared_array<std::string> choices(metadata.enumStrings->no_str);
-			for (auto i = 0; i < metadata.enumStrings->no_str; i++) {
+			for (epicsUInt32 i = 0; i < metadata.enumStrings->no_str; i++) {
 				choices[i] = metadata.enumStrings->strs[i];
 			}
 			value["value.choices"] = choices.freeze().castTo<const void>();
