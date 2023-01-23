@@ -51,7 +51,7 @@ public:
 	 * Show details for this group
 	 * @param level the level of detail to show.  0 fields only
 	 */
-	void show(int level) const;
+	size_t channelCount() const;
 };
 
 // A map of group name to GroupPv

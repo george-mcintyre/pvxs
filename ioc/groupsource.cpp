@@ -4,9 +4,6 @@
  * in file LICENSE that is included with this distribution.
  */
 
-// Created on 03/01/2023.
-//
-
 #include <pvxs/source.h>
 #include <pvxs/log.h>
 
@@ -33,26 +30,25 @@ GroupSource::GroupSource()
 	runOnPvxsServer([this](IOCServer* pPvxsServer) {
 		auto names(std::make_shared<std::set<std::string >>());
 
-		// Get copy of Group PV Map
-		GroupPvMap map;
+		// Lock map and get names
 		{
-			epicsGuard<epicsMutex> G(pPvxsServer->pvMapMutex);
-			map = pPvxsServer->groupPvMap;  // copy map
-		}
+			epicsGuard<epicsMutex> G(pPvxsServer->groupMapMutex);
 
-		// For each defined group, add group name to the list of all records
-		for (GroupPvMap::const_iterator it(map.begin()), end(map.end()); it != end; ++it) {
-			names->insert(it->first);
+			// For each defined group, add group name to the list of all records
+			for (auto& groupMapEntry: pPvxsServer->groupMap) {
+				auto& groupName = groupMapEntry.first;
+				names->insert(groupName);
+			}
 		}
 
 		allRecords.names = names;
 
 		// Start event pump
-		if ( !eventContext) {
+		if (!eventContext) {
 			throw std::runtime_error("Group Source: Event Context failed to initialise: db_init_events()");
 		}
 
-		if ( db_start_events(eventContext.get(), "qsrvGroup", nullptr, nullptr, epicsThreadPriorityCAServerLow-1) ) {
+		if (db_start_events(eventContext.get(), "qsrvGroup", nullptr, nullptr, epicsThreadPriorityCAServerLow - 1)) {
 			throw std::runtime_error("Could not start event thread: db_start_events()");
 		}
 	});
@@ -95,11 +91,11 @@ GroupSource::List GroupSource::onList() {
  * @param searchOperation the search operation
  */
 void GroupSource::onSearch(Search& searchOperation) {
-	std::pair<GroupSource&,Search&> searchContext(*this,searchOperation);
+	std::pair<GroupSource&, Search&> searchContext(*this, searchOperation);
 
 	runOnPvxsServer([&searchContext](IOCServer* pPvxsServer) {
-	auto &groupSource = searchContext.first;
-	auto &searchOperation = searchContext.second;
+		auto& groupSource = searchContext.first;
+		auto& searchOperation = searchContext.second;
 		for (auto& pv: searchOperation) {
 			if (groupSource.allRecords.names->count(pv.name()) == 1) {
 				pv.claim();

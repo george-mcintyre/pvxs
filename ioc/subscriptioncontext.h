@@ -4,11 +4,10 @@
  * in file LICENSE that is included with this distribution.
  */
 
-// Created on 21/12/2022.
-//
-
 #ifndef PVXS_SUBSCRIPTIONCONTEXT_H
 #define PVXS_SUBSCRIPTIONCONTEXT_H
+
+#include <pvxs/source.h>
 
 /**
  * Add a subscription event by calling db_add_event using the given subscriptionCtx

@@ -4,9 +4,6 @@
  * in file LICENSE that is included with this distribution.
  */
 
-// Created on 19/12/2022.
-//
-
 #ifndef PVXS_DBEVENTCONTEXTDELETER_H
 #define PVXS_DBEVENTCONTEXTDELETER_H
 

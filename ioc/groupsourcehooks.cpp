@@ -5,7 +5,6 @@
  */
 
 #include <vector>
-#include <iostream>
 
 #include <pvxs/source.h>
 #include <initHooks.h>
@@ -14,7 +13,6 @@
 
 #include "iocshcommand.h"
 #include "groupsource.h"
-#include "grouppv.h"
 #include "groupconfigprocessor.h"
 #include "pvxs/iochooks.h"
 
@@ -45,23 +43,21 @@ void pvxsgl(int level, const char* pattern) {
 				pattern = "";
 			}
 
-			// Get copy of Group PV Map
-			GroupPvMap map;
 			{
-				epicsGuard<epicsMutex> G(pPvxsServer->pvMapMutex);
-				map = pPvxsServer->groupPvMap;  // copy map
-			}
+				epicsGuard<epicsMutex> G(pPvxsServer->groupMapMutex);
 
-			// For each group
-			// TODO for ( auto it: map) { ... }
-			for (GroupPvMap::const_iterator it(map.begin()), end(map.end()); it != end; ++it) {
-				// if no pattern specified or the pattern matches
-				if (!pattern[0] || !!epicsStrGlobMatch(it->first.c_str(), pattern)) {
-					// Print the group name
-					printf("%s", it->first.c_str());
-					// print sub-levels if required
-					if (level > 0) {
-						it->second.show(level);
+				// For each group
+				for ( auto &mapEntry: pPvxsServer->groupMap ) {
+					auto &groupName = mapEntry.first;
+					auto &group = mapEntry.second;
+					// if no pattern specified or the pattern matches
+					if (!pattern[0] || !!epicsStrGlobMatch(groupName.c_str(), pattern)) {
+						// Print the group name
+						printf("%s\n", groupName.c_str());
+						// print sub-levels if required
+						if (level > 0) {
+							group.show(level);
+						}
 					}
 				}
 			}
@@ -132,7 +128,14 @@ void qsrvGroupSourceInit(initHookState theInitHookState) {
 		// Load group configuration files
 		processor.parseConfigFiles();
 
+		// Configure groups
 		processor.configureGroups();
+
+		// Resolve triggers
+		processor.resolveTriggers();
+
+		// Create IOC Server Groups
+		processor.createGroups();
 	} else if (theInitHookState == initHookAfterIocBuilt) {
 		// Load group configuration from parsed groups in iocServer
 		pvxs::ioc::iocServer().addSource("qsrvGroup", std::make_shared<pvxs::ioc::GroupSource>(), 1);

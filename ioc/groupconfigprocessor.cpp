@@ -5,9 +5,11 @@
  */
 
 #include <iostream>
-#include <pvxs/log.h>
 #include <fstream>
+
 #include <dbChannel.h>
+#include <pvxs/log.h>
+#include <pvxs/nt.h>
 
 #include <yajl_alloc.h>
 #include <yajl_parse.h>
@@ -18,6 +20,7 @@
 #include "grouppv.h"
 #include "groupprocessorcontext.h"
 #include "yajlcallbackhandler.h"
+#include "singlesource.h"
 
 namespace pvxs {
 namespace ioc {
@@ -99,173 +102,285 @@ void GroupConfigProcessor::parseConfigFiles() {
  * this function is called to evaluate it and create groups in pvxs::ioc::IOCServer::groupConfig
  */
 void GroupConfigProcessor::configureGroups() {
-	runOnPvxsServer([this](IOCServer* pPvxsServer) {
-		for (auto& groupIterator: groupConfigMap) {
-			const std::string& groupName = groupIterator.first;
-			const GroupConfig& groupConfig = groupIterator.second;
+	for (auto& groupIterator: groupConfigMap) {
+		const std::string& groupName = groupIterator.first;
+		const GroupConfig& groupConfig = groupIterator.second;
 
-			try {
-				// If the configured group name is the same as a record name then ignore it
-				if (dbChannelTest(groupName.c_str()) == 0) {
-					fprintf(stderr, "%s : Error: Group name conflicts with record name.  Ignoring...\n",
-							groupName.c_str());
+		try {
+			// If the configured group name is the same as a record name then ignore it
+			if (dbChannelTest(groupName.c_str()) == 0) {
+				fprintf(stderr, "%s : Error: Group name conflicts with record name.  Ignoring...\n",
+						groupName.c_str());
+				continue;
+			}
+
+			// Create group when it is first referenced
+			auto&& currentGroup = groupPvMap[groupName];
+
+			// If the structure ID is not already set then set it
+			if (!groupConfig.structureId.empty()) {
+				groupPvMap[groupName].structureId = groupConfig.structureId;
+			}
+
+			// for each field configure the fields
+			for (auto&& fieldIterator: groupConfig.groupFields) {
+				const std::string& fieldName = fieldIterator.first;
+				const GroupFieldConfig& fieldConfig = fieldIterator.second;
+
+				if (currentGroup.fieldMap.count(fieldName)) {
+					fprintf(stderr, "%s.%s Warning: ignoring duplicate mapping %s\n",
+							groupName.c_str(), fieldName.c_str(), fieldConfig.channel.c_str());
 					continue;
 				}
 
-				// Create group when it is first referenced
-				auto&& currentGroup = pPvxsServer->groupPvMap[groupName];
+				currentGroup.fields.emplace_back();
+				auto& currentField = currentGroup.fields.back();
+				currentField.channel = fieldConfig.channel;
+				currentField.name = fieldName;
+				currentField.structureId = fieldConfig.structureId;
+				currentField.putOrder = fieldConfig.putOrder;
+				currentField.type = fieldConfig.type;
 
-				// If the structure ID is not already set then set it
-				if (!groupConfig.structureId.empty()) {
-					pPvxsServer->groupPvMap[groupName].structureId = groupConfig.structureId;
-				}
+				currentGroup.fieldMap[fieldName] = (size_t)-1;      // placeholder  see below
 
-				printf(" group id: %s\n", pPvxsServer->groupPvMap[groupName].structureId.c_str());
+				log_debug_printf(_logname, "  pvxs map '%s.%s' <-> '%s'\n",
+						groupName.c_str(),
+						fieldName.c_str(),
+						currentField.channel.c_str());
 
-				// for each field configure the fields
-				for (auto&& fieldIterator: groupConfig.groupFields) {
-					const std::string& fieldName = fieldIterator.first;
-					const GroupFieldConfig& fieldConfig = fieldIterator.second;
+				if (!fieldConfig.trigger.empty()) {
+					Triggers triggers;
+					std::string trigger;
+					std::stringstream splitter(fieldConfig.trigger);
+					currentGroup.hasTriggers = true;
 
-					if (currentGroup.fieldMap.count(fieldName)) {
-						fprintf(stderr, "%s.%s Warning: ignoring duplicate mapping %s\n",
-								groupName.c_str(), fieldName.c_str(), fieldConfig.channel.c_str());
-						continue;
+					while (std::getline(splitter, trigger, ',')) {
+						triggers.insert(trigger);
 					}
-
-					currentGroup.fields.emplace_back();
-					auto& currentField = currentGroup.fields.back();
-					currentField.channel = fieldConfig.channel;
-					currentField.name = fieldName;
-					currentField.structureId = fieldConfig.structureId;
-					currentField.putOrder = fieldConfig.putOrder;
-					currentField.type = fieldConfig.type;
-
-					currentGroup.fieldMap[fieldName] = (size_t)-1;      // placeholder  see below
-
-					log_debug_printf(_logname, "  pvxs map '%s.%s' <-> '%s'\n",
-							groupName.c_str(),
-							fieldName.c_str(),
-							currentField.channel.c_str());
-
-					if (!fieldConfig.trigger.empty()) {
-						Triggers triggers;
-						std::string trigger;
-						std::stringstream splitter(fieldConfig.trigger);
-						currentGroup.hasTriggers = true;
-
-						while (std::getline(splitter, trigger, ',')) {
-							triggers.insert(trigger);
-						}
-						currentGroup.triggerMap[fieldName] = triggers;
-					}
+					currentGroup.triggerMap[fieldName] = triggers;
 				}
-
-				if (groupConfig.atomic_set) {
-					TriState atomicity = groupConfig.atomic ? TriState::True : TriState::False;
-
-					if (currentGroup.atomic != TriState::Unset && currentGroup.atomic != atomicity) {
-						fprintf(stderr, "%s  Warning: pvxs atomic setting inconsistent\n", groupName.c_str());
-					}
-
-					currentGroup.atomic = atomicity;
-
-					log_debug_printf(_logname, "  pvxs atomic '%s' %s\n",
-							groupName.c_str(),
-							currentGroup.atomic ? "YES" : "NO");
-				}
-
-			} catch (std::exception& e) {
-				fprintf(stderr, "Error configuring group \"%s\" : %s\n", groupName.c_str(), e.what());
 			}
-		}
 
-		// re-sort fields to ensure the shorter names appear first
-		for (auto&& mapEntry: pPvxsServer->groupPvMap) {
-			auto& currentGroup = mapEntry.second;
-			std::sort(currentGroup.fields.begin(), currentGroup.fields.end());
-			currentGroup.fieldMap.clear();
+			if (groupConfig.atomic_set) {
+				TriState atomicity = groupConfig.atomic ? TriState::True : TriState::False;
 
-			for (size_t i = 0, N = currentGroup.fields.size(); i < N; i++) {
-				currentGroup.fieldMap[currentGroup.fields[i].name] = i;
+				if (currentGroup.atomic != TriState::Unset && currentGroup.atomic != atomicity) {
+					fprintf(stderr, "%s  Warning: pvxs atomic setting inconsistent\n", groupName.c_str());
+				}
+
+				currentGroup.atomic = atomicity;
+
+				log_debug_printf(_logname, "  pvxs atomic '%s' %s\n",
+						groupName.c_str(),
+						currentGroup.atomic ? "YES" : "NO");
 			}
-		}
 
-		resolveTriggers();
-	});
+		} catch (std::exception& e) {
+			fprintf(stderr, "Error configuring group \"%s\" : %s\n", groupName.c_str(), e.what());
+		}
+	}
+
+	// re-sort fields to ensure the shorter names appear first
+	for (auto&& mapEntry: groupPvMap) {
+		auto& currentGroup = mapEntry.second;
+		std::sort(currentGroup.fields.begin(), currentGroup.fields.end());
+		currentGroup.fieldMap.clear();
+
+		for (size_t i = 0, N = currentGroup.fields.size(); i < N; i++) {
+			currentGroup.fieldMap[currentGroup.fields[i].name] = i;
+		}
+	}
 }
 
 /**
  * Resolve all trigger references to the specified fields
  */
 void GroupConfigProcessor::resolveTriggers() {
-	runOnPvxsServer([](IOCServer* pPvxsServer) {
-		// For all groups
-		for (auto&& mapEntry: pPvxsServer->groupPvMap) {
-			auto& groupName = mapEntry.first;
-			auto& currentGroup = mapEntry.second;
+	// For all groups
+	for (auto&& mapEntry: groupPvMap) {
+		auto& groupName = mapEntry.first;
+		auto& currentGroup = mapEntry.second;
 
-			// If it has triggers
-			if (currentGroup.hasTriggers) {
-				// Then for all triggers
-				for (auto&& triggerMapEntry: currentGroup.triggerMap) {
-					const std::string& field = triggerMapEntry.first;
-					Triggers& targets = triggerMapEntry.second;
+		// If it has triggers
+		if (currentGroup.hasTriggers) {
+			// Then for all triggers
+			for (auto&& triggerMapEntry: currentGroup.triggerMap) {
+				const std::string& field = triggerMapEntry.first;
+				Triggers& targets = triggerMapEntry.second;
 
-					if (currentGroup.fieldMap.count(field) == 0) {
-						fprintf(stderr, "Error: Group \"%s\" defines triggers from nonexistent field \"%s\" \n",
-								groupName.c_str(), field.c_str());
-						continue;
-					}
+				if (currentGroup.fieldMap.count(field) == 0) {
+					fprintf(stderr, "Error: Group \"%s\" defines triggers from nonexistent field \"%s\" \n",
+							groupName.c_str(), field.c_str());
+					continue;
+				}
 
-					auto& sourceMemberIndex = currentGroup.fieldMap[field];
-					auto& sourceMember = currentGroup.fields[sourceMemberIndex];
+				auto& sourceMemberIndex = currentGroup.fieldMap[field];
+				auto& sourceMember = currentGroup.fields[sourceMemberIndex];
 
-					log_debug_printf(_logname, "  pvxs trigger '%s.%s'  -> ", groupName.c_str(), field.c_str());
+				log_debug_printf(_logname, "  pvxs trigger '%s.%s'  -> ", groupName.c_str(), field.c_str());
 
-					// For all of this trigger's targets
-					for (auto&& target: targets) {
-						// If the target is star then map to all fields
-						if (target == "*") {
-							for (auto& targetedField: currentGroup.fields) {
-								if (!targetedField.channel.empty()) {
-									sourceMember.triggers.insert(targetedField.name);
-									log_debug_printf(_logname, "%s, ", targetedField.name.c_str());
-								}
-							}
-						} else {
-							// otherwise map to the specific target if it exists
-							if (currentGroup.fieldMap.count(target) == 0) {
-								fprintf(stderr, "Error: Group \"%s\" defines triggers to nonexistent field \"%s\" \n",
-										groupName.c_str(), target.c_str());
-								continue;
-							}
-							auto& targetMemberIndex = currentGroup.fieldMap[target];
-							auto& targetMember = currentGroup.fields[targetMemberIndex];
-
-							// And if it references a PV
-							if (targetMember.channel.empty()) {
-								log_debug_printf(_logname, "<ignore: %s>, ", targetMember.name.c_str());
-							} else {
-								sourceMember.triggers.insert(targetMember.name);
-								log_debug_printf(_logname, "%s, ", targetMember.name.c_str());
+				// For all of this trigger's targets
+				for (auto&& target: targets) {
+					// If the target is star then map to all fields
+					if (target == "*") {
+						for (auto& targetedField: currentGroup.fields) {
+							if (!targetedField.channel.empty()) {
+								sourceMember.triggers.insert(targetedField.name);
+								log_debug_printf(_logname, "%s, ", targetedField.name.c_str());
 							}
 						}
-					}
-					log_debug_printf(_logname, "%s\n", "");
-				}
-			} else {
-				// If no trigger specified for this group then set all fields to trigger themselves
-				log_debug_printf(_logname, "  pvxs default triggers for '%s'\n", groupName.c_str());
+					} else {
+						// otherwise map to the specific target if it exists
+						if (currentGroup.fieldMap.count(target) == 0) {
+							fprintf(stderr, "Error: Group \"%s\" defines triggers to nonexistent field \"%s\" \n",
+									groupName.c_str(), target.c_str());
+							continue;
+						}
+						auto& targetMemberIndex = currentGroup.fieldMap[target];
+						auto& targetMember = currentGroup.fields[targetMemberIndex];
 
-				for (auto&& field: currentGroup.fields) {
-					if (!field.channel.empty()) {
-						field.triggers.insert(field.name);  // default is self trigger
+						// And if it references a PV
+						if (targetMember.channel.empty()) {
+							log_debug_printf(_logname, "<ignore: %s>, ", targetMember.name.c_str());
+						} else {
+							sourceMember.triggers.insert(targetMember.name);
+							log_debug_printf(_logname, "%s, ", targetMember.name.c_str());
+						}
 					}
+				}
+				log_debug_printf(_logname, "%s\n", "");
+			}
+		} else {
+			// If no trigger specified for this group then set all fields to trigger themselves
+			log_debug_printf(_logname, "  pvxs default triggers for '%s'\n", groupName.c_str());
+
+			for (auto&& field: currentGroup.fields) {
+				if (!field.channel.empty()) {
+					field.triggers.insert(field.name);  // default is self trigger
 				}
 			}
 		}
+	}
+}
+
+/**
+ * Process the configured groups to create the final IOCGroups containing PVStructure templates and all the
+ * infrastructure needed to respond to PVAccess requests linked to the underlying IOC database
+ *
+ * 1. Collects builds IOCGroups and IOCGroupFields from GroupPvs
+ * 2. Build PVStructures for each IOCGroup and discard those w/o a dbChannel
+ * 3. Build the lockers for each group field based on their triggers
+ */
+void GroupConfigProcessor::createGroups() {
+	runOnPvxsServer([this](IOCServer* pPvxsServer) {
+		auto& groupMap = pPvxsServer->groupMap;
+
+//		PDBProcessor proc;
+//		pvd::FieldCreatePtr fcreate(pvd::getFieldCreate());
+//		pvd::PVDataCreatePtr pvbuilder(pvd::getPVDataCreate());
+//
+//		pvd::StructureConstPtr _options(fcreate->createFieldBuilder()
+//				->addNestedStructure("_options")
+//				->add("queueSize", pvd::pvUInt)
+//				->add("atomic", pvd::pvBoolean)
+//				->endNested()
+//				->createStructure());
+
+		// assemble group PV structure definitions and build dbLockers
+		for (auto& groupPvMapEntry: groupPvMap) {
+			auto& groupName = groupPvMapEntry.first;
+			auto& groupPv = groupPvMapEntry.second;
+			try {
+				using namespace pvxs::members;
+				if (groupMap.count(groupName) != 0) {
+					throw std::runtime_error("Group name already in use");
+				}
+				// Create group or access existing group
+				auto& group = groupMap[groupName];
+
+				// Set basic fields
+				group.name = groupName;
+				group.atomicPutGet = groupPv.atomic != False;
+				group.atomicMonitor = groupPv.hasTriggers;
+
+				// Initialise the given group's fields and value type from the given group PV configuration
+				initialiseGroupFieldsFromConfig(group, groupPv);
+
+				// .....
+			} catch (std::exception& e) {
+				fprintf(stderr, "%s: Error Group not created: %s\n", groupName.c_str(), e.what());
+			}
+		}
 	});
+}
+
+/**
+ * Initialise the given group's fields and value type from the given group PV configuration.
+ * The group's field names and channels are set - this calls dbChannelCreate to create the dbChannel for each field.
+ * It also creates the top level PVStructure for the group and stores it in valueType.
+ *
+ * @param group the IOC group we're setting
+ * @param groupPv the groupPv configuration we're reading from
+ */
+void GroupConfigProcessor::initialiseGroupFieldsFromConfig(IOCGroup& group, const GroupPv& groupPv) {
+	using namespace pvxs::members;
+	TypeDef groupType = (groupPv.structureId.empty()) ?
+	                    TypeDef(TypeCode::Struct, {}) :
+	                    TypeDef(TypeCode::Struct, groupPv.structureId, {});
+
+	// Reserve enough space for fields with channels
+	group.fields.reserve(groupPv.channelCount());
+
+	// for each field
+	for (auto& field: groupPv.fields) {
+		if (!field.channel.empty()) {
+			// Create field in group
+			group.fields.emplace_back(field.name, field.channel);
+			auto& groupField = group.fields.back();
+			auto& groupFieldName = groupField.fieldName.fieldNameComponents[0].name;
+
+			// If field type maps to scalar, plain, any, or structure, then get the pv field type definition
+			if (field.type.empty() || field.type == "scalar" || field.type == "plain" || field.type == "any"
+					|| field.type == "structure") {
+				auto fieldTypeDefinition = getFieldTypeDefinition((dbChannel*)groupField.channel,
+						groupField.fieldName);
+
+				groupType += { fieldTypeDefinition.as(groupFieldName) };
+			} else if (field.type == "meta") {
+				// if this is a meta field then create standard meta fields
+				groupType += { Struct("alarm", "alarm_t", {
+						Int32("severity"),
+						Int32("status"),
+						String("message"),
+				}) };
+				groupType += { pvxs::nt::TimeStamp{}.build().as("timeStamp") };
+			}
+		}
+	}
+	auto groupValueTemplate = groupType.create();
+	group.valueTemplate = std::move(groupValueTemplate);
+}
+
+TypeDef GroupConfigProcessor::getFieldTypeDefinition(const dbChannel* pChannel,
+		const IOCGroupFieldName& fieldName) {
+	// Get the type for the leaf
+	TypeDef leaf(SingleSource::getChannelValueType(pChannel, true));
+	TypeDef typeDefinition;
+	auto isLeaf = true;
+
+	// Make up the full structure starting from the leaf
+	for (auto fieldNameComponentNumber = fieldName.size(); fieldNameComponentNumber > 0; fieldNameComponentNumber--) {
+		auto& component = fieldName[fieldNameComponentNumber - 1];
+		if (isLeaf) {
+			isLeaf = false;
+			typeDefinition = leaf;
+		} else if (component.isArray()) {
+			typeDefinition = TypeDef(TypeCode::StructA, { typeDefinition.as(component.name) });
+		} else {
+			typeDefinition = TypeDef(TypeCode::Struct, { typeDefinition.as(component.name) });
+		}
+	}
+	return { typeDefinition };
 }
 
 /**

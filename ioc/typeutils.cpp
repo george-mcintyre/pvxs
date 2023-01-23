@@ -4,9 +4,6 @@
  * in file LICENSE that is included with this distribution.
  */
 
-// Created on 13/12/2022.
-//
-
 #include <pvxs/source.h>
 #include <dbStaticLib.h>
 #include "typeutils.h"

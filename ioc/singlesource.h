@@ -27,6 +27,9 @@ public:
 	void onSearch(Search& searchOperation) final;
 	void show(std::ostream& outputStream) final;
 
+// Utility function to get the TypeCode that the given database channel is configured for
+static TypeCode getChannelValueType(const dbChannel *pChannel, bool erroOnLinks = false);
+
 private:
 	// List of all database records that this single source serves
 	List allRecords;
@@ -36,9 +39,6 @@ private:
 	// Create request and subscription handlers for single record sources
 	void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& putOperation,
 			const std::shared_ptr<dbChannel>& pChannel);
-
-	// Utility function to get the TypeCode that the given database channel is configured for
-	static TypeCode getChannelValueType(const std::shared_ptr<dbChannel>& pChannel);
 
 	//////////////////////////////
 	// Subscriptions

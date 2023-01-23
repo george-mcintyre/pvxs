@@ -12,7 +12,6 @@
 #include <atomic>
 #include <memory>
 #include <stdexcept>
-#include <iostream>
 
 #include <pvxs/log.h>
 #include <pvxs/server.h>
@@ -21,7 +20,6 @@
 
 #include <iocsh.h>
 #include <initHooks.h>
-#include <epicsExit.h>
 #include <epicsExport.h>
 
 #include "iocshcommand.h"

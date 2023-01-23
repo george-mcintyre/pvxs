@@ -8,7 +8,7 @@
 #define PVXS_IOCSERVER_H
 
 #include "pvxs/server.h"
-#include "grouppv.h"
+#include "iocgroup.h"
 
 namespace pvxs {
 namespace ioc {
@@ -17,11 +17,11 @@ class IOCServer : public server::Server {
 
 public:
 	explicit IOCServer(const server::Config& config);
-	GroupPvMap groupPvMap;
+	IOCGroupMap	groupMap;
 	std::list<std::string> groupDefinitionFiles;
 
-	// For locking access to GroupPvMap
-	epicsMutex pvMapMutex{};
+	// For locking access to groupMap
+	epicsMutex groupMapMutex{};
 };
 
 IOCServer &iocServer();

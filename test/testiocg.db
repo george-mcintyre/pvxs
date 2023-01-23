@@ -90,7 +90,7 @@ record("*", "$(user):arrayExample") {
 record("*", "$(user):longExample") {
   info(Q:group, {
     "$(user):structExample":{
-        "long":{+channel:"VAL", +putorder:0}
+        "sa[0].long":{+channel:"VAL", +putorder:0}
     }
   })
 }
@@ -98,7 +98,7 @@ record("*", "$(user):longExample") {
 record("*", "$(user):enumExample") {
   info(Q:group, {
     "$(user):structExample":{
-        "enum":{+channel:"VAL", +putorder:0}
+        "sa[0].enum":{+channel:"VAL", +putorder:0}
     }
   })
 }

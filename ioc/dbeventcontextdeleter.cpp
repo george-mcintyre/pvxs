@@ -4,9 +4,6 @@
  * in file LICENSE that is included with this distribution.
  */
 
-// Created on 19/12/2022.
-//
-
 #include "dbeventcontextdeleter.h"
 
 void pvxs::ioc::DBEventContextDeleter::operator()(dbEventCtx eventContext) {

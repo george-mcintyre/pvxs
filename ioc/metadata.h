@@ -4,9 +4,6 @@
  * in file LICENSE that is included with this distribution.
  */
 
-// Created on 21/12/2022.
-//
-
 #ifndef PVXS_METADATA_H
 #define PVXS_METADATA_H
 

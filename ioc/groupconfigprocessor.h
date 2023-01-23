@@ -11,6 +11,7 @@
 #include "iocserver.h"
 #include "dbentry.h"
 #include "groupconfig.h"
+#include "grouppv.h"
 
 namespace pvxs {
 namespace ioc {
@@ -19,6 +20,7 @@ namespace ioc {
 class GroupProcessorContext;
 
 class GroupConfigProcessor {
+	GroupPvMap groupPvMap;
 	/**
 	 * These are the callbacks designated by yajl for its parser functions
 	 * They must be defined in this order.
@@ -58,7 +60,10 @@ public:
 	void parseDbConfig();
 	void parseConfigFiles();
 	void resolveTriggers();
+	void createGroups();
 	void parseConfigString(const char* jsonGroupDefinition, const char* dbRecordName = nullptr);
+	static void initialiseGroupFieldsFromConfig(IOCGroup &group, const GroupPv &groupPv);
+	static TypeDef getFieldTypeDefinition(const dbChannel* pChannel, const IOCGroupFieldName &fieldName);
 	static const char* infoField(DBEntry& dbEntry, const char* key, const char* defaultValue = nullptr);
 	static int yajlProcess(void* parserContext, const std::function <int (GroupProcessorContext *)>&pFunction);
 	static void checkForTrailingCommentsAtEnd(const std::string& line);

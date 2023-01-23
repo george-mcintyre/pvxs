@@ -4,9 +4,6 @@
  * in file LICENSE that is included with this distribution.
  */
 
-// Created on 03/01/2023.
-//
-
 #ifndef PVXS_GROUPSOURCE_H
 #define PVXS_GROUPSOURCE_H
 

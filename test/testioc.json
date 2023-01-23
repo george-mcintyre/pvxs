@@ -58,11 +58,11 @@
       "+channel": "george:arrayExample.VAL",
       "+putorder": 0
     },
-    "long": {
+    "sa[0].long": {
       "+channel": "george:longExample.VAL",
       "+putorder": 1
     },
-    "enum": {
+    "sa[0].enum": {
       "+channel": "george:enumExample.VAL",
       "+putorder": 0
     },

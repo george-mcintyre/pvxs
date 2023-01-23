@@ -4,9 +4,8 @@
  * in file LICENSE that is included with this distribution.
  */
 
-#include <string.h>
+#include <cstring>
 #include <algorithm>
-#include <vector>
 #include <iostream>
 
 #include <pvxs/source.h>
@@ -134,7 +133,7 @@ void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::
 
 	auto dbChannel(pChannel.get());
 	short dbrType(dbChannelFinalFieldType(dbChannel));
-	auto valueType(getChannelValueType(pChannel));
+	auto valueType(getChannelValueType(pChannel.get()));
 
 	Value valuePrototype;
 	// To control optional metadata set to true to include in the output
@@ -280,8 +279,8 @@ void SingleSource::onDisableSubscription(const std::shared_ptr<subscriptionCtx>&
  * @param pChannel the pointer to the database channel to get the TypeCode for
  * @return the TypeCode that the channel is configured for
  */
-TypeCode SingleSource::getChannelValueType(const std::shared_ptr<dbChannel>& pChannel) {
-	auto dbChannel(pChannel.get());
+TypeCode SingleSource::getChannelValueType(const dbChannel* pChannel, bool errOnLinks) {
+	auto dbChannel(pChannel);
 	short dbrType(dbChannelFinalFieldType(dbChannel));
 	auto nFinalElements(dbChannelFinalElements(dbChannel));
 	auto nElements(dbChannelElements(dbChannel));
@@ -296,8 +295,14 @@ TypeCode SingleSource::getChannelValueType(const std::shared_ptr<dbChannel>& pCh
 		valueType = TypeCode::UInt16;   // value field is
 
 	} else {
-		// TODO handle links.  For the moment we handle as chars and fail later
-		if (dbrType == DBF_INLINK || dbrType == DBF_OUTLINK || dbrType == DBF_FWDLINK) dbrType = DBF_CHAR;
+		if (dbrType == DBF_INLINK || dbrType == DBF_OUTLINK || dbrType == DBF_FWDLINK) {
+			if ( errOnLinks) {
+				throw std::runtime_error("Link fields not allowed in this context");
+			} else {
+				// TODO handle links.  For the moment we handle as chars and fail later
+				dbrType = DBF_CHAR;
+			}
+		}
 
 		valueType = toTypeCode(dbfType(dbrType));
 		if (valueType != TypeCode::Null && nFinalElements != 1) {
