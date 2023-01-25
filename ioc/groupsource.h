@@ -8,6 +8,7 @@
 #define PVXS_GROUPSOURCE_H
 
 #include "dbeventcontextdeleter.h"
+#include "iocserver.h"
 
 namespace pvxs {
 namespace ioc {
@@ -28,9 +29,11 @@ public:
 
 private:
 	// Create request and subscription handlers for single record sources
-	void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& putOperation,
-			const std::shared_ptr<dbChannel>& pChannel);
+	void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& channelControl, IOCGroup& group);
 
+	void onGet(IOCGroup& group, std::unique_ptr<server::ExecOp>& getOperation);
+	void onGet(IOCGroup& group, bool forValues, bool forProperties, const std::function<void(Value & )>& returnFn,
+			const std::function<void(const char*)>& errorFn);
 };
 
 } // ioc

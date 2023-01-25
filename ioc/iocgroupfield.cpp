@@ -9,13 +9,28 @@
 namespace pvxs {
 namespace ioc {
 
-IOCGroupField::IOCGroupField()
-		:had_initial_VALUE(false), had_initial_PROPERTY(false), allowProc(false) {
+IOCGroupField::IOCGroupField(const std::string& stringFieldName, const std::string& channelName)
+		:had_initial_VALUE(false), had_initial_PROPERTY(false), isMeta(false), allowProc(false), channel(channelName),
+		 fieldName(stringFieldName) {
+	if (!fieldName.fieldNameComponents.empty()) {
+		name = fieldName.fieldNameComponents[0].name;
+		fullName = std::string(fieldName.to_string());
+	}
 }
-IOCGroupField::IOCGroupField(const std::string& fieldName, const std::string& channelName)
-		:had_initial_VALUE(false), had_initial_PROPERTY(false), allowProc(false), channel(channelName), fieldName(fieldName) {
 
+void IOCGroupField::allocateMembers(ArrayCapacityMap& capacityMap, Value& returnValue) const {
+	// find the leaf node
+	auto leafName = fullName.substr(0, fullName.find_first_of('['));
+	auto &&leafNode = returnValue[leafName];
+
+	//
+	auto capacity = capacityMap[leafName];
+	shared_array<Value> arr(capacity);
+
+	for ( auto i = 0; i < capacity; ++i) {
+		arr[i] = leafNode.allocMember();
+	}
+	leafNode = arr.freeze();
 }
-
 } // pvxs
 } // ioc

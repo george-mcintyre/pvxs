@@ -5,6 +5,7 @@
  */
 
 #include <sstream>
+#include<iostream>
 #include <cstdlib>
 
 #include "iocgroupfieldname.h"
@@ -12,7 +13,7 @@
 namespace pvxs {
 namespace ioc {
 
-static void pad(std::string& stringToPad);
+static void pad(std::string& stringToPad, const size_t padLength);
 
 /**
  * Construct a Group field name from a field name string.  The string is a sequence of components separated by
@@ -27,7 +28,7 @@ IOCGroupFieldName::IOCGroupFieldName(const std::string& fieldName) {
 		// Split field name on periods
 		std::stringstream splitter(fieldName);
 		std::string fieldNamePart;
-		while (std::getline(splitter, fieldNamePart, ',')) {
+		while (std::getline(splitter, fieldNamePart, '.')) {
 			if (fieldNamePart.empty()) {
 				throw std::runtime_error("Empty field component in: " + fieldName);
 			}
@@ -40,7 +41,7 @@ IOCGroupFieldName::IOCGroupFieldName(const std::string& fieldName) {
 					throw std::runtime_error("Invalid field array sub-script in : " + fieldName);
 				}
 
-				auto arrayIndex = fieldNamePart.substr(startArraySpecifier);
+				auto arrayIndex = fieldNamePart.substr(startArraySpecifier+1);
 				long index = 0;
 				char* endScan;
 				index = strtol(arrayIndex.c_str(), &endScan, 10);
@@ -71,7 +72,7 @@ IOCGroupFieldName::IOCGroupFieldName(const std::string& fieldName) {
 /**
  * Convert this group field name to a string.
  */
-std::string IOCGroupFieldName::to_string() const {
+std::string IOCGroupFieldName::to_string(size_t padLength) const {
 	std::string fieldName;
 	if (fieldNameComponents.empty()) {
 		fieldName = "/";
@@ -89,7 +90,7 @@ std::string IOCGroupFieldName::to_string() const {
 			}
 		}
 	}
-	pad(fieldName);
+	pad(fieldName, padLength);
 	return fieldName;
 }
 
@@ -98,8 +99,8 @@ std::string IOCGroupFieldName::to_string() const {
 /**
  * Show this field name.  All components are shown as they were configured.
  */
-void IOCGroupFieldName::show() const {
-	printf("%s", to_string().c_str());
+void IOCGroupFieldName::show(const std::string& suffix) const {
+	printf("%s%s", to_string(PADDING_WIDTH-suffix.size()).c_str(), suffix.c_str());
 }
 
 /**
@@ -117,7 +118,7 @@ void IOCGroupFieldName::swap(IOCGroupFieldName& o) {
  * @return
  */
 bool IOCGroupFieldName::empty() const {
-	return fieldNameComponents.empty();
+	return fieldNameComponents.empty() || (fieldNameComponents.size() == 1 && fieldNameComponents[0].name.empty());
 }
 
 /**
@@ -153,10 +154,10 @@ const IOCGroupFieldNameComponent& IOCGroupFieldName::operator[](size_t i) const 
  *
  * @param stringToPad
  */
-static void pad(std::string& stringToPad)
+static void pad(std::string& stringToPad, const size_t padLength)
 {
-	if (PADDING_WIDTH > stringToPad.size()) {
-		stringToPad.insert(stringToPad.size(), PADDING_WIDTH - stringToPad.size(), PADDING_CHARACTER);
+	if (padLength > stringToPad.size()) {
+		stringToPad.insert(stringToPad.size(), padLength - stringToPad.size(), PADDING_CHARACTER);
 	}
 }
 

@@ -31,14 +31,17 @@ pvxsIoc_SRCS += groupprocessorcontext.cpp
 pvxsIoc_SRCS += grouppv.cpp
 pvxsIoc_SRCS += groupsource.cpp
 pvxsIoc_SRCS += groupsourcehooks.cpp
+pvxsIoc_SRCS += groupsrcsubscriptionctx.cpp
 pvxsIoc_SRCS += iochooks.cpp
 pvxsIoc_SRCS += iocgroup.cpp
+pvxsIoc_SRCS += iocsource.cpp
 pvxsIoc_SRCS += iocgroupchannel.cpp
 pvxsIoc_SRCS += iocgroupfield.cpp
 pvxsIoc_SRCS += iocgroupfieldname.cpp
 pvxsIoc_SRCS += iocgroupfieldnamecomponent.cpp
 pvxsIoc_SRCS += singlesource.cpp
 pvxsIoc_SRCS += singlesourcehooks.cpp
+pvxsIoc_SRCS += singlesrcsubscriptionctx.cpp
 pvxsIoc_SRCS += typeutils.cpp
 pvxsIoc_SRCS += yajlcallbackhandler.cpp
 

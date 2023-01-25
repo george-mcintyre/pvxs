@@ -6,6 +6,8 @@
 
 #include <iostream>
 #include <fstream>
+#include <string>
+#include <map>
 
 #include <dbChannel.h>
 #include <pvxs/log.h>
@@ -20,7 +22,7 @@
 #include "grouppv.h"
 #include "groupprocessorcontext.h"
 #include "yajlcallbackhandler.h"
-#include "singlesource.h"
+#include "iocsource.h"
 
 namespace pvxs {
 namespace ioc {
@@ -123,9 +125,9 @@ void GroupConfigProcessor::configureGroups() {
 			}
 
 			// for each field configure the fields
-			for (auto&& fieldIterator: groupConfig.groupFields) {
-				const std::string& fieldName = fieldIterator.first;
-				const GroupFieldConfig& fieldConfig = fieldIterator.second;
+			for (auto&& fieldEntry: groupConfig.groupFields) {
+				const std::string& fieldName = fieldEntry.first;
+				const GroupFieldConfig& fieldConfig = fieldEntry.second;
 
 				if (currentGroup.fieldMap.count(fieldName)) {
 					fprintf(stderr, "%s.%s Warning: ignoring duplicate mapping %s\n",
@@ -133,6 +135,7 @@ void GroupConfigProcessor::configureGroups() {
 					continue;
 				}
 
+				// For updating the capacity for each array field
 				currentGroup.fields.emplace_back();
 				auto& currentField = currentGroup.fields.back();
 				currentField.channel = fieldConfig.channel;
@@ -275,43 +278,130 @@ void GroupConfigProcessor::createGroups() {
 	runOnPvxsServer([this](IOCServer* pPvxsServer) {
 		auto& groupMap = pPvxsServer->groupMap;
 
-//		PDBProcessor proc;
-//		pvd::FieldCreatePtr fcreate(pvd::getFieldCreate());
-//		pvd::PVDataCreatePtr pvbuilder(pvd::getPVDataCreate());
-//
-//		pvd::StructureConstPtr _options(fcreate->createFieldBuilder()
-//				->addNestedStructure("_options")
-//				->add("queueSize", pvd::pvUInt)
-//				->add("atomic", pvd::pvBoolean)
-//				->endNested()
-//				->createStructure());
 
-		// assemble group PV structure definitions and build dbLockers
+		// First pass: Create groups and get array capacities
 		for (auto& groupPvMapEntry: groupPvMap) {
 			auto& groupName = groupPvMapEntry.first;
 			auto& groupPv = groupPvMapEntry.second;
 			try {
-				using namespace pvxs::members;
 				if (groupMap.count(groupName) != 0) {
 					throw std::runtime_error("Group name already in use");
 				}
 				// Create group or access existing group
 				auto& group = groupMap[groupName];
 
-				// Set basic fields
+				// Set basic group information
 				group.name = groupName;
 				group.atomicPutGet = groupPv.atomic != False;
 				group.atomicMonitor = groupPv.hasTriggers;
 
-				// Initialise the given group's fields and value type from the given group PV configuration
-				initialiseGroupFieldsFromConfig(group, groupPv);
+				// Initialise the given group's fields from the given group PV configuration
+				initialiseGroupFields(group, groupPv);
+			} catch (std::exception& e) {
+				fprintf(stderr, "%s: Error Group not created: %s\n", groupName.c_str(), e.what());
+			}
+		}
 
-				// .....
+		// Second Pass: assemble group PV structure definitions
+		for (auto& groupPvMapEntry: groupPvMap) {
+			auto& groupName = groupPvMapEntry.first;
+			auto& groupPv = groupPvMapEntry.second;
+			try {
+				auto& group = groupMap[groupName];
+				// Determine structure array capacities
+				calculateStructureArrayCapacities(group, groupPv);
+
+				// Initialise the given group's value type
+				initialiseGroupValueTemplates(group, groupPv);
 			} catch (std::exception& e) {
 				fprintf(stderr, "%s: Error Group not created: %s\n", groupName.c_str(), e.what());
 			}
 		}
 	});
+}
+
+/**
+ * Initialise the given group's fields from the given configuration.
+ *
+ * The group configuration contains a set of fields.  These fields define the structure of the group.
+ * Dot notation (a.b.c) define substructures with subfields, and bracket notation (a[1].b) define
+ * structure arrays. Each configuration reference points to a database record (channel).
+ * This function uses the configuration to define the group fields that are required
+ * to link to the specified database records.  This means that one group field is created for each
+ * referenced database record.
+ *
+ * @param group the IOC group to store fields->channel mappings
+ * @param groupPv the groupPv configuration we're reading group information from
+ */
+void GroupConfigProcessor::initialiseGroupFields(IOCGroup& group, const GroupPv& groupPv) {
+	// Reserve enough space for fields with channels
+	group.fields.reserve(groupPv.channelCount());
+
+	// for each field with channels
+	for (auto& field: groupPv.fields) {
+		if (!field.channel.empty()) {
+			// Create field in group
+			group.fields.emplace_back(field.name, field.channel);
+		}
+	}
+}
+
+/**
+ * Initialise the given group's structure array field capacities.  Assumes that initialiseGroupFields() has been called before.
+ *
+ * The group contains a map of field name -> field capacity.  In a group some of the fields are arrays or contain
+ * subfields that are arrays.  A subset of these array fields are structure arrays.  In pvxs, when an array value is
+ * created we need to allocate (reserve) space for all elements in the array.  For array fields that are not structure
+ * arrays, the allocation is done on a get/monitor operation when the array is retrieved from the database source.  For
+ * structure arrays however, we need to make sure that the array is allocated at configuration time.
+ *
+ * e.g. define the following structure array fields:
+ *   a[1].x
+ *   a[0].y
+ *
+ * this should create a structure array with two elements, each containing a homogeneous structure with two elements,
+ * x and y, as follows:
+ *   - a[2]
+ *     +--x
+ *     +--y
+ *
+ * This function will look at all of the definitions for each distinct structure array and will calculate the required array
+ * capacity as the highest referenced element.  In our example above we reference a[1].x so we know that the structure array `a`
+ * must have at least a capacity of 2 elements.
+ *
+ * @param group the IOC group to store the structure array capacities map
+ * @param groupPv the groupPv configuration we're reading group information from
+ */
+void GroupConfigProcessor::calculateStructureArrayCapacities(IOCGroup& group, const GroupPv& groupPv) {
+	// for each field with channels
+	// TODO custom iterator channelFields to return only fields with channels
+	for (auto& field: groupPv.fields) {
+		if (!field.channel.empty()) {
+			auto& groupField = group[field.name];
+
+			// to store the concatenation of the stream parts we've parsed so far for this current field
+			std::ostringstream fileNameStream;
+
+			auto first = true;
+			for (const auto& fieldComponent: groupField.fieldName.fieldNameComponents) {
+				if (first) {
+					first = false;
+				} else {
+					fileNameStream << '.';
+				}
+				fileNameStream << fieldComponent.name;
+
+				if (fieldComponent.isArray()) {
+					groupField.isArray = true;
+					const auto& fieldName = fileNameStream.str();
+					const auto currentCapacity = group.arrayCapacityMap[fieldName];
+					if (currentCapacity <= fieldComponent.index) {
+						group.arrayCapacityMap[fieldName] = fieldComponent.index + 1;
+					}
+				}
+			}
+		}
+	}
 }
 
 /**
@@ -322,22 +412,17 @@ void GroupConfigProcessor::createGroups() {
  * @param group the IOC group we're setting
  * @param groupPv the groupPv configuration we're reading from
  */
-void GroupConfigProcessor::initialiseGroupFieldsFromConfig(IOCGroup& group, const GroupPv& groupPv) {
+void GroupConfigProcessor::initialiseGroupValueTemplates(IOCGroup& group, const GroupPv& groupPv) {
 	using namespace pvxs::members;
 	TypeDef groupType = (groupPv.structureId.empty()) ?
 	                    TypeDef(TypeCode::Struct, {}) :
 	                    TypeDef(TypeCode::Struct, groupPv.structureId, {});
 
-	// Reserve enough space for fields with channels
-	group.fields.reserve(groupPv.channelCount());
-
-	// for each field
+	// for each field create the value template required
 	for (auto& field: groupPv.fields) {
 		if (!field.channel.empty()) {
-			// Create field in group
-			group.fields.emplace_back(field.name, field.channel);
-			auto& groupField = group.fields.back();
-			auto& groupFieldName = groupField.fieldName.fieldNameComponents[0].name;
+			auto& groupField = group[field.name];
+			auto& groupFieldName = groupField.name;
 
 			// If field type maps to scalar, plain, any, or structure, then get the pv field type definition
 			if (field.type.empty() || field.type == "scalar" || field.type == "plain" || field.type == "any"
@@ -347,6 +432,7 @@ void GroupConfigProcessor::initialiseGroupFieldsFromConfig(IOCGroup& group, cons
 
 				groupType += { fieldTypeDefinition.as(groupFieldName) };
 			} else if (field.type == "meta") {
+				groupField.isMeta = true;
 				// if this is a meta field then create standard meta fields
 				groupType += { Struct("alarm", "alarm_t", {
 						Int32("severity"),
@@ -354,31 +440,74 @@ void GroupConfigProcessor::initialiseGroupFieldsFromConfig(IOCGroup& group, cons
 						String("message"),
 				}) };
 				groupType += { pvxs::nt::TimeStamp{}.build().as("timeStamp") };
+			} else if (field.type == "proc") {
+				groupField.allowProc = true;
 			}
 		}
 	}
+
+	// Roll up value templates into group value template
 	auto groupValueTemplate = groupType.create();
+
+	// Set array fields capacities
+	for (auto field: groupValueTemplate.iall()) {
+		// We only set capacities for structure arrays because all other arrays are mapped
+		if (field.type() == TypeCode::StructA) {
+			const auto& fieldName = groupValueTemplate.nameOf(field);
+			auto capacity = group.arrayCapacityMap[fieldName];
+			shared_array<Value> arr(capacity);
+
+			for ( auto i = 0; i < capacity; ++i) {
+				arr[i] = field.allocMember();
+			}
+			field = arr.freeze();
+		}
+	}
 	group.valueTemplate = std::move(groupValueTemplate);
 }
 
+/**
+ * Get the type definition for the given field name based on the referenced channel.
+ * Access the channel definition to determinet the database record type and,
+ * use the field name path to construct the appropriate field type definition.
+ * Note: assumes that the field name has at least one component.
+ *
+ * @param pChannel the reference channel
+ * @param fieldName the field name
+ * @return the type definition for the given field name
+ */
 TypeDef GroupConfigProcessor::getFieldTypeDefinition(const dbChannel* pChannel,
 		const IOCGroupFieldName& fieldName) {
+	assert(!fieldName.empty()); // Must not call with empty field name
+
 	// Get the type for the leaf
-	TypeDef leaf(SingleSource::getChannelValueType(pChannel, true));
+	auto leafCode(IOCSource::getChannelValueType(pChannel, true));
+	TypeDef leaf(leafCode);
+	// Enum Special case
+	if (dbChannelFinalFieldType(pChannel) == DBF_ENUM) {
+		leaf = nt::NTEnum{}.build();
+	} else {
+		bool display = true;
+		bool control = true;
+		bool valueAlarm = true;
+		leaf = nt::NTScalar{ leafCode, display, control, valueAlarm }.build();
+	};
 	TypeDef typeDefinition;
+	auto subComponentName = fieldName[fieldName.size() - 1].name;
 	auto isLeaf = true;
 
 	// Make up the full structure starting from the leaf
 	for (auto fieldNameComponentNumber = fieldName.size(); fieldNameComponentNumber > 0; fieldNameComponentNumber--) {
-		auto& component = fieldName[fieldNameComponentNumber - 1];
+		auto&& component = fieldName[fieldNameComponentNumber - 1];
 		if (isLeaf) {
 			isLeaf = false;
 			typeDefinition = leaf;
 		} else if (component.isArray()) {
-			typeDefinition = TypeDef(TypeCode::StructA, { typeDefinition.as(component.name) });
+			typeDefinition = TypeDef(TypeCode::StructA, { typeDefinition.as(subComponentName) });
 		} else {
-			typeDefinition = TypeDef(TypeCode::Struct, { typeDefinition.as(component.name) });
+			typeDefinition = TypeDef(TypeCode::Struct, { typeDefinition.as(subComponentName) });
 		}
+		subComponentName = component.name;
 	}
 	return { typeDefinition };
 }

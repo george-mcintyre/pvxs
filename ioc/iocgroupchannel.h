@@ -24,6 +24,8 @@ private:
 
 public:
 	IOCGroupChannel();
+	IOCGroupChannel(const IOCGroupChannel&) = delete;
+	IOCGroupChannel(IOCGroupChannel&&)  noexcept ;
 
 	// This constructor calls dbChannelOpen()
 	explicit IOCGroupChannel(dbChannel* pDbChannel);

@@ -18,16 +18,17 @@ namespace ioc {
 class IOCGroup {
 private:
 public:
-//	epicsMutex lock;
 	std::string name;
 	IOCGroupFields fields;
 	bool atomicPutGet, atomicMonitor;
 	static size_t num_instances;
 	Value valueTemplate;
+	ArrayCapacityMap arrayCapacityMap; // array capacity map, field->array capacity
 
 	IOCGroup();
 	virtual ~IOCGroup();
 	virtual void show(int level) const;
+	IOCGroupField &operator[](const std::string&fieldName);
 };
 
 // A map of group name to IOCGroup

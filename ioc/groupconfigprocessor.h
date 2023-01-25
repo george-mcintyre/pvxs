@@ -62,7 +62,9 @@ public:
 	void resolveTriggers();
 	void createGroups();
 	void parseConfigString(const char* jsonGroupDefinition, const char* dbRecordName = nullptr);
-	static void initialiseGroupFieldsFromConfig(IOCGroup &group, const GroupPv &groupPv);
+	static void initialiseGroupFields(IOCGroup &group, const GroupPv &groupPv);
+	static void calculateStructureArrayCapacities(IOCGroup &group, const GroupPv &groupPv);
+	static void initialiseGroupValueTemplates(IOCGroup& group, const GroupPv& groupPv);
 	static TypeDef getFieldTypeDefinition(const dbChannel* pChannel, const IOCGroupFieldName &fieldName);
 	static const char* infoField(DBEntry& dbEntry, const char* key, const char* defaultValue = nullptr);
 	static int yajlProcess(void* parserContext, const std::function <int (GroupProcessorContext *)>&pFunction);

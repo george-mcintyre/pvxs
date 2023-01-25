@@ -10,6 +10,7 @@
 #include <map>
 #include <vector>
 #include <set>
+#include <pvxs/nt.h>
 
 #include "iocgroupfieldname.h"
 #include "iocgroupchannel.h"
@@ -17,18 +18,22 @@
 namespace pvxs {
 namespace ioc {
 
+typedef std::map<std::string, size_t> ArrayCapacityMap;
 typedef std::vector<size_t> IOCGroupTriggers;
 
 class IOCGroupField {
 private:
 public:
 	IOCGroupTriggers triggers;          // index in IOCGroup::fields
-	bool had_initial_VALUE, had_initial_PROPERTY, allowProc;
+	bool had_initial_VALUE, had_initial_PROPERTY, isMeta, allowProc;
 	IOCGroupChannel channel;
 	IOCGroupFieldName fieldName;
+	std::string name;
+	std::string fullName;
 
-	IOCGroupField();
-	IOCGroupField(const std::string& fieldName, const std::string& channelName);
+	IOCGroupField(const std::string& stringFieldName, const std::string& channelName);
+	bool isArray;
+	void allocateMembers(ArrayCapacityMap& capacityMap, Value& returnValue) const;
 };
 
 typedef std::vector<IOCGroupField> IOCGroupFields;

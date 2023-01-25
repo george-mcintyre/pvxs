@@ -8,7 +8,7 @@
 #define PVXS_SINGLESOURCE_H
 
 #include "dbeventcontextdeleter.h"
-#include "subscriptioncontext.h"
+#include "singlesrcsubscriptionctx.h"
 #include "metadata.h"
 
 namespace pvxs {
@@ -27,9 +27,6 @@ public:
 	void onSearch(Search& searchOperation) final;
 	void show(std::ostream& outputStream) final;
 
-// Utility function to get the TypeCode that the given database channel is configured for
-static TypeCode getChannelValueType(const dbChannel *pChannel, bool erroOnLinks = false);
-
 private:
 	// List of all database records that this single source serves
 	List allRecords;
@@ -37,7 +34,7 @@ private:
 	std::unique_ptr<std::remove_pointer<dbEventCtx>::type, DBEventContextDeleter> eventContext;
 
 	// Create request and subscription handlers for single record sources
-	void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& putOperation,
+	void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& channelControl,
 			const std::shared_ptr<dbChannel>& pChannel);
 
 	//////////////////////////////
@@ -47,12 +44,12 @@ private:
 			db_field_log* pDbFieldLog);
 	static void subscriptionPropertiesCallback(void* userArg, dbChannel* pChannel, int eventsRemaining,
 			db_field_log* pDbFieldLog);
-	static void subscriptionCallback(SubscriptionCtx* subscriptionCtx, dbChannel* pChannel, int eventsRemaining,
+	static void subscriptionCallback(SingleSourceSubscriptionCtx* subscriptionCtx, dbChannel* pChannel, int eventsRemaining,
 			db_field_log* pDbFieldLog);
 	// Called when a client pauses / stops a subscription it has been subscribed to
-	static void onDisableSubscription(const std::shared_ptr<subscriptionCtx>& subscriptionContext);
+	static void onDisableSubscription(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext);
 	// Called when a client starts a subscription it has subscribed to
-	static void onStartSubscription(const std::shared_ptr<subscriptionCtx>& subscriptionContext);
+	static void onStartSubscription(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext);
 
 	//////////////////////////////
 	// Get
@@ -60,9 +57,6 @@ private:
 	// Handle the get operation
 	static void onGet(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& getOperation,
 			const Value& valuePrototype);
-	static void onGet(const std::shared_ptr<dbChannel>& channel,
-			const Value& valuePrototype, bool forValues, bool forProperties,
-			const std::function<void(Value&)>& returnFn, const std::function<void(const char*)>& errorFn);
 
 	//////////////////////////////
 	// Put
@@ -78,36 +72,6 @@ private:
 	template<typename valueType> static void setBuffer(const Value& value, void* pValueBuffer);
 	// Set the value into the given database value buffer (templated)
 	template<typename valueType> static void setBuffer(const Value& value, void* pValueBuffer, long nElements);
-
-	//////////////////////////////
-	// Get & Subscription
-	//////////////////////////////
-	// Set a return value from the given database value buffer
-	static void setValue(Value& value, void* pValueBuffer);
-	// Set a return value from the given database value buffer
-	static void setValue(Value& value, void* pValueBuffer, long nElements);
-	// Set a return value from the given database value buffer (templated)
-	template<typename valueType> static void setValue(Value& value, void* pValueBuffer);
-	// Set a return value from the given database value buffer (templated)
-	template<typename valueType> static void setValue(Value& value, void* pValueBuffer, long nElements);
-	// Get metadata from the given value buffer and deliver it in the given metadata buffer
-	static void getMetadata(void*& pValueBuffer, Metadata& metadata, bool forValues, bool forProperties);
-	// Set alarm metadata in the given return value
-	static void setAlarmMetadata(Metadata& metadata, Value& value);
-	// Set timestamp metadata in the given return value
-	static void setTimestampMetadata(Metadata& metadata, Value& value);
-	// Set display metadata in the given return value
-	static void setDisplayMetadata(Metadata& metadata, Value& value);
-	// Set control metadata in the given return value
-	static void setControlMetadata(const Metadata& metadata, Value& value);
-	// Set alarm limit metadata in the given return value
-	static void setAlarmLimitMetadata(const Metadata& metadata, Value& value);
-
-	//////////////////////////////
-	// Common Utils
-	//////////////////////////////
-	// Utility function to get the corresponding database address structure given a pvName
-	static long nameToAddr(const char* pvName, DBADDR* pdbAddress);
 };
 
 } // ioc

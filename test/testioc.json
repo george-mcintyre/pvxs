@@ -20,12 +20,12 @@
       "+channel": "george:groupExampleAS.VAL",
       "+type": "plain"
     },
-    "value.A": {
+    "value.jA": {
       "+channel": "george:vectorExampleD1.VAL",
       "+type": "plain",
       "+putorder": 1
     },
-    "value.B": {
+    "value.jB": {
       "+channel": "george:vectorExampleD2.VAL",
       "+type": "plain",
       "+putorder": 1
@@ -42,27 +42,27 @@
    * This is an example of a structure that does not correspond to an EPICS normative type
    */
   "george:structExample2": {
-    "ai": {
+    "jai": {
       "+channel": "george:aiExample.VAL",
       "+putorder": 0
     },
-    "calc": {
+    "jcalc": {
       "+channel": "george:calcExample.VAL",
       "+putorder": 1
     },
-    "string": {
+    "jstring": {
       "+channel": "george:stringExample.VAL",
       "+putorder": 0
     },
-    "array": {
+    "jarray": {
       "+channel": "george:arrayExample.VAL",
       "+putorder": 0
     },
-    "sa[0].long": {
+    "jsa[0].long": {
       "+channel": "george:longExample.VAL",
       "+putorder": 1
     },
-    "sa[0].enum": {
+    "jsa[0].enum": {
       "+channel": "george:enumExample.VAL",
       "+putorder": 0
     },

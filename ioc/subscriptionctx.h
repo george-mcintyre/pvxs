@@ -4,10 +4,9 @@
  * in file LICENSE that is included with this distribution.
  */
 
-#ifndef PVXS_SUBSCRIPTIONCONTEXT_H
-#define PVXS_SUBSCRIPTIONCONTEXT_H
+#ifndef PVXS_SUBSCRIPTIONCTX_H
+#define PVXS_SUBSCRIPTIONCTX_H
 
-#include <pvxs/source.h>
 
 /**
  * Add a subscription event by calling db_add_event using the given subscriptionCtx
@@ -24,15 +23,15 @@
     _subscriptionContext->p ## _type ## EventSubscription                          \
     .reset(db_add_event((_eventContext) .get(),                                    \
         (_subscriptionContext) ->p ## _type ## Channel.get(),                      \
-		subscription ## _type ## Callback,                                         \
-		(void*) (_subscriptionContext).get(),                                      \
-		_options                                                                   \
-	),                                                                             \
-	[](dbEventSubscription pEventSubscription) {                                   \
-		if (pEventSubscription) {                                                  \
-			db_cancel_event(pEventSubscription);                                   \
-		}                                                                          \
-	})
+        subscription ## _type ## Callback,                                         \
+        (void*) (_subscriptionContext).get(),                                      \
+        _options                                                                   \
+    ),                                                                             \
+    [](dbEventSubscription pEventSubscription) {                                   \
+        if (pEventSubscription) {                                                  \
+            db_cancel_event(pEventSubscription);                                   \
+        }                                                                          \
+    })
 
 namespace pvxs {
 namespace ioc {
@@ -40,20 +39,19 @@ namespace ioc {
 /**
  * A subscription context
  */
-typedef struct subscriptionCtx {
-	// For locking access to subscription context
+class SubscriptionCtx {
+public:
+// For locking access to subscription context
 	epicsMutex eventLock{};
-	std::shared_ptr<dbChannel> pValueChannel{};
-	std::shared_ptr<dbChannel> pPropertiesChannel{};
 	std::shared_ptr<void> pValueEventSubscription{};
 	std::shared_ptr<void> pPropertiesEventSubscription{};
 	bool hadValueEvent = false;
 	bool hadPropertyEvent = false;
 	std::unique_ptr<server::MonitorControlOp> subscriptionControl{};
 	Value prototype{};
-} SubscriptionCtx;
+};
 
 } // ioc
 } // pvxs
 
-#endif //PVXS_SUBSCRIPTIONCONTEXT_H
+#endif //PVXS_SUBSCRIPTIONCTX_H

@@ -4,16 +4,17 @@
  * in file LICENSE that is included with this distribution.
  */
 
+#include <iostream>
 #include <pvxs/source.h>
 #include <pvxs/log.h>
 
 #include <dbEvent.h>
 #include <dbChannel.h>
 
-#include "dbentry.h"
-#include "dberrmsg.h"
 #include "groupsource.h"
 #include "iocshcommand.h"
+#include "groupsrcsubscriptionctx.h"
+#include "iocsource.h"
 
 namespace pvxs {
 namespace ioc {
@@ -61,24 +62,15 @@ GroupSource::GroupSource()
  * @param channelControl
  */
 void GroupSource::onCreate(std::unique_ptr<server::ChannelControl>&& channelControl) {
-	auto sourceName(channelControl->name().c_str());
-	dbChannel* pdbChannel = dbChannelCreate(sourceName);
-	if (!pdbChannel) {
-		log_debug_printf(_logname, "Ignore requested source '%s'\n", sourceName);
-		return;
-	}
-	log_debug_printf(_logname, "Accepting channel for '%s'\n", sourceName);
+	auto& sourceName = channelControl->name();
+	log_debug_printf(_logname, "Accepting channel for '%s'\n", sourceName.c_str());
 
-	// Set up a shared pointer to the database channel and provide a deleter lambda for when it will eventually be deleted
-	std::shared_ptr<dbChannel> pChannel(pdbChannel, [](dbChannel* ch) { dbChannelDelete(ch); });
+	runOnPvxsServer([&](IOCServer* pPvxsServer) {
+		// Create callbacks for handling requests and group subscriptions
+		auto &group = pPvxsServer->groupMap[sourceName];
+		createRequestAndSubscriptionHandlers(channelControl, group);
+	});
 
-	if (DBErrMsg err = dbChannelOpen(pChannel.get())) {
-		log_debug_printf(_logname, "Error opening database channel for '%s: %s'\n", sourceName, err.c_str());
-		throw std::runtime_error(err.c_str());
-	}
-
-	// Create callbacks for handling requests and channel subscriptions
-	createRequestAndSubscriptionHandlers(channelControl, pChannel);
 }
 
 GroupSource::List GroupSource::onList() {
@@ -91,13 +83,9 @@ GroupSource::List GroupSource::onList() {
  * @param searchOperation the search operation
  */
 void GroupSource::onSearch(Search& searchOperation) {
-	std::pair<GroupSource&, Search&> searchContext(*this, searchOperation);
-
-	runOnPvxsServer([&searchContext](IOCServer* pPvxsServer) {
-		auto& groupSource = searchContext.first;
-		auto& searchOperation = searchContext.second;
+	runOnPvxsServer([&](IOCServer* pPvxsServer) {
 		for (auto& pv: searchOperation) {
-			if (groupSource.allRecords.names->count(pv.name()) == 1) {
+			if (allRecords.names->count(pv.name()) == 1) {
 				pv.claim();
 				log_debug_printf(_logname, "Claiming '%s'\n", pv.name());
 			}
@@ -123,9 +111,133 @@ void GroupSource::show(std::ostream& outputStream) {
  * @param channelControl the control channel pointer that we got from onCreate
  * @param pChannel the pointer to the database channel to set up the handlers for
  */
-void GroupSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& putOperation,
-		const std::shared_ptr<dbChannel>& pChannel) {
+void GroupSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& channelControl,
+		IOCGroup& group) {
+//	auto subscriptionContext(std::make_shared<GroupSourceSubscriptionCtx>(group));
 
+	// Get and Put requests
+	channelControl->onOp([&](std::unique_ptr<server::ConnectOp>&& channelConnectOperation) {
+		// First stage for handling any request is to announce the channel type with a `connect()` call
+		// @note The type signalled here must match the eventual type returned by a pvxs get
+		channelConnectOperation->connect(group.valueTemplate);
+
+		// pvxs get
+		channelConnectOperation->onGet([&](std::unique_ptr<server::ExecOp>&& getOperation) {
+			onGet(group, getOperation);
+		});
+
+		// pvxs put
+		channelConnectOperation
+				->onPut([&](std::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
+//					onPut(group, putOperation, value);
+				});
+	});
+/*
+
+	// Subscription requests
+	// Shared ptr for one of captured vars below
+	subscriptionContext->prototype = valuePrototype.cloneEmpty();
+	channelControl
+			->onSubscribe([this, subscriptionContext](
+					std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
+				subscriptionContext->subscriptionControl = subscriptionOperation
+						->connect(subscriptionContext->prototype);
+
+				// Two subscription are made for pvxs
+				// first subscription is for Value changes
+				addSubscriptionEvent(Value, eventContext, subscriptionContext, DBE_VALUE | DBE_ALARM);
+				// second subscription is for Property changes
+				addSubscriptionEvent(Properties, eventContext, subscriptionContext, DBE_PROPERTY);
+
+				// If either fail to complete then raise an error (removes last ref to shared_ptr subscriptionContext)
+				if (!subscriptionContext->pValueEventSubscription
+						|| !subscriptionContext->pPropertiesEventSubscription) {
+					throw std::runtime_error("Failed to create db subscription");
+				}
+
+				// If all goes well, Set up handlers for start and stop monitoring events
+				subscriptionContext->subscriptionControl->onStart([subscriptionContext](bool isStarting) {
+					if (isStarting) {
+						onStartSubscription(subscriptionContext);
+					} else {
+						onDisableSubscription(subscriptionContext);
+					}
+				});
+			});
+*/
+
+}
+
+
+/**
+ * Handle the get operation
+ *
+ * @param group the group to get
+ * @param getOperation the current executing operation
+ */
+void GroupSource::onGet(IOCGroup& group, std::unique_ptr<server::ExecOp>& getOperation) {
+	onGet(group, true, true, [&getOperation](Value& value) {
+		getOperation->reply(value);
+	}, [&getOperation](const char* errorMessage) {
+		getOperation->error(errorMessage);
+	});
+}
+
+/**
+ * Get each field and make up the whole group structure
+ * @param group group to base result on
+ * @param forValues return values
+ * @param forProperties return meta data
+ * @param returnFn function to call with the result
+ * @param errorFn function to call on errors
+ */
+void GroupSource::onGet(IOCGroup& group, bool forValues, bool forProperties,
+		const std::function<void(Value&)>& returnFn, const std::function<void(const char*)>& errorFn) {
+
+	// Make an empty value to return
+	auto returnValue(group.valueTemplate.cloneEmpty());
+
+	// TODO lock the records that are impacted during the read
+	// For each field, get the value
+	for (auto& field: group.fields) {
+		if ( !field.fieldName.empty()) {
+			// Allocate array elements
+			if  ( field.isArray ) {
+				field.allocateMembers(group.arrayCapacityMap, returnValue);
+			}
+
+			// find the leaf node in which to set the value
+			auto leafName = field.fieldName.to_string();
+			auto leafNode = returnValue[leafName];
+
+			if (leafNode) {
+				// set the value
+				if (field.isMeta) {
+					IOCSource::onGet(std::shared_ptr<dbChannel>((dbChannel*)field.channel, [](dbChannel* ch) {}),
+							leafNode, false,
+							forProperties,
+							[&leafNode](Value& value) {
+								leafNode["alarm"] = value["alarm"];
+								leafNode["timestamp"] = value["timestamp"];
+							}, [](const char* errorMessage) {
+								throw std::runtime_error(errorMessage);
+							});
+				} else {
+					auto fieldName = field.name.c_str();
+					IOCSource::onGet(std::shared_ptr<dbChannel>((dbChannel*)field.channel, [](dbChannel* ch) {}),
+							leafNode, forValues,
+							false,
+							[&leafNode, &fieldName](Value& value) {
+								leafNode[fieldName] = value;
+							}, [](const char* errorMessage) {
+								throw std::runtime_error(errorMessage);
+							});
+				}
+			}		}
+	}
+
+	// Send reply
+	returnFn(returnValue);
 }
 
 } // ioc

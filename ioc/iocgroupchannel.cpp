@@ -44,6 +44,11 @@ IOCGroupChannel::IOCGroupChannel(const std::string& name)
 	prepare();
 }
 
+IOCGroupChannel::IOCGroupChannel(IOCGroupChannel&& other) noexcept
+		:pDbChannel(other.pDbChannel) {
+	other.pDbChannel = nullptr;
+}
+
 /**
  * Destroy the group channel and clean up the dbChannel resource
  */
