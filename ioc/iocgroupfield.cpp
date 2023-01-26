@@ -21,7 +21,7 @@ IOCGroupField::IOCGroupField(const std::string& stringFieldName, const std::stri
 void IOCGroupField::allocateMembers(ArrayCapacityMap& capacityMap, Value& returnValue) const {
 	// find the leaf node
 	auto leafName = fullName.substr(0, fullName.find_first_of('['));
-	auto &&leafNode = returnValue[leafName];
+	auto leafNode = returnValue[leafName];
 
 	//
 	auto capacity = capacityMap[leafName];
@@ -30,7 +30,7 @@ void IOCGroupField::allocateMembers(ArrayCapacityMap& capacityMap, Value& return
 	for ( auto i = 0; i < capacity; ++i) {
 		arr[i] = leafNode.allocMember();
 	}
-	leafNode = arr.freeze();
+	leafNode.from(arr.freeze());
 }
 } // pvxs
 } // ioc

@@ -67,7 +67,7 @@ void GroupSource::onCreate(std::unique_ptr<server::ChannelControl>&& channelCont
 
 	runOnPvxsServer([&](IOCServer* pPvxsServer) {
 		// Create callbacks for handling requests and group subscriptions
-		auto &group = pPvxsServer->groupMap[sourceName];
+		auto& group = pPvxsServer->groupMap[sourceName];
 		createRequestAndSubscriptionHandlers(channelControl, group);
 	});
 
@@ -168,7 +168,6 @@ void GroupSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::C
 
 }
 
-
 /**
  * Handle the get operation
  *
@@ -200,9 +199,10 @@ void GroupSource::onGet(IOCGroup& group, bool forValues, bool forProperties,
 	// TODO lock the records that are impacted during the read
 	// For each field, get the value
 	for (auto& field: group.fields) {
-		if ( !field.fieldName.empty()) {
+		if (!field.fieldName.empty()) {
 			// Allocate array elements
-			if  ( field.isArray ) {
+			if (field.isArray) {
+				// Thaw and allocate only member being referenced
 				field.allocateMembers(group.arrayCapacityMap, returnValue);
 			}
 
@@ -212,6 +212,7 @@ void GroupSource::onGet(IOCGroup& group, bool forValues, bool forProperties,
 
 			if (leafNode) {
 				// set the value
+				// TODO all metadata
 				if (field.isMeta) {
 					IOCSource::onGet(std::shared_ptr<dbChannel>((dbChannel*)field.channel, [](dbChannel* ch) {}),
 							leafNode, false,
@@ -233,7 +234,8 @@ void GroupSource::onGet(IOCGroup& group, bool forValues, bool forProperties,
 								throw std::runtime_error(errorMessage);
 							});
 				}
-			}		}
+			}
+		}
 	}
 
 	// Send reply

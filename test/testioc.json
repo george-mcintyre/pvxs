@@ -48,6 +48,7 @@
     },
     "jcalc": {
       "+channel": "george:calcExample.VAL",
+      "+type": "plain",
       "+putorder": 1
     },
     "jstring": {
@@ -60,9 +61,10 @@
     },
     "jsa[0].long": {
       "+channel": "george:longExample.VAL",
+      "+type": "any",
       "+putorder": 1
     },
-    "jsa[0].enum": {
+    "jsa[1].enum": {
       "+channel": "george:enumExample.VAL",
       "+putorder": 0
     },

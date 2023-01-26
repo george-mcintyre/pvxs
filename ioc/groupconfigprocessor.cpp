@@ -23,6 +23,7 @@
 #include "groupprocessorcontext.h"
 #include "yajlcallbackhandler.h"
 #include "iocsource.h"
+#include "typeutils.h"
 
 namespace pvxs {
 namespace ioc {
@@ -308,9 +309,6 @@ void GroupConfigProcessor::createGroups() {
 			auto& groupPv = groupPvMapEntry.second;
 			try {
 				auto& group = groupMap[groupName];
-				// Determine structure array capacities
-				calculateStructureArrayCapacities(group, groupPv);
-
 				// Initialise the given group's value type
 				initialiseGroupValueTemplates(group, groupPv);
 			} catch (std::exception& e) {
@@ -347,64 +345,6 @@ void GroupConfigProcessor::initialiseGroupFields(IOCGroup& group, const GroupPv&
 }
 
 /**
- * Initialise the given group's structure array field capacities.  Assumes that initialiseGroupFields() has been called before.
- *
- * The group contains a map of field name -> field capacity.  In a group some of the fields are arrays or contain
- * subfields that are arrays.  A subset of these array fields are structure arrays.  In pvxs, when an array value is
- * created we need to allocate (reserve) space for all elements in the array.  For array fields that are not structure
- * arrays, the allocation is done on a get/monitor operation when the array is retrieved from the database source.  For
- * structure arrays however, we need to make sure that the array is allocated at configuration time.
- *
- * e.g. define the following structure array fields:
- *   a[1].x
- *   a[0].y
- *
- * this should create a structure array with two elements, each containing a homogeneous structure with two elements,
- * x and y, as follows:
- *   - a[2]
- *     +--x
- *     +--y
- *
- * This function will look at all of the definitions for each distinct structure array and will calculate the required array
- * capacity as the highest referenced element.  In our example above we reference a[1].x so we know that the structure array `a`
- * must have at least a capacity of 2 elements.
- *
- * @param group the IOC group to store the structure array capacities map
- * @param groupPv the groupPv configuration we're reading group information from
- */
-void GroupConfigProcessor::calculateStructureArrayCapacities(IOCGroup& group, const GroupPv& groupPv) {
-	// for each field with channels
-	// TODO custom iterator channelFields to return only fields with channels
-	for (auto& field: groupPv.fields) {
-		if (!field.channel.empty()) {
-			auto& groupField = group[field.name];
-
-			// to store the concatenation of the stream parts we've parsed so far for this current field
-			std::ostringstream fileNameStream;
-
-			auto first = true;
-			for (const auto& fieldComponent: groupField.fieldName.fieldNameComponents) {
-				if (first) {
-					first = false;
-				} else {
-					fileNameStream << '.';
-				}
-				fileNameStream << fieldComponent.name;
-
-				if (fieldComponent.isArray()) {
-					groupField.isArray = true;
-					const auto& fieldName = fileNameStream.str();
-					const auto currentCapacity = group.arrayCapacityMap[fieldName];
-					if (currentCapacity <= fieldComponent.index) {
-						group.arrayCapacityMap[fieldName] = fieldComponent.index + 1;
-					}
-				}
-			}
-		}
-	}
-}
-
-/**
  * Initialise the given group's fields and value type from the given group PV configuration.
  * The group's field names and channels are set - this calls dbChannelCreate to create the dbChannel for each field.
  * It also creates the top level PVStructure for the group and stores it in valueType.
@@ -418,98 +358,64 @@ void GroupConfigProcessor::initialiseGroupValueTemplates(IOCGroup& group, const 
 	                    TypeDef(TypeCode::Struct, {}) :
 	                    TypeDef(TypeCode::Struct, groupPv.structureId, {});
 
+	// Metadata first because it could have to be inserted in the top level
+	for (auto& field: groupPv.fields) {
+		if (!field.channel.empty()) {
+			auto& groupField = group[field.name];
+			auto& groupFieldName = groupField.name;
+			auto& type = field.type;
+
+			auto pdbChannel = (dbChannel*)groupField.channel;
+
+			// Scalars map to nt types
+			if (type == "meta") {
+				groupField.isMeta = true;
+				TypeDef valueType ;
+				buildMetaValueType(valueType, groupField, pdbChannel, groupPv.structureId);
+				if (groupFieldName.empty()) {
+					groupType = valueType;
+				} else {
+					groupType += { valueType.as(groupFieldName) };
+				}
+			}
+		}
+	}
+
 	// for each field create the value template required
 	for (auto& field: groupPv.fields) {
 		if (!field.channel.empty()) {
 			auto& groupField = group[field.name];
 			auto& groupFieldName = groupField.name;
+			auto& type = field.type;
 
-			// If field type maps to scalar, plain, any, or structure, then get the pv field type definition
-			if (field.type.empty() || field.type == "scalar" || field.type == "plain" || field.type == "any"
-					|| field.type == "structure") {
-				auto fieldTypeDefinition = getFieldTypeDefinition((dbChannel*)groupField.channel,
-						groupField.fieldName);
+			auto pdbChannel = (dbChannel*)groupField.channel;
 
-				groupType += { fieldTypeDefinition.as(groupFieldName) };
-			} else if (field.type == "meta") {
-				groupField.isMeta = true;
-				// if this is a meta field then create standard meta fields
-				groupType += { Struct("alarm", "alarm_t", {
-						Int32("severity"),
-						Int32("status"),
-						String("message"),
-				}) };
-				groupType += { pvxs::nt::TimeStamp{}.build().as("timeStamp") };
-			} else if (field.type == "proc") {
+			// Scalars map to nt types
+			if (type == "proc") {
 				groupField.allowProc = true;
+			} else if (type == "meta") { // already processed
+			} else {
+				TypeDef valueType;
+				if (type.empty() || type == "scalar") {
+					buildScalarValueType(valueType, groupField, pdbChannel);
+				} else if (type == "plain") {
+					buildPlainValueType(valueType, groupField, pdbChannel);
+				} else if (type == "any") {
+					buildAnyScalarValueType(valueType, groupField, pdbChannel);
+				} else if (type == "structure") {
+					buildStructureValueType(valueType, groupField, pdbChannel);
+				} else {
+					throw std::runtime_error(std::string("Unknown +type=") + type);
+				}
+				groupType += { valueType.as(groupFieldName) };
 			}
 		}
 	}
 
 	// Roll up value templates into group value template
 	auto groupValueTemplate = groupType.create();
-
-	// Set array fields capacities
-	for (auto field: groupValueTemplate.iall()) {
-		// We only set capacities for structure arrays because all other arrays are mapped
-		if (field.type() == TypeCode::StructA) {
-			const auto& fieldName = groupValueTemplate.nameOf(field);
-			auto capacity = group.arrayCapacityMap[fieldName];
-			shared_array<Value> arr(capacity);
-
-			for ( auto i = 0; i < capacity; ++i) {
-				arr[i] = field.allocMember();
-			}
-			field = arr.freeze();
-		}
-	}
 	group.valueTemplate = std::move(groupValueTemplate);
-}
-
-/**
- * Get the type definition for the given field name based on the referenced channel.
- * Access the channel definition to determinet the database record type and,
- * use the field name path to construct the appropriate field type definition.
- * Note: assumes that the field name has at least one component.
- *
- * @param pChannel the reference channel
- * @param fieldName the field name
- * @return the type definition for the given field name
- */
-TypeDef GroupConfigProcessor::getFieldTypeDefinition(const dbChannel* pChannel,
-		const IOCGroupFieldName& fieldName) {
-	assert(!fieldName.empty()); // Must not call with empty field name
-
-	// Get the type for the leaf
-	auto leafCode(IOCSource::getChannelValueType(pChannel, true));
-	TypeDef leaf(leafCode);
-	// Enum Special case
-	if (dbChannelFinalFieldType(pChannel) == DBF_ENUM) {
-		leaf = nt::NTEnum{}.build();
-	} else {
-		bool display = true;
-		bool control = true;
-		bool valueAlarm = true;
-		leaf = nt::NTScalar{ leafCode, display, control, valueAlarm }.build();
-	};
-	TypeDef typeDefinition;
-	auto subComponentName = fieldName[fieldName.size() - 1].name;
-	auto isLeaf = true;
-
-	// Make up the full structure starting from the leaf
-	for (auto fieldNameComponentNumber = fieldName.size(); fieldNameComponentNumber > 0; fieldNameComponentNumber--) {
-		auto&& component = fieldName[fieldNameComponentNumber - 1];
-		if (isLeaf) {
-			isLeaf = false;
-			typeDefinition = leaf;
-		} else if (component.isArray()) {
-			typeDefinition = TypeDef(TypeCode::StructA, { typeDefinition.as(subComponentName) });
-		} else {
-			typeDefinition = TypeDef(TypeCode::Struct, { typeDefinition.as(subComponentName) });
-		}
-		subComponentName = component.name;
-	}
-	return { typeDefinition };
+	std::cout << group.name << ":==> " << group.valueTemplate << std::endl;
 }
 
 /**
@@ -852,8 +758,176 @@ bool GroupConfigProcessor::yajlParseHelper(std::istream& jsonGroupDefinitionStre
 			throw std::runtime_error("Error while completing parsing");
 		}
 	}
-
 	return true;
+}
+
+void GroupConfigProcessor::buildScalarValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel) {
+	auto& fieldName = groupField.fieldName;
+	assert(!fieldName.empty()); // Must not call with empty field name
+
+	// Get the type for the leaf
+	auto leafCode(IOCSource::getChannelValueType(pdbChannel, true));
+	TypeDef leaf;
+
+	// Create the leaf
+	auto dbfType = dbChannelFinalFieldType(pdbChannel);
+	if (dbfType == DBF_ENUM) {
+		leaf = nt::NTEnum{}.build();
+	} else {
+		bool display = true;
+		bool control = (dbfType != DBF_STRING);
+		bool valueAlarm = (dbfType != DBF_STRING);
+		leaf = nt::NTScalar{ leafCode, display, control, valueAlarm }.build();
+	}
+
+	getFieldTypeDefinition(valueType, groupField.fieldName, leaf);
+}
+
+void GroupConfigProcessor::buildPlainValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel) {
+	auto& fieldName = groupField.fieldName;
+	assert(!fieldName.empty()); // Must not call with empty field name
+
+	// Get the type for the leaf
+	auto leafCode(IOCSource::getChannelValueType(pdbChannel, true));
+	TypeDef leaf(leafCode);
+	getFieldTypeDefinition(valueType, groupField.fieldName, leaf);
+}
+
+void GroupConfigProcessor::buildAnyScalarValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel) {
+	auto& fieldName = groupField.fieldName;
+	assert(!fieldName.empty()); // Must not call with empty field name
+
+	// Get the type for the leaf
+	auto leafCode(IOCSource::getChannelValueType(pdbChannel, true));
+	TypeDef leaf(leafCode);
+	if (groupField.isArray) {
+		TypeDef leafUnion(TypeCode::UnionA, { leaf.as("value") });
+		getFieldTypeDefinition(valueType, groupField.fieldName, leafUnion);
+	} else {
+		TypeDef leafUnion(TypeCode::Union, { leaf.as("value") });
+		getFieldTypeDefinition(valueType, groupField.fieldName, leafUnion);
+	}
+}
+
+void GroupConfigProcessor::buildStructureValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel) {
+	auto& fieldName = groupField.fieldName;
+	assert(!fieldName.empty()); // Must not call with empty field name
+
+	// Get the type for the leaf
+	auto leafCode(IOCSource::getChannelValueType(pdbChannel, true));
+	TypeDef leaf(leafCode);
+	if (groupField.isArray) {
+		TypeDef leafUnion(TypeCode::StructA, { leaf.as("value") });
+		getFieldTypeDefinition(valueType, groupField.fieldName, leafUnion);
+	} else {
+		TypeDef leafUnion(TypeCode::Struct, { leaf.as("value") });
+		getFieldTypeDefinition(valueType, groupField.fieldName, leafUnion);
+	}
+}
+
+void
+GroupConfigProcessor::buildMetaValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel,
+		const std::string& id) {
+	using namespace pvxs::members;
+	// if this is a meta field then create standard meta fields
+	auto metaSourceCode(IOCSource::getChannelValueType(pdbChannel, true));
+	short dbfType = dbChannelFinalFieldType(pdbChannel);
+	getMetadataTypeDefinition(valueType, dbfType, metaSourceCode, groupField.name.empty() ? id : "");
+	getFieldTypeDefinition(valueType, groupField.fieldName, valueType);
+}
+
+void
+GroupConfigProcessor::getMetadataTypeDefinition(TypeDef& metaValueType, short databaseType, TypeCode typeCode,
+		const std::string& id) {
+	using namespace pvxs::members;
+
+	if (id.empty()) {
+		metaValueType = TypeDef(TypeCode::Struct, {});
+	} else {
+		metaValueType = TypeDef(TypeCode::Struct, id, {});
+	}
+
+	metaValueType += {
+			Struct("alarm", "alarm_t", {
+					Int32("severity"),
+					Int32("status"),
+					String("message"),
+			}),
+			nt::TimeStamp{}.build().as("timeStamp"),
+	};
+
+	const bool isnumeric = databaseType == DBF_FLOAT || databaseType == DBF_DOUBLE ||
+			databaseType == DBF_INT64 || databaseType == DBF_LONG || databaseType == DBF_SHORT ||
+			databaseType == DBF_UINT64 || databaseType == DBF_ULONG || databaseType == DBF_USHORT;
+
+	if (isnumeric) {
+		metaValueType += {
+				Struct("display", {
+						Member(typeCode, "limitLow"),
+						Member(typeCode, "limitHigh"),
+						String("description"),
+						String("units"),
+				}),
+				Struct("control", {
+						Member(typeCode, "limitLow"),
+						Member(typeCode, "limitHigh"),
+						Member(typeCode, "minStep"),
+				}),
+				Struct("valueAlarm", {
+						Bool("active"),
+						Member(typeCode, "lowAlarmLimit"),
+						Member(typeCode, "lowWarningLimit"),
+						Member(typeCode, "highWarningLimit"),
+						Member(typeCode, "highAlarmLimit"),
+						Int32("lowAlarmSeverity"),
+						Int32("lowWarningSeverity"),
+						Int32("highWarningSeverity"),
+						Int32("highAlarmSeverity"),
+						Float64("hysteresis"),
+				}),
+		};
+
+	} else if (databaseType == DBF_STRING) {
+		metaValueType += {
+				Struct("display", {
+						String("description"),
+						String("units"),
+				}),
+		};
+	}
+}
+
+/**
+ * Get the type definition for the given field name based on the referenced channel.
+ * Use the field name path to construct the appropriate field type definition.
+ * Note: assumes that the field name has at least one component.
+ *
+ * @param fieldName the field name
+ * @param leaf the leaf node to place in the type definition
+ * @return the type definition for the given field name
+ */
+void GroupConfigProcessor::getFieldTypeDefinition(TypeDef& valueType, const IOCGroupFieldName& fieldName,
+		TypeDef& leaf) {
+	auto subComponentName = !fieldName.empty() ? fieldName[fieldName.size() - 1].name : "";
+	auto isLeaf = true;
+
+	// Make up the full structure starting from the leaf
+	for (auto fieldNameComponentNumber = fieldName.size();
+	     fieldNameComponentNumber > 0;
+	     fieldNameComponentNumber--) {
+		auto&& component = fieldName[fieldNameComponentNumber - 1];
+		if (isLeaf) {
+			isLeaf = false;
+			valueType = leaf;
+		} else if (!subComponentName.empty()) {
+			if (component.isArray()) {
+				valueType = TypeDef(TypeCode::StructA, { valueType.as(subComponentName) });
+			} else {
+				valueType = TypeDef(TypeCode::Struct, { valueType.as(subComponentName) });
+			}
+		}
+		subComponentName = component.name;
+	}
 }
 
 } // ioc

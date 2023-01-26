@@ -49,6 +49,12 @@ class GroupConfigProcessor {
 	static int processStartBlock(void* parserContext);
 	static int processKey(void* parserContext, const unsigned char* key, size_t keyLength);
 	static int processEndBlock(void* parserContext);
+	static void buildScalarValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel);
+	static void buildPlainValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel);
+	static void buildAnyScalarValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel);
+	static void buildStructureValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel);
+	static void buildMetaValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel,
+			const std::string& id);
 
 public:
 	GroupConfigMap groupConfigMap;
@@ -63,13 +69,14 @@ public:
 	void createGroups();
 	void parseConfigString(const char* jsonGroupDefinition, const char* dbRecordName = nullptr);
 	static void initialiseGroupFields(IOCGroup &group, const GroupPv &groupPv);
-	static void calculateStructureArrayCapacities(IOCGroup &group, const GroupPv &groupPv);
 	static void initialiseGroupValueTemplates(IOCGroup& group, const GroupPv& groupPv);
-	static TypeDef getFieldTypeDefinition(const dbChannel* pChannel, const IOCGroupFieldName &fieldName);
+	static void getFieldTypeDefinition(TypeDef& valueType, const IOCGroupFieldName& fieldName, TypeDef& leaf);
 	static const char* infoField(DBEntry& dbEntry, const char* key, const char* defaultValue = nullptr);
 	static int yajlProcess(void* parserContext, const std::function <int (GroupProcessorContext *)>&pFunction);
 	static void checkForTrailingCommentsAtEnd(const std::string& line);
 	void configureGroups();
+	static void getMetadataTypeDefinition(TypeDef& metaValueType, short databaseType, TypeCode typeCode,
+			const std::string& id);
 };
 
 } // ioc
