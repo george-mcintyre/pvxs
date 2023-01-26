@@ -23,7 +23,6 @@
 #include "groupprocessorcontext.h"
 #include "yajlcallbackhandler.h"
 #include "iocsource.h"
-#include "typeutils.h"
 
 namespace pvxs {
 namespace ioc {
@@ -415,7 +414,6 @@ void GroupConfigProcessor::initialiseGroupValueTemplates(IOCGroup& group, const 
 	// Roll up value templates into group value template
 	auto groupValueTemplate = groupType.create();
 	group.valueTemplate = std::move(groupValueTemplate);
-	std::cout << group.name << ":==> " << group.valueTemplate << std::endl;
 }
 
 /**

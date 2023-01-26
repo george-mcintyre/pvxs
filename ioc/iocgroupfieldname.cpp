@@ -5,7 +5,6 @@
  */
 
 #include <sstream>
-#include<iostream>
 #include <cstdlib>
 
 #include "iocgroupfieldname.h"

@@ -175,7 +175,7 @@ void GroupSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::C
  * @param getOperation the current executing operation
  */
 void GroupSource::onGet(IOCGroup& group, std::unique_ptr<server::ExecOp>& getOperation) {
-	onGet(group, true, true, [&getOperation](Value& value) {
+	onGet(group, [&getOperation](Value& value) {
 		getOperation->reply(value);
 	}, [&getOperation](const char* errorMessage) {
 		getOperation->error(errorMessage);
@@ -190,8 +190,8 @@ void GroupSource::onGet(IOCGroup& group, std::unique_ptr<server::ExecOp>& getOpe
  * @param returnFn function to call with the result
  * @param errorFn function to call on errors
  */
-void GroupSource::onGet(IOCGroup& group, bool forValues, bool forProperties,
-		const std::function<void(Value&)>& returnFn, const std::function<void(const char*)>& errorFn) {
+void GroupSource::onGet(IOCGroup& group, const std::function<void(Value & )>& returnFn,
+		const std::function<void(const char*)>& errorFn) {
 
 	// Make an empty value to return
 	auto returnValue(group.valueTemplate.cloneEmpty());
@@ -216,7 +216,7 @@ void GroupSource::onGet(IOCGroup& group, bool forValues, bool forProperties,
 				if (field.isMeta) {
 					IOCSource::onGet(std::shared_ptr<dbChannel>((dbChannel*)field.channel, [](dbChannel* ch) {}),
 							leafNode, false,
-							forProperties,
+							true,
 							[&leafNode](Value& value) {
 								leafNode["alarm"] = value["alarm"];
 								leafNode["timestamp"] = value["timestamp"];
@@ -226,7 +226,7 @@ void GroupSource::onGet(IOCGroup& group, bool forValues, bool forProperties,
 				} else {
 					auto fieldName = field.name.c_str();
 					IOCSource::onGet(std::shared_ptr<dbChannel>((dbChannel*)field.channel, [](dbChannel* ch) {}),
-							leafNode, forValues,
+							leafNode, true,
 							false,
 							[&leafNode, &fieldName](Value& value) {
 								leafNode[fieldName] = value;

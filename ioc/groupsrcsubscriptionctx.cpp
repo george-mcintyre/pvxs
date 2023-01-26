@@ -4,8 +4,6 @@
  * in file LICENSE that is included with this distribution.
  */
 
-#include "groupsrcsubscriptionctx.h"
-
 namespace pvxs {
 namespace ioc {
 

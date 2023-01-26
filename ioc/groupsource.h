@@ -32,7 +32,7 @@ private:
 	void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& channelControl, IOCGroup& group);
 
 	void onGet(IOCGroup& group, std::unique_ptr<server::ExecOp>& getOperation);
-	void onGet(IOCGroup& group, bool forValues, bool forProperties, const std::function<void(Value & )>& returnFn,
+	void onGet(IOCGroup& group, const std::function<void(Value & )>& returnFn,
 			const std::function<void(const char*)>& errorFn);
 };
 
