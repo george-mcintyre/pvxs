@@ -7,6 +7,7 @@
 #ifndef PVXS_TYPEUTILS_H
 #define PVXS_TYPEUTILS_H
 
+#include <sstream>
 #include <pvxs/source.h>
 #include <dbStaticLib.h>
 #include "typeutils.h"
@@ -39,7 +40,9 @@ switch (_typeCode) {                               \
     case TypeCode::Union:  case TypeCode::UnionA:         \
     case TypeCode::Any:  case TypeCode::AnyA:             \
     default:                                              \
-        throw std::logic_error("Unsupported type" );      \
+        std::stringstream errorString;                    \
+        errorString << "Unsupported Type: " << TypeCode(_typeCode) ;     \
+        throw std::logic_error(errorString.str() );      \
 }
 
 namespace pvxs {
