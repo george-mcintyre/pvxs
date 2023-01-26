@@ -23,7 +23,6 @@ public:
 	bool atomicPutGet, atomicMonitor;
 	static size_t num_instances;
 	Value valueTemplate;
-	ArrayCapacityMap arrayCapacityMap; // array capacity map, field->array capacity
 
 	IOCGroup();
 	virtual ~IOCGroup();

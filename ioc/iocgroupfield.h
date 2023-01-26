@@ -18,7 +18,6 @@
 namespace pvxs {
 namespace ioc {
 
-typedef std::map<std::string, size_t> ArrayCapacityMap;
 typedef std::vector<size_t> IOCGroupTriggers;
 
 class IOCGroupField {
@@ -33,7 +32,7 @@ public:
 
 	IOCGroupField(const std::string& stringFieldName, const std::string& channelName);
 	bool isArray;
-	void allocateMembers(ArrayCapacityMap& capacityMap, Value& returnValue) const;
+	Value &walkToValue(Value &top);
 };
 
 typedef std::vector<IOCGroupField> IOCGroupFields;

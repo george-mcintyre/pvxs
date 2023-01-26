@@ -190,7 +190,7 @@ void GroupSource::onGet(IOCGroup& group, std::unique_ptr<server::ExecOp>& getOpe
  * @param returnFn function to call with the result
  * @param errorFn function to call on errors
  */
-void GroupSource::onGet(IOCGroup& group, const std::function<void(Value & )>& returnFn,
+void GroupSource::onGet(IOCGroup& group, const std::function<void(Value&)>& returnFn,
 		const std::function<void(const char*)>& errorFn) {
 
 	// Make an empty value to return
@@ -199,48 +199,52 @@ void GroupSource::onGet(IOCGroup& group, const std::function<void(Value & )>& re
 	// TODO lock the records that are impacted during the read
 	// For each field, get the value
 	for (auto& field: group.fields) {
-		if (!field.fieldName.empty()) {
-			// Allocate array elements
-			if (field.isArray) {
-				// Thaw and allocate only member being referenced
-				field.allocateMembers(group.arrayCapacityMap, returnValue);
-			}
+		// find the leaf node in which to set the value
+		Value& leafNode = field.walkToValue(returnValue);
 
-			// find the leaf node in which to set the value
-			auto leafName = field.fieldName.to_string();
-			auto leafNode = returnValue[leafName];
-
-			if (leafNode) {
-				// set the value
-				// TODO all metadata
-				try {
-					if (field.isMeta) {
-						IOCSource::onGet(std::shared_ptr<dbChannel>((dbChannel*)field.channel, [](dbChannel* ch) {}),
-								leafNode, false,
-								true,
-								[&leafNode](Value& value) {
-									leafNode["alarm"] = value["alarm"];
-									leafNode["timestamp"] = value["timestamp"];
-								}, [](const char* errorMessage) {
-									throw std::runtime_error(errorMessage);
-								});
-					} else {
-						auto fieldName = field.name.c_str();
-						IOCSource::onGet(std::shared_ptr<dbChannel>((dbChannel*)field.channel, [](dbChannel* ch) {}),
-								leafNode, true,
-								false,
-								[&leafNode, &fieldName](Value& value) {
-									leafNode[fieldName] = value;
-								}, [](const char* errorMessage) {
-									throw std::runtime_error(errorMessage);
-								});
-					}
-				} catch (std::exception& e) {
-					std::stringstream errorString;
-					errorString << "Error retrieving value for pvName: " << group.name << "." << field.fullName << " : " << e.what();
-					errorFn(errorString.str().c_str());
-					return;
+		if (leafNode) {
+			// set the value
+			// TODO all metadata
+			try {
+				if (field.isMeta) {
+					IOCSource::onGet(std::shared_ptr<dbChannel>((dbChannel*)field.channel, [](dbChannel* ch) {}),
+							leafNode, false,
+							true,
+							[&leafNode](Value& value) {
+								leafNode["alarm"] = value["alarm"];
+								leafNode["timestamp"] = value["timestamp"];
+								auto display = value["display"];
+								auto control = value["control"];
+								auto valueAlarm = value["valueAlarm"];
+								if (display.valid()) {
+									leafNode["display"] = value["display"];
+								}
+								if (control.valid()) {
+									leafNode["control"] = value["control"];
+								}
+								if (valueAlarm.valid()) {
+									leafNode["valueAlarm"] = value["valueAlarm"];
+								}
+							}, [](const char* errorMessage) {
+								throw std::runtime_error(errorMessage);
+							});
+				} else if (!field.fieldName.empty()) {
+					auto fieldName = field.name.c_str();
+					IOCSource::onGet(std::shared_ptr<dbChannel>((dbChannel*)field.channel, [](dbChannel* ch) {}),
+							leafNode, true,
+							false,
+							[&leafNode, &fieldName](Value& value) {
+								leafNode[fieldName] = value;
+							}, [](const char* errorMessage) {
+								throw std::runtime_error(errorMessage);
+							});
 				}
+			} catch (std::exception& e) {
+				std::stringstream errorString;
+				errorString << "Error retrieving value for pvName: " << group.name << (field.name.empty() ? "/" : "." ) << field.fullName << " : "
+				            << e.what();
+				errorFn(errorString.str().c_str());
+				return;
 			}
 		}
 	}

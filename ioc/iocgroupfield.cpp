@@ -4,6 +4,7 @@
  * in file LICENSE that is included with this distribution.
  */
 
+#include <sstream>
 #include "iocgroupfield.h"
 
 namespace pvxs {
@@ -18,19 +19,34 @@ IOCGroupField::IOCGroupField(const std::string& stringFieldName, const std::stri
 	}
 }
 
-void IOCGroupField::allocateMembers(ArrayCapacityMap& capacityMap, Value& returnValue) const {
-	// find the leaf node
-	auto leafName = fullName.substr(0, fullName.find_first_of('['));
-	auto leafNode = returnValue[leafName];
+Value& IOCGroupField::walkToValue(Value& top) {
+	Value& value = top;
+	if (!fieldName.empty()) {
+		for (const auto& component: fieldName.fieldNameComponents) {
+			value = value[component.name];
+			if (component.isArray()) {
+				// Get required array capacity
+				auto index = component.index;
+				shared_array<const Value> valueArray = value.as<shared_array<const Value>>();
+				auto capacity = valueArray.max_size();   // Is this the capacity
+				if ((index + 1) > capacity) {
+//					valueArray.thaw();
+//					valueArray.resize(index+1);
+					// Copy old values
+					// TODO ...
+				}
 
-	//
-	auto capacity = capacityMap[leafName];
-	shared_array<Value> arr(capacity);
+				// Put new data into array
+//				valueArray[index] = value.allocMember();
+//				value.from(valueArray.freeze());
 
-	for ( auto i = 0; i < capacity; ++i) {
-		arr[i] = leafNode.allocMember();
+				std::stringstream elementRef;
+				elementRef << "[" << index << "]";
+				value = value[elementRef.str()];
+			}
+		}
 	}
-	leafNode.from(arr.freeze());
+	return value;
 }
 } // pvxs
 } // ioc
