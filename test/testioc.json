@@ -59,7 +59,7 @@
       "+channel": "george:arrayExample.VAL",
       "+putorder": 0
     },
-    "jsa[0].long": {
+    "jsa[0].any": {
       "+channel": "george:longExample.VAL",
       "+type": "any",
       "+putorder": 1

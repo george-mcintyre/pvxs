@@ -12,7 +12,7 @@
 namespace pvxs {
 namespace ioc {
 
-static void pad(std::string& stringToPad, const size_t padLength);
+static void pad(std::string& stringToPad, size_t padLength);
 
 /**
  * Construct a Group field name from a field name string.  The string is a sequence of components separated by
@@ -146,6 +146,9 @@ const IOCGroupFieldNameComponent& IOCGroupFieldName::back() const {
  */
 const IOCGroupFieldNameComponent& IOCGroupFieldName::operator[](size_t i) const {
 	return fieldNameComponents[i];
+}
+const std::string& IOCGroupFieldName::leafFieldName() {
+	return fieldNameComponents[fieldNameComponents.size()-1].name;
 }
 
 /**

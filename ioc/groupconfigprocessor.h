@@ -26,7 +26,7 @@ class GroupConfigProcessor {
 	 * They must be defined in this order.
 	 * Note that we don't use number, or arrays
 	 */
-	yajl_callbacks yajlParserCallbacks {
+	yajl_callbacks yajlParserCallbacks{
 			&processNull,
 			&processBoolean,
 			&processInteger,
@@ -49,12 +49,12 @@ class GroupConfigProcessor {
 	static int processStartBlock(void* parserContext);
 	static int processKey(void* parserContext, const unsigned char* key, size_t keyLength);
 	static int processEndBlock(void* parserContext);
-	static void buildScalarValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel);
-	static void buildPlainValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel);
-	static void buildAnyScalarValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel);
-	static void buildStructureValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel);
-	static void buildMetaValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel,
-			const std::string& id);
+	static void buildScalarValueType(std::vector<Member>& groupMembers, IOCGroupField& groupField,
+			dbChannel* pdbChannel);
+	static void buildPlainValueType(std::vector<Member>& groupMembers, IOCGroupField& groupField, dbChannel* pdbChannel);
+	static void buildAnyScalarValueType(std::vector<Member>& groupMembers, IOCGroupField& groupField);
+	static void buildStructureValueType(std::vector<Member>& groupMembers, IOCGroupField& groupField);
+	static void buildMetaValueType(std::vector<Member>& groupMembers, const IOCGroupField& groupField);
 
 public:
 	GroupConfigMap groupConfigMap;
@@ -68,15 +68,14 @@ public:
 	void resolveTriggers();
 	void createGroups();
 	void parseConfigString(const char* jsonGroupDefinition, const char* dbRecordName = nullptr);
-	static void initialiseGroupFields(IOCGroup &group, const GroupPv &groupPv);
+	static void initialiseGroupFields(IOCGroup& group, const GroupPv& groupPv);
 	static void initialiseGroupValueTemplates(IOCGroup& group, const GroupPv& groupPv);
-	static void getFieldTypeDefinition(TypeDef& valueType, const IOCGroupFieldName& fieldName, TypeDef& leaf);
+	static void setFieldTypeDefinition(std::vector<Member>& groupMembers, const IOCGroupFieldName& fieldName,
+			std::vector<Member> leafMembers);
 	static const char* infoField(DBEntry& dbEntry, const char* key, const char* defaultValue = nullptr);
-	static int yajlProcess(void* parserContext, const std::function <int (GroupProcessorContext *)>&pFunction);
+	static int yajlProcess(void* parserContext, const std::function<int(GroupProcessorContext*)>& pFunction);
 	static void checkForTrailingCommentsAtEnd(const std::string& line);
 	void configureGroups();
-	static void getMetadataTypeDefinition(TypeDef& metaValueType, short databaseType, TypeCode typeCode,
-			const std::string& id);
 };
 
 } // ioc

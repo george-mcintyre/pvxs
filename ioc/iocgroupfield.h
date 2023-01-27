@@ -24,14 +24,15 @@ class IOCGroupField {
 private:
 public:
 	IOCGroupTriggers triggers;          // index in IOCGroup::fields
-	bool had_initial_VALUE, had_initial_PROPERTY, isMeta, allowProc;
+	bool isMeta, allowProc;
 	IOCGroupChannel channel;
 	IOCGroupFieldName fieldName;
 	std::string name;
+	std::string id; // For future structure functionality
 	std::string fullName;
+	bool isArray;
 
 	IOCGroupField(const std::string& stringFieldName, const std::string& channelName);
-	bool isArray;
 	Value &walkToValue(Value &top);
 };
 

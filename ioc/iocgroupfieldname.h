@@ -37,6 +37,7 @@ public:
 	const IOCGroupFieldNameComponent& operator[](size_t i) const;
 	const IOCGroupFieldNameComponent& back() const;
 	std::string to_string(size_t padLength = 0) const;
+	const std::string &leafFieldName();
 
 	void show(const std::string& suffix = {}) const;
 };

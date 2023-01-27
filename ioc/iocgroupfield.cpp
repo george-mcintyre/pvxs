@@ -11,8 +11,8 @@ namespace pvxs {
 namespace ioc {
 
 IOCGroupField::IOCGroupField(const std::string& stringFieldName, const std::string& channelName)
-		:had_initial_VALUE(false), had_initial_PROPERTY(false), isMeta(false), allowProc(false), channel(channelName),
-		 fieldName(stringFieldName) {
+		: isMeta(false), allowProc(false), channel(channelName),
+		 fieldName(stringFieldName), isArray(false) {
 	if (!fieldName.fieldNameComponents.empty()) {
 		name = fieldName.fieldNameComponents[0].name;
 		fullName = std::string(fieldName.to_string());
@@ -27,22 +27,18 @@ Value& IOCGroupField::walkToValue(Value& top) {
 			if (component.isArray()) {
 				// Get required array capacity
 				auto index = component.index;
-				shared_array<const Value> valueArray = value.as<shared_array<const Value>>();
-				auto capacity = valueArray.max_size();   // Is this the capacity
-				if ((index + 1) > capacity) {
-//					valueArray.thaw();
-//					valueArray.resize(index+1);
-					// Copy old values
-					// TODO ...
+				shared_array<const Value> constValueArray = value.as<shared_array<const Value>>();
+				// TODO clear value so that we don't do a copy
+				shared_array<Value> valueArray(constValueArray.thaw());
+				auto size = valueArray.size();   // Is this the capacity
+				if ((index + 1) > size) {
+					valueArray.resize(index+1);
 				}
 
 				// Put new data into array
-//				valueArray[index] = value.allocMember();
-//				value.from(valueArray.freeze());
-
-				std::stringstream elementRef;
-				elementRef << "[" << index << "]";
-				value = value[elementRef.str()];
+				auto newElement = valueArray[index] = value.allocMember();
+				value = valueArray.freeze();
+				value = newElement;
 			}
 		}
 	}

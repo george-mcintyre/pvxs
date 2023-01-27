@@ -21,7 +21,6 @@ public:
 	std::string name;
 	IOCGroupFields fields;
 	bool atomicPutGet, atomicMonitor;
-	static size_t num_instances;
 	Value valueTemplate;
 
 	IOCGroup();

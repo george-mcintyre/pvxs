@@ -353,65 +353,52 @@ void GroupConfigProcessor::initialiseGroupFields(IOCGroup& group, const GroupPv&
  */
 void GroupConfigProcessor::initialiseGroupValueTemplates(IOCGroup& group, const GroupPv& groupPv) {
 	using namespace pvxs::members;
-	TypeDef groupType = (groupPv.structureId.empty()) ?
-	                    TypeDef(TypeCode::Struct, {}) :
-	                    TypeDef(TypeCode::Struct, groupPv.structureId, {});
+	// We will go through each field and add members to this list, and then add them to the group's valueTemplate before returning
+	std::vector<Member> groupMembersToAdd;
 
-	// Metadata first because it could have to be inserted in the top level
-	for (auto& field: groupPv.fields) {
-		if (!field.channel.empty()) {
-			auto& groupField = group[field.name];
-			auto& groupFieldName = groupField.name;
-			auto& type = field.type;
-
-			auto pdbChannel = (dbChannel*)groupField.channel;
-
-			// Scalars map to nt types
-			if (type == "meta") {
-				groupField.isMeta = true;
-				TypeDef valueType ;
-				buildMetaValueType(valueType, groupField, pdbChannel, groupPv.structureId);
-				if (groupFieldName.empty()) {
-					groupType = valueType;
-				} else {
-					groupType += { valueType.as(groupFieldName) };
-				}
-			}
-		}
-	}
+	// Add default member: record
+	groupMembersToAdd.push_back({
+			Struct("record", {
+					Struct("_options", {
+							Int32("queueSize"),
+							Bool("atomic")
+					})
+			})
+	});
 
 	// for each field create the value template required
 	for (auto& field: groupPv.fields) {
 		if (!field.channel.empty()) {
 			auto& groupField = group[field.name];
-			auto& groupFieldName = groupField.name;
 			auto& type = field.type;
 
 			auto pdbChannel = (dbChannel*)groupField.channel;
 
-			// Scalars map to nt types
-			if (type == "proc") {
+			if (type == "meta") {
+				groupField.isMeta = true;
+				buildMetaValueType(groupMembersToAdd, groupField);
+			} else if (type == "proc") {
 				groupField.allowProc = true;
-			} else if (type == "meta") { // already processed
 			} else {
-				TypeDef valueType;
 				if (type.empty() || type == "scalar") {
-					buildScalarValueType(valueType, groupField, pdbChannel);
+					buildScalarValueType(groupMembersToAdd, groupField, pdbChannel);
 				} else if (type == "plain") {
-					buildPlainValueType(valueType, groupField, pdbChannel);
+					buildPlainValueType(groupMembersToAdd, groupField, pdbChannel);
 				} else if (type == "any") {
-					buildAnyScalarValueType(valueType, groupField, pdbChannel);
+					buildAnyScalarValueType(groupMembersToAdd, groupField);
 				} else if (type == "structure") {
-					buildStructureValueType(valueType, groupField, pdbChannel);
+					buildStructureValueType(groupMembersToAdd, groupField);
 				} else {
 					throw std::runtime_error(std::string("Unknown +type=") + type);
 				}
-				groupType += { valueType.as(groupFieldName) };
 			}
 		}
 	}
+	// Add all the collected group members to the group type
+	TypeDef groupType(TypeCode::Struct, groupPv.structureId, {});
+	groupType += groupMembersToAdd;
 
-	// Roll up value templates into group value template
+	// create the group's valueTemplate from the group type
 	auto groupValueTemplate = groupType.create();
 	group.valueTemplate = std::move(groupValueTemplate);
 }
@@ -660,7 +647,7 @@ const char* GroupConfigProcessor::infoField(DBEntry& dbEntry, const char* key, c
  */
 void GroupConfigProcessor::checkForTrailingCommentsAtEnd(const std::string& line) {
 	size_t idx = line.find_first_not_of(" \t\n\r");
-	if (idx != line.npos) {
+	if (idx != std::string::npos) {
 		// trailing comments not allowed
 		throw std::runtime_error("Trailing comments are not allowed");
 	}
@@ -759,9 +746,21 @@ bool GroupConfigProcessor::yajlParseHelper(std::istream& jsonGroupDefinitionStre
 	return true;
 }
 
-void GroupConfigProcessor::buildScalarValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel) {
-	auto& fieldName = groupField.fieldName;
-	assert(!fieldName.empty()); // Must not call with empty field name
+/**
+ * Add a scalar field as the prescribed subfield by adding the appropriate members to the given members list
+ *
+ * e.g: fieldName: "a.b", type => NTScalar, leaf = {NTScalar{}} - a single structure with ID, and members corresponding to NTScalar
+ *    return {Struct{a: Struct{b: NTScalar{}}}} - single element vector
+ *    effect: group members += {Struct{a: Struct{b: NTScalar{}}}} - adds NTScalar at a.b
+ *
+ * @param groupMembers the given group members to update
+ * @param groupField the group field used to determine the members to add and how to create them
+ * @param pdbChannel the db channel to get information on what scalar type to create
+ */
+void GroupConfigProcessor::buildScalarValueType(std::vector<Member>& groupMembers, IOCGroupField& groupField,
+		dbChannel* pdbChannel) {
+	using namespace pvxs::members;
+	assert(!groupField.fieldName.empty()); // Must not call with empty field name
 
 	// Get the type for the leaf
 	auto leafCode(IOCSource::getChannelValueType(pdbChannel, true));
@@ -773,158 +772,127 @@ void GroupConfigProcessor::buildScalarValueType(TypeDef& valueType, IOCGroupFiel
 		leaf = nt::NTEnum{}.build();
 	} else {
 		bool display = true;
-		bool control = (dbfType != DBF_STRING);
+		bool control = true;
 		bool valueAlarm = (dbfType != DBF_STRING);
 		leaf = nt::NTScalar{ leafCode, display, control, valueAlarm }.build();
 	}
-
-	getFieldTypeDefinition(valueType, groupField.fieldName, leaf);
+	std::vector<Member> newScalarMembers({ leaf.as(groupField.fieldName.leafFieldName()) });
+	setFieldTypeDefinition(groupMembers, groupField.fieldName, newScalarMembers);
 }
 
-void GroupConfigProcessor::buildPlainValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel) {
-	auto& fieldName = groupField.fieldName;
-	assert(!fieldName.empty()); // Must not call with empty field name
+void GroupConfigProcessor::buildPlainValueType(std::vector<Member>& groupMembers, IOCGroupField& groupField,
+		dbChannel* pdbChannel) {
+	assert(!groupField.fieldName.empty()); // Must not call with empty field name
 
 	// Get the type for the leaf
 	auto leafCode(IOCSource::getChannelValueType(pdbChannel, true));
 	TypeDef leaf(leafCode);
-	getFieldTypeDefinition(valueType, groupField.fieldName, leaf);
-}
-
-void GroupConfigProcessor::buildAnyScalarValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel) {
-	auto& fieldName = groupField.fieldName;
-	assert(!fieldName.empty()); // Must not call with empty field name
-
-	// Get the type for the leaf
-	auto leafCode(IOCSource::getChannelValueType(pdbChannel, true));
-	TypeDef leaf(leafCode);
-	if (groupField.isArray) {
-		TypeDef leafUnion(TypeCode::UnionA, { leaf.as("value") });
-		getFieldTypeDefinition(valueType, groupField.fieldName, leafUnion);
-	} else {
-		TypeDef leafUnion(TypeCode::Union, { leaf.as("value") });
-		getFieldTypeDefinition(valueType, groupField.fieldName, leafUnion);
-	}
-}
-
-void GroupConfigProcessor::buildStructureValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel) {
-	auto& fieldName = groupField.fieldName;
-	assert(!fieldName.empty()); // Must not call with empty field name
-
-	// Get the type for the leaf
-	auto leafCode(IOCSource::getChannelValueType(pdbChannel, true));
-	TypeDef leaf(leafCode);
-	if (groupField.isArray) {
-		TypeDef leafUnion(TypeCode::StructA, { leaf.as("value") });
-		getFieldTypeDefinition(valueType, groupField.fieldName, leafUnion);
-	} else {
-		TypeDef leafUnion(TypeCode::Struct, { leaf.as("value") });
-		getFieldTypeDefinition(valueType, groupField.fieldName, leafUnion);
-	}
+	std::vector<Member> newScalarMembers({ leaf.as(groupField.fieldName.leafFieldName()) });
+	setFieldTypeDefinition(groupMembers, groupField.fieldName, newScalarMembers);
 }
 
 void
-GroupConfigProcessor::buildMetaValueType(TypeDef& valueType, IOCGroupField& groupField, dbChannel* pdbChannel,
-		const std::string& id) {
-	using namespace pvxs::members;
-	// if this is a meta field then create standard meta fields
-	auto metaSourceCode(IOCSource::getChannelValueType(pdbChannel, true));
-	short dbfType = dbChannelFinalFieldType(pdbChannel);
-	getMetadataTypeDefinition(valueType, dbfType, metaSourceCode, groupField.name.empty() ? id : "");
-	getFieldTypeDefinition(valueType, groupField.fieldName, valueType);
+GroupConfigProcessor::buildAnyScalarValueType(std::vector<Member>& groupMembers, IOCGroupField& groupField) {
+	assert(!groupField.fieldName.empty()); // Must not call with empty field name
+	TypeDef leaf(TypeCode::Any);
+	std::vector<Member> newScalarMembers({ leaf.as("") });
+	setFieldTypeDefinition(groupMembers, groupField.fieldName, newScalarMembers);
 }
 
+/**
+ * Add ID fields to the prescribed subfield by adding the appropriate members to the
+ * given members list.  This will work by creating a leaf node Struct/StructA that has
+ * the ID specified for the field. This only works if the referenced field is a structure i.e an NT type.
+ * Throws an error if we try to apply this to the top level as there is already a mechanism for that.
+ *
+ * @param groupMembers the given group members to update
+ * @param groupField the group field used to determine the members to add and how to create them
+ */
 void
-GroupConfigProcessor::getMetadataTypeDefinition(TypeDef& metaValueType, short databaseType, TypeCode typeCode,
-		const std::string& id) {
+GroupConfigProcessor::buildStructureValueType(std::vector<Member>& groupMembers, IOCGroupField& groupField) {
 	using namespace pvxs::members;
 
-	if (id.empty()) {
-		metaValueType = TypeDef(TypeCode::Struct, {});
-	} else {
-		metaValueType = TypeDef(TypeCode::Struct, id, {});
-	}
+	std::vector<Member> newIdMembers(
+			{ groupField.isArray ? StructA("", groupField.id, {}) : Struct("", groupField.id, {}) });
 
-	metaValueType += {
+	// Add ID to the group members at the position determined by group field name
+	setFieldTypeDefinition(groupMembers, groupField.fieldName, newIdMembers);
+}
+
+/**
+ * Add metadata fields to the prescribed subfield (or top level) by adding the appropriate members to the
+ * given members list.
+ *
+ * @param groupMembers the given group members to update
+ * @param groupField the group field used to determine the members to add and how to create them
+ */
+void GroupConfigProcessor::buildMetaValueType(std::vector<Member>& groupMembers, const IOCGroupField& groupField) {
+	using namespace pvxs::members;
+	std::vector<Member> newMetaMembers({
 			Struct("alarm", "alarm_t", {
 					Int32("severity"),
 					Int32("status"),
 					String("message"),
 			}),
 			nt::TimeStamp{}.build().as("timeStamp"),
-	};
+	});
 
-	const bool isnumeric = databaseType == DBF_FLOAT || databaseType == DBF_DOUBLE ||
-			databaseType == DBF_INT64 || databaseType == DBF_LONG || databaseType == DBF_SHORT ||
-			databaseType == DBF_UINT64 || databaseType == DBF_ULONG || databaseType == DBF_USHORT;
-
-	if (isnumeric) {
-		metaValueType += {
-				Struct("display", {
-						Member(typeCode, "limitLow"),
-						Member(typeCode, "limitHigh"),
-						String("description"),
-						String("units"),
-				}),
-				Struct("control", {
-						Member(typeCode, "limitLow"),
-						Member(typeCode, "limitHigh"),
-						Member(typeCode, "minStep"),
-				}),
-				Struct("valueAlarm", {
-						Bool("active"),
-						Member(typeCode, "lowAlarmLimit"),
-						Member(typeCode, "lowWarningLimit"),
-						Member(typeCode, "highWarningLimit"),
-						Member(typeCode, "highAlarmLimit"),
-						Int32("lowAlarmSeverity"),
-						Int32("lowWarningSeverity"),
-						Int32("highWarningSeverity"),
-						Int32("highAlarmSeverity"),
-						Float64("hysteresis"),
-				}),
-		};
-
-	} else if (databaseType == DBF_STRING) {
-		metaValueType += {
-				Struct("display", {
-						String("description"),
-						String("units"),
-				}),
-		};
-	}
+	// Add metadata to the group members at the position determined by group field name
+	setFieldTypeDefinition(groupMembers, groupField.fieldName, newMetaMembers);
 }
 
 /**
- * Get the type definition for the given field name based on the referenced channel.
- * Use the field name path to construct the appropriate field type definition.
- * Note: assumes that the field name has at least one component.
+ * Update the given group members by creating a new members list that uses the given field name
+ * to determine the nesting of members required to place the given leaf members.
  *
- * @param fieldName the field name
- * @param leaf the leaf node to place in the type definition
- * @return the type definition for the given field name
+ * Examples:
+ * 1) fieldName: "",  type => metadata, leaf = {Struct{alarm}, Struct{timestamp}}
+ *    return {Struct{alarm}, Struct{timestamp}}
+ *    effect: group members += {Struct{alarm}, Struct{timestamp}}
+ *
+ * 2) fieldName: "a.b", type => NTScalar, leaf = {NTScalar{}} - a single structure with ID, and members corresponding to NTScalar
+ *    return {Struct{a: Struct{b: NTScalar{}}}} - single element vector
+ *    effect: group members += {Struct{a: Struct{b: NTScalar{}}}} - adds NTScalar at a.b
+ *
+ * 3) fieldName: "a.c", type => plain double, leaf = {Float64}
+ *    return {Struct{a: Struct{c: {Float64}}}} - single element vector
+ *    effect group members += {Struct{a: Struct{c: {Float64}}}} - adds plain double at a.c
+ *
+ * 4) fieldName: "a.b", type => metadata, leaf = {Struct{alarm}, Struct{timestamp}}
+ *    return {Struct{a: Struct{b: {Struct{alarm}, Struct{timestamp}}}}} - single element vector
+ *    effect group members += {Struct{a: Struct{b: {Struct{alarm}, Struct{timestamp}}}}} - add alarm and timestamp info to existing NTScalar at a.b
+ *
+ * @param groupMembers the group members to add new members to
+ * @param fieldName The field name to use to determine how to create the members
+ * @param leafMembers the leaf member or members to place at the leaf of the members tree
  */
-void GroupConfigProcessor::getFieldTypeDefinition(TypeDef& valueType, const IOCGroupFieldName& fieldName,
-		TypeDef& leaf) {
-	auto subComponentName = !fieldName.empty() ? fieldName[fieldName.size() - 1].name : "";
-	auto isLeaf = true;
+void GroupConfigProcessor::setFieldTypeDefinition(std::vector<Member>& groupMembers,
+		const IOCGroupFieldName& fieldName,
+		std::vector<Member> leafMembers) {
+	using namespace pvxs::members;
 
 	// Make up the full structure starting from the leaf
-	for (auto fieldNameComponentNumber = fieldName.size();
-	     fieldNameComponentNumber > 0;
-	     fieldNameComponentNumber--) {
-		auto&& component = fieldName[fieldNameComponentNumber - 1];
-		if (isLeaf) {
-			isLeaf = false;
-			valueType = leaf;
-		} else if (!subComponentName.empty()) {
-			if (component.isArray()) {
-				valueType = TypeDef(TypeCode::StructA, { valueType.as(subComponentName) });
-			} else {
-				valueType = TypeDef(TypeCode::Struct, { valueType.as(subComponentName) });
+	if (fieldName.empty()) {
+		// Add all the members (or just one) to the list of group members
+		groupMembers.insert(groupMembers.end(), leafMembers.begin(), leafMembers.end());
+	} else {
+		auto isLeaf = true;
+		std::vector<Member> childrenToAdd;
+		for (auto componentNumber = fieldName.size(); componentNumber > 0; componentNumber--) {
+			const auto& component = fieldName[componentNumber - 1];
+
+			// If this is the leaf then use the leaf members
+			if (isLeaf) {
+				isLeaf = false;
+				childrenToAdd = leafMembers;
+			} else if (component.isArray()) {
+				// if this is an array then enclose in a structure array
+				childrenToAdd = { StructA(component.name, childrenToAdd) };
+			} else { // otherwise a simple structure
+				childrenToAdd = { Struct(component.name, childrenToAdd) };
 			}
 		}
-		subComponentName = component.name;
+		groupMembers.insert(groupMembers.end(), childrenToAdd.begin(), childrenToAdd.end());
 	}
 }
 
