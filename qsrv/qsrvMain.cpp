@@ -8,17 +8,26 @@
 #include "iocsh.h"
 
 #include <epicsGetopt.h>
+<<<<<<< HEAD
 #include <dbAccess.h>
 #include <registryFunction.h>
 #include <subRecord.h>
+#include <asDbLib.h>
+#include <iocInit.h>
+=======
+#include "osiFileName.h"
+>>>>>>> 4d22d26 (Basic functionality without database, hooks, or pvxs)
 
 #include "qsrvMain.h"
 
 namespace pvxs {
 namespace qsrv {
+<<<<<<< HEAD
 
 static void exitCallback(subRecord* pRecord);
 
+=======
+>>>>>>> 4d22d26 (Basic functionality without database, hooks, or pvxs)
 // Verbose flag - if true then show verbose output
 bool verboseFlag = false;
 // Macro to use to show verbose output
@@ -36,21 +45,36 @@ bool isDbLoaded = false;
  * 							 specified on the commandline or the default one
  */
 void usage(std::string& executableName, const std::string& initialisationFile) {
-	std::string executableBaseName = executableName.substr(executableName.find_last_of(OSI_PATH_SEPARATOR) + 1) // NOLINT(performance-faster-string-find)
-;
+<<<<<<< HEAD
+	std::string executableBaseName = executableName
+			.substr(executableName.find_last_of(OSI_PATH_SEPARATOR) + 1) // NOLINT(performance-faster-string-find)
+	;
 	std::cout << "PVXS configurable IOC server\n\n"
 	             "Usage: " << executableBaseName <<
+=======
+	std::cout << "PVXS configurable IOC server\n\n"
+	             "Usage: " << executableName <<
+>>>>>>> 4d22d26 (Basic functionality without database, hooks, or pvxs)
 	          " [-h] [-S] [-v] \n"
 	          " [-m <macro-name>=<macro-value>[,<macro-name>=<macro-value>]...] ... \n"
 	          " [-D <path>] [-G <path>] [-a <path>] [-d <path>] \n"
 	          " [-x <prefix>] [<script-path>]\n"
 	          "\nDescription:\n"
+<<<<<<< HEAD
 	          "  Start an in-memory database of PV records which can be accessed via PVAccess, and start an IOC shell.\n\n"
-			  "  After configuring the in-memory database with " << initialisationFile.c_str()
+	          "  After configuring the in-memory database with " << initialisationFile.c_str()
 	          << "\n  (or overriden with the -D option) this command starts an interactive IOC shell, unless the -S flag \n"
-				 "  is specified.  Group configuration can optionally be specified using the -G flag, and security can be \n"
-				 "  configured using the -a flag.  An initial database of PV records can be established using the -d flag.  \n"
-				 "  Finally some startup commands can be run if an optional script-path is specified."
+	             "  is specified.  Group configuration can optionally be specified using the -G flag, and security can be \n"
+	             "  configured using the -a flag.  An initial database of PV records can be established using the -d flag.  \n"
+	             "  Finally some startup commands can be run if an optional script-path is specified."
+=======
+	          "  After configuring the IOC server with " << initialisationFile.c_str()
+	          << " (or overriden with the -D option)"
+	             " this command starts an interactive IOC shell, unless the -S flag is specified.  Group"
+	             " configuration can optionally be specified using the -G flag, and security can be configured using the -a flag.  An"
+	             " initial database of PV records can be established using the -d flag.  Finally some startup commands can be run if an optional script-path"
+	             " is specified."
+>>>>>>> 4d22d26 (Basic functionality without database, hooks, or pvxs)
 	             "\n"
 	             "\nCommon flags:\n"
 	             "  -h                     Print this message and exit.\n"
@@ -81,18 +105,19 @@ void usage(std::string& executableName, const std::string& initialisationFile) {
 	             "                         the $(IOC) macro in " FULL_PATH_TO_EXIT_FILE ". \n"
 	             "                         This file is used to configure database shutdown.\n"
 	             "  script-path            A command script is optional.  The iocsh commands will be run *after*\n"
-	             "                         the database is initialised with any (-d) or (-x) flags.  If you want to \n"
-	             "                         run the script before initialization then don't specify (-d) or (-x) flags and \n"
-	             "                         perform all database loading in the script itself, or in the interactive shell.\n"
+<<<<<<< HEAD
+	             "                         callin iocInit().  If you want to run the script before iocInit() then \n"
+	             "                         don't specify any (-d) or (-x) flags and perform all database loading in \n"
+	             "                         the script itself, or in the interactive shell including calling iocInit().\n"
 	             "\n"
 	             "Examples:\n"
 	             "  " << executableBaseName
 	          << " -d my.db\n"
-				 "                         use default configuration, load database records \n"
+	             "                         use default configuration, load database records \n"
 	             "                         from my.db, and start an iteractive IOC shell \n"
 	             "  " << executableBaseName
 	          << " -m NAME=PV -d my.db\n"
-				 "                         use default configuration, and load database records \n"
+	             "                         use default configuration, and load database records \n"
 	             "                         from my.db, after setting macro NAME to PV\n"
 	             "  " << executableBaseName
 	          << " -D myconfig.dbd -G my-group-config.json -d my.db\n"
@@ -121,8 +146,8 @@ void configureDatabase(const std::string& databaseConfigurationFile) {
 				std::string("Failed to load database configuration file: ") + databaseConfigurationFile);
 	}
 
-	VERBOSE_MESSAGE "pvcsIoc_registerRecordDeviceDriver(pdbbase)\n";
 //  Must match the dbd you've established in your header file and Makefile as the default configuration file
+	VERBOSE_MESSAGE "qsrv_registerRecordDeviceDriver(pdbbase)\n";
 	qsrv_registerRecordDeviceDriver(pdbbase);
 	registryFunctionAdd("exit", (REGISTRYFUNCTION)exitCallback);
 }
@@ -136,6 +161,157 @@ void exitCallback(subRecord* pRecord) {
 	epicsExitLater((pRecord->a == 0.0) ? EXIT_SUCCESS : EXIT_FAILURE);
 }
 
+/**
+ * Get the relative path prefix (the directory that this executable is running from)
+ *
+ * @return the prefix to add to any relative paths
+ */
+std::string getPrefix() {
+	std::string prefix;
+	char* cPrefix = epicsGetExecDir();
+	if (cPrefix) {
+		try {
+			prefix = cPrefix;
+		} catch (...) {
+			free(cPrefix);
+			throw;
+		}
+	}
+	free(cPrefix);
+	return prefix;
+}
+
+/**
+ * Parse the command line arguments
+ *
+ * @param argc argument count
+ * @param argv argument values
+ * @param databaseInitialisationFile the default database initialization file, overridden by (-D) option if specified
+ * @param dbIsLoaded set to true if database is loaded by a (-d) or (-x) option
+ * @param shouldStartAnInteractiveSession set to true if an interactive session should be started, overridden by (-S) option if specified
+ * @param scriptName set to the scriptName if specified
+ *
+ * @return positive integer if unsuccessful, negative if successful but needs to exit, zero means success
+ */
+int parseOptions(int argc, char* argv[], std::string& databaseInitialisationFile, bool& dbIsLoaded,
+		bool& shouldStartAnInteractiveSession, std::string& scriptName) {
+	std::string iocExecutableName(argv[0]);
+	std::string databaseShutdownFile(FULL_PATH_TO_EXIT_FILE);
+
+	std::string commaSeparatedListOfMacroDefinitions;   // This is set if a (-m) option is specified
+
+	// compute relative paths
+	{
+		std::string prefix = getPrefix();
+
+		databaseInitialisationFile = prefix + RELATIVE_PATH_TO_INITIALISATION_FILE;
+		databaseShutdownFile = prefix + RELATIVE_PATH_TO_SHUTDOWN_FILE;
+	}
+
+	// Parse the command line and configure and start the IOC
+	int opt;        // parsed option from the command line
+	while ((opt = getopt(argc, argv, "a:D:d:G:hm:Svx:")) != -1) {
+		switch (opt) {
+		case 'a':
+			configureDatabase(databaseInitialisationFile);
+			if (!commaSeparatedListOfMacroDefinitions.empty()) {
+				VERBOSE_MESSAGE "asSetSubstitutions(\"" << commaSeparatedListOfMacroDefinitions << "\")\n";
+				if (asSetSubstitutions(commaSeparatedListOfMacroDefinitions.c_str()))
+					throw std::bad_alloc();
+			}
+			VERBOSE_MESSAGE "asSetFilename(\"" << optarg << "\")\n";
+			if (asSetFilename(optarg)) {
+				throw std::bad_alloc();
+			}
+			break;
+		case 'D':
+			if (isDbLoaded) {
+				throw std::runtime_error("database configuration file override specified "
+				                         "after " FULL_PATH_TO_INITIALISATION_FILE " has already been loaded.\n"
+				                         "Add the -D option prior to any -d or -x options and try again");
+			}
+			databaseInitialisationFile = optarg;
+			break;
+		case 'd':
+			configureDatabase(databaseInitialisationFile);
+			VERBOSE_MESSAGE "dbLoadRecords(\"" << optarg << "\""
+			                                   << ((commaSeparatedListOfMacroDefinitions.empty()) ? "" :
+			                                       std::string(", \"").append(commaSeparatedListOfMacroDefinitions)
+					                                       .append("\""))
+			                                   << ")\n";
+
+			if (dbLoadRecords(optarg, commaSeparatedListOfMacroDefinitions.c_str())) {
+				throw std::runtime_error(std::string("Failed to load: ") + optarg);
+			}
+
+			dbIsLoaded = true;
+			break;
+		case 'G':
+			// dbLoadGroup(optarg);
+			break;
+		case 'h':
+			usage(iocExecutableName, databaseInitialisationFile);
+			epicsExit(0);
+			return -1;
+		case 'm':
+			commaSeparatedListOfMacroDefinitions = optarg;
+			break;
+		case 'S':
+			shouldStartAnInteractiveSession = false;
+			break;
+		case 'v':
+			verboseFlag = true;
+			break;
+		case 'x': {
+			std::string xmacro;
+			configureDatabase(databaseInitialisationFile);
+			xmacro = "IOC=";
+			xmacro += optarg;
+
+			if (dbLoadRecords(databaseShutdownFile.c_str(), xmacro.c_str())) {
+				throw std::runtime_error(std::string("Failed to load: ") + databaseShutdownFile);
+			}
+
+			dbIsLoaded = true;
+		}
+			break;
+		default:
+			usage(iocExecutableName, databaseInitialisationFile);
+			std::cerr << "Unknown argument: -" << char(optopt) << "\n";
+			epicsExit(2);
+			return 2;
+		}
+	}
+
+	// If script specified then return name
+	if (optind < argc) {
+		scriptName = argv[optind];
+	}
+
+	return 0;
+}
+
+=======
+	             "                         the database is initialised with any (-d) or (-x) flags.  If you want to \n"
+	             "                         run the script before initialization then don't specify (-d) or (-x) flags and \n"
+	             "                         perform all database loading in the script itself, or in the interactive shell.\n"
+	             "\n"
+	             "Examples:\n"
+	             "  " << executableName
+	          << " -d my.db                use default configuration and load database records \n"
+	             "                         from my.db and start an iteractive IOC shell \n"
+	             "  " << executableName
+	          << " -m NAME=PV -d my.db     use default configuration and load database records \n"
+	             "                         from my.db after setting macro NAME to PV\n"
+	             "  " << executableName
+	          << " -D myconfig.dbd -G my-group-config.json -d my.db  \n"
+	             "                         use custom configuration \n"
+	             "                         myconfig.dbd and group configuration in\n"
+	             "                         my-group-config.json to configure the IOC then load database records \n"
+	             "                         from my.db and start an interactive shell \n";
+
+}
+>>>>>>> 4d22d26 (Basic functionality without database, hooks, or pvxs)
 }
 } // pvxs::qsrv
 
@@ -149,6 +325,72 @@ using namespace pvxs::qsrv;
  * @return 0 for successful exit, nonzero otherwise
  */
 int main(int argc, char* argv[]) {
+<<<<<<< HEAD
+	try {
+		std::string databaseInitialisationFile(FULL_PATH_TO_INITIALISATION_FILE);
+		std::string scriptName;
+		bool shouldStartAnInteractiveSession = true;        // Default is true, unless (-S) option is specified
+		bool dbIsLoaded = false;                            // Is database loaded
+		auto status = parseOptions(argc, argv,
+				databaseInitialisationFile, dbIsLoaded, shouldStartAnInteractiveSession, scriptName);
+		if (status != 0) {
+			return status > 0 ? status : 0;
+		}
+
+		// Configure the database with the specified configuration file
+		configureDatabase(databaseInitialisationFile);
+
+		// If we've loaded a database file or configured the exit callback, then do an iocInit()
+		if (dbIsLoaded) {
+			VERBOSE_MESSAGE "iocInit()\n";
+			iocInit();
+			epicsThreadSleep(0.2);
+		}
+
+		// If we've specified a script on the command line then run it
+		bool userScriptHasBeenExecuted = false;
+		if (!scriptName.empty()) {
+			VERBOSE_MESSAGE "# Begin execution of: " << scriptName << "\n";
+			if (iocsh(scriptName.c_str())) {
+				throw std::runtime_error(std::string("Error in ") + scriptName);
+			}
+			VERBOSE_MESSAGE "# End execution of: " << scriptName << "\n";
+
+			epicsThreadSleep(0.2);
+			userScriptHasBeenExecuted = true;
+		}
+
+		// If we haven't disabled the interactive shell then enter it
+		if (shouldStartAnInteractiveSession) {
+			std::cout.flush();
+			std::cerr.flush();
+			if (iocsh(nullptr)) {
+				// if error status then propagate error to epics and shell
+				epicsExit(1);
+				return 1;
+			}
+		} else {
+			// If non-interactive then exit
+			if (dbIsLoaded || userScriptHasBeenExecuted) {
+				epicsExitCallAtExits();
+				epicsThreadSleep(0.1);
+				epicsThreadSuspendSelf();
+			} else {
+				// Indicate that there was probably an error if nothing was loaded or executed
+				std::cerr << "Nothing to do!\n";
+				epicsExit(1);
+				return 1;
+			}
+		}
+
+		epicsExit(0);
+		return (0);
+	} catch (std::exception& e) {
+		std::cerr << "Error: " << e.what() << "\n";
+		epicsExit(2);
+		return 2;
+	}
+=======
 	std::string executableName(argv[0]);
 	std::string databaseInitialisationFile(FULL_PATH_TO_INITIALISATION_FILE);
 	std::string databaseShutdownFile(FULL_PATH_TO_EXIT_FILE);
@@ -174,19 +416,6 @@ int main(int argc, char* argv[]) {
 			}
 			databaseInitialisationFile = optarg;
 			break;
-		case 'd':
-			configureDatabase(databaseInitialisationFile);
-			VERBOSE_MESSAGE "dbLoadRecords(\"" << optarg << "\""
-			                                   << ((macros.empty()) ? "" :
-			                                       std::string(", \"").append(macros).append("\""))
-			                                   << ")\n";
-
-			if (dbLoadRecords(optarg, macros.c_str())) {
-				throw std::runtime_error(std::string("Failed to load: ") + optarg);
-			}
-
-			loadedDb = true;
-			break;
 		case 'm':
 			macros = optarg;
 			break;
@@ -204,9 +433,6 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	// Configure the database with the specified configuration file
-	configureDatabase(databaseInitialisationFile);
-
 	// If interactive then enter shell
 	if (interactive) {
 		std::cout.flush();
@@ -219,9 +445,7 @@ int main(int argc, char* argv[]) {
 	} else {
 		// If non-interactive then exit
 		if (loadedDb || ranScript) {
-			epicsExitCallAtExits();
-			epicsThreadSleep(0.5);
-			epicsThreadSuspendSelf();
+			epicsThreadExitMain();
 		} else {
 			std::cerr << "Nothing to do!\n";
 			epicsExit(1);
@@ -231,4 +455,5 @@ int main(int argc, char* argv[]) {
 
 	epicsExit(0);
 	return (0);
+>>>>>>> 4d22d26 (Basic functionality without database, hooks, or pvxs)
 }
