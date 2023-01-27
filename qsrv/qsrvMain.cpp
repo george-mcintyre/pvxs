@@ -1,4 +1,8 @@
-/**
+/*
+ * Copyright - See the COPYRIGHT that is included with this distribution.
+ * pvxs is distributed subject to a Software License Agreement found
+ * in file LICENSE that is included with this distribution.
+ *
  * qsrvMain.cpp: The main entry point for the pvxs qsrv soft IOC.
  * Use this as is, or as the base for your customised IOC application
  */
@@ -8,26 +12,20 @@
 #include "iocsh.h"
 
 #include <epicsGetopt.h>
-<<<<<<< HEAD
 #include <dbAccess.h>
 #include <registryFunction.h>
 #include <subRecord.h>
 #include <asDbLib.h>
 #include <iocInit.h>
-=======
-#include "osiFileName.h"
->>>>>>> 4d22d26 (Basic functionality without database, hooks, or pvxs)
+#include "pvxs/iochooks.h"
 
 #include "qsrvMain.h"
 
 namespace pvxs {
 namespace qsrv {
-<<<<<<< HEAD
 
 static void exitCallback(subRecord* pRecord);
 
-=======
->>>>>>> 4d22d26 (Basic functionality without database, hooks, or pvxs)
 // Verbose flag - if true then show verbose output
 bool verboseFlag = false;
 // Macro to use to show verbose output
@@ -45,50 +43,33 @@ bool isDbLoaded = false;
  * 							 specified on the commandline or the default one
  */
 void usage(std::string& executableName, const std::string& initialisationFile) {
-<<<<<<< HEAD
 	std::string executableBaseName = executableName
 			.substr(executableName.find_last_of(OSI_PATH_SEPARATOR) + 1) // NOLINT(performance-faster-string-find)
 	;
 	std::cout << "PVXS configurable IOC server\n\n"
 	             "Usage: " << executableBaseName <<
-=======
-	std::cout << "PVXS configurable IOC server\n\n"
-	             "Usage: " << executableName <<
->>>>>>> 4d22d26 (Basic functionality without database, hooks, or pvxs)
 	          " [-h] [-S] [-v] \n"
 	          " [-m <macro-name>=<macro-value>[,<macro-name>=<macro-value>]...] ... \n"
 	          " [-D <path>] [-G <path>] [-a <path>] [-d <path>] \n"
 	          " [-x <prefix>] [<script-path>]\n"
 	          "\nDescription:\n"
-<<<<<<< HEAD
 	          "  Start an in-memory database of PV records which can be accessed via PVAccess, and start an IOC shell.\n\n"
 	          "  After configuring the in-memory database with " << initialisationFile.c_str()
 	          << "\n  (or overriden with the -D option) this command starts an interactive IOC shell, unless the -S flag \n"
 	             "  is specified.  Group configuration can optionally be specified using the -G flag, and security can be \n"
 	             "  configured using the -a flag.  An initial database of PV records can be established using the -d flag.  \n"
 	             "  Finally some startup commands can be run if an optional script-path is specified."
-=======
-	          "  After configuring the IOC server with " << initialisationFile.c_str()
-	          << " (or overriden with the -D option)"
-	             " this command starts an interactive IOC shell, unless the -S flag is specified.  Group"
-	             " configuration can optionally be specified using the -G flag, and security can be configured using the -a flag.  An"
-	             " initial database of PV records can be established using the -d flag.  Finally some startup commands can be run if an optional script-path"
-	             " is specified."
->>>>>>> 4d22d26 (Basic functionality without database, hooks, or pvxs)
 	             "\n"
 	             "\nCommon flags:\n"
 	             "  -h                     Print this message and exit.\n"
 	             "  -S                     Prevents an interactive shell being started. \n"
 	             "  -v                     Verbose, display steps taken during startup.\n"
-	             "  -D <path>.             This overrides the default database configuration file.\n"
+	             "  -D <path>              This overrides the default database configuration file.\n"
 	             "                         If specified, it must come before any (-G), (-a), or (-d) flags. Specify \n"
 	             "                         the path to the configuration file as well as the\n"
 	             "                         extension.  By convention, this file has a .dbd \n"
 	             "                         extension.  The compile-time default configuration file\n"
 	             "                         is " FULL_PATH_TO_INITIALISATION_FILE ".\n"
-	             "  -G <path>.             This is the database group definition file used to \n"
-	             "                         define database Groups.  The file must be provided in JSON format.  \n"
-	             "                         By convention, the extension is .json\n"
 	             "  -m <name>=<value>[,<name>=<value>]... \n"
 	             "                         Set/replace macro definitions. Macros are used in the \n"
 	             "                         iocsh as well as when parsing the access security configuration \n"
@@ -99,32 +80,41 @@ void usage(std::string& executableName, const std::string& initialisationFile) {
 	             "  -a <path>              Access security configuration file.  Use this flag \n"
 	             "                         to configure access security.  The security definitions specified \n"
 	             "                         are subject to macro substitution.\n"
-	             "  -d <path>              Load records from file.  The definitions specified in the given file \n"
-	             "                         are subject to macro substitution\n"
-	             "  -x <prefix>            Specifies the prefix for the database exit record Load.  It is used as a substitution for\n"
+	             "  -d <path>              Load database record-definitions and group-definitions from file.  Each record-definition "
+				 "                         contains a set of field-definitions: `record(<type>,\"<name>\") { field(<name>,\"<value>\")... }...`. "
+	             "                         Additionally group-info-definitions are accepted in the place of field-definitions.\n"
+	             "                         group-info-definition := `info(Q:group, {\"<name>\": {<group-field-mapping>...}})`. \n"
+	             "                         These group-info-definitions define group-names and map into them the \n"
+	             "                         specified fields from the record-definition in which they appear. By convention, \n"
+				 "                         the extension is .db.  The definitions specified in the given file are subject to macro substitution \n"
+	             "  -G <path>              Load database group-definitions from a JSON file. If path starts with `-` then the remaining portion \n"
+				 "                         is treated as a group-definitions file to be removed from the list of files to load.  \n"
+				 "                         e.g. `-G -grpFile.json` will remove grpFile.json from the list of group-definitions \n"
+				 "                         files to load.  If `-G -*` or `-G -` is specified, then all group-definitions files \n"
+				 "                         that have been specified so far will be removed.  By convention, the extension is .json. \n"
+	             "  -x <prefix>            Specifies the prefix for the database exit record Load.  It is used as a substitution for \n"
 	             "                         the $(IOC) macro in " FULL_PATH_TO_EXIT_FILE ". \n"
 	             "                         This file is used to configure database shutdown.\n"
 	             "  script-path            A command script is optional.  The iocsh commands will be run *after*\n"
-<<<<<<< HEAD
-	             "                         callin iocInit().  If you want to run the script before iocInit() then \n"
-	             "                         don't specify any (-d) or (-x) flags and perform all database loading in \n"
+	             "                         calling iocInit().  If you want to run the script before iocInit() then \n"
+	             "                         don't specify any (-d), (-G) or (-x) flags and perform all database loading in \n"
 	             "                         the script itself, or in the interactive shell including calling iocInit().\n"
 	             "\n"
 	             "Examples:\n"
 	             "  " << executableBaseName
 	          << " -d my.db\n"
-	             "                         use default configuration, load database records \n"
-	             "                         from my.db, and start an iteractive IOC shell \n"
+	             "                         use default configuration, load database record-definitions \n"
+	             "                         and group-definitions from `my.db`, and start an interactive IOC shell \n"
 	             "  " << executableBaseName
 	          << " -m NAME=PV -d my.db\n"
-	             "                         use default configuration, and load database records \n"
-	             "                         from my.db, after setting macro NAME to PV\n"
+	             "                         use default configuration, and load database record-definitions \n"
+	             "                         and group-definitions from `my.db`, after setting macro `NAME` to `PV`\n"
 	             "  " << executableBaseName
-	          << " -D myconfig.dbd -G my-group-config.json -d my.db\n"
-	             "                         use custom configuration \n"
-	             "                         myconfig.dbd, and group configuration in\n"
-	             "                         my-group-config.json to configure the IOC, then load database records \n"
-	             "                         from my.db, and start an interactive shell \n";
+	          << " -D my-config.dbd -d my.db -G my-group-mappings.json \n"
+	             "                         use custom configuration `my-config.dbd` to configure the IOC, \n"
+	             "                         load database record-definitions and group-definitions from `my.db`, \n"
+				 "                         then load additional group-definitions from `my-group-mappings.json,` \n"
+	             "                         and start an interactive shell \n";
 
 }
 
@@ -247,7 +237,7 @@ int parseOptions(int argc, char* argv[], std::string& databaseInitialisationFile
 			dbIsLoaded = true;
 			break;
 		case 'G':
-			// dbLoadGroup(optarg);
+			 pvxs::ioc::dbLoadGroup(optarg);
 			break;
 		case 'h':
 			usage(iocExecutableName, databaseInitialisationFile);
@@ -291,27 +281,6 @@ int parseOptions(int argc, char* argv[], std::string& databaseInitialisationFile
 	return 0;
 }
 
-=======
-	             "                         the database is initialised with any (-d) or (-x) flags.  If you want to \n"
-	             "                         run the script before initialization then don't specify (-d) or (-x) flags and \n"
-	             "                         perform all database loading in the script itself, or in the interactive shell.\n"
-	             "\n"
-	             "Examples:\n"
-	             "  " << executableName
-	          << " -d my.db                use default configuration and load database records \n"
-	             "                         from my.db and start an iteractive IOC shell \n"
-	             "  " << executableName
-	          << " -m NAME=PV -d my.db     use default configuration and load database records \n"
-	             "                         from my.db after setting macro NAME to PV\n"
-	             "  " << executableName
-	          << " -D myconfig.dbd -G my-group-config.json -d my.db  \n"
-	             "                         use custom configuration \n"
-	             "                         myconfig.dbd and group configuration in\n"
-	             "                         my-group-config.json to configure the IOC then load database records \n"
-	             "                         from my.db and start an interactive shell \n";
-
-}
->>>>>>> 4d22d26 (Basic functionality without database, hooks, or pvxs)
 }
 } // pvxs::qsrv
 
@@ -325,7 +294,6 @@ using namespace pvxs::qsrv;
  * @return 0 for successful exit, nonzero otherwise
  */
 int main(int argc, char* argv[]) {
-<<<<<<< HEAD
 	try {
 		std::string databaseInitialisationFile(FULL_PATH_TO_INITIALISATION_FILE);
 		std::string scriptName;
@@ -390,70 +358,4 @@ int main(int argc, char* argv[]) {
 		epicsExit(2);
 		return 2;
 	}
-=======
-	std::string executableName(argv[0]);
-	std::string databaseInitialisationFile(FULL_PATH_TO_INITIALISATION_FILE);
-	std::string databaseShutdownFile(FULL_PATH_TO_EXIT_FILE);
-	std::string macros;       // scratch space for macros
-	std::string xmacro;
-	bool interactive = true;
-	bool loadedDb = false;
-	bool ranScript = false;
-
-	int opt;
-
-	while ((opt = getopt(argc, argv, "ha:D:d:m:Sx:v")) != -1) {
-		switch (opt) {
-		case 'h':
-			usage(executableName, databaseInitialisationFile);
-			epicsExit(0);
-			return 0;
-		case 'D':
-			if (isDbLoaded) {
-				throw std::runtime_error("database configuration file override specified "
-				                         "after " FULL_PATH_TO_INITIALISATION_FILE " has already been loaded.\n"
-				                         "Add the -D option prior to any -d or -x options and try again");
-			}
-			databaseInitialisationFile = optarg;
-			break;
-		case 'm':
-			macros = optarg;
-			break;
-		case 'S':
-			interactive = false;
-			break;
-		case 'v':
-			verboseFlag = true;
-			break;
-		default:
-			usage(executableName, databaseInitialisationFile);
-			std::cerr << "Unknown argument: -" << char(optopt) << "\n";
-			epicsExit(2);
-			return 2;
-		}
-	}
-
-	// If interactive then enter shell
-	if (interactive) {
-		std::cout.flush();
-		std::cerr.flush();
-		if (iocsh(nullptr)) {
-			// if error status then propagate error to epics and shell
-			epicsExit(1);
-			return 1;
-		}
-	} else {
-		// If non-interactive then exit
-		if (loadedDb || ranScript) {
-			epicsThreadExitMain();
-		} else {
-			std::cerr << "Nothing to do!\n";
-			epicsExit(1);
-			return 1;
-		}
-	}
-
-	epicsExit(0);
-	return (0);
->>>>>>> 4d22d26 (Basic functionality without database, hooks, or pvxs)
 }

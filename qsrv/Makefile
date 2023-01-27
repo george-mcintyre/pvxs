@@ -11,20 +11,16 @@ include $(TOP)/configure/CONFIG_PVXS_VERSION
 
 PROD_IOC = qsrv
 
-<<<<<<< HEAD
 DBDDEPENDS_FILES += qsrv.dbd$(DEP)
 qsrv_DBD = base.dbd pvxsIoc.dbd
 DBD_INSTALLS = $(COMMON_DIR)/qsrv.dbd
 
 qsrv_DB = qsrvExit.db
 
-=======
->>>>>>> 4d22d26 (Basic functionality without database, hooks, or pvxs)
 FINAL_LOCATION ?= $(shell $(PERL) $(TOOLS)/fullPathName.pl $(INSTALL_LOCATION))
 
 # EPICS_BASE macro for our location
 USR_CPPFLAGS += -DEPICS_BASE="\"$(FINAL_LOCATION)\""
-<<<<<<< HEAD
 
 qsrv_SRCS_DEFAULT += qsrvMain.cpp
 qsrv_SRCS += qsrv_registerRecordDeviceDriver.cpp
@@ -35,18 +31,6 @@ qsrv_LIBS += pvxsIoc
 qsrv_LIBS += pvxs
 qsrv_LIBS += $(EPICS_BASE_IOC_LIBS)
 
-=======
-#USR_CXXFLAGS += -DEPICS_BASE="\"$(FINAL_LOCATION)\""
-
-qsrv_SRCS_DEFAULT += qsrvMain.cpp
-qsrv_SRCS_vxWorks += -nil-
-
-# Finally link IOC to the EPICS Base libraries
-qsrv_LIBS += $(EPICS_BASE_IOC_LIBS)
-
-DB += qsrvExit.db
-
->>>>>>> 4d22d26 (Basic functionality without database, hooks, or pvxs)
 #===========================
 
 include $(TOP)/configure/RULES
