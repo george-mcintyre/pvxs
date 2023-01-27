@@ -26,7 +26,6 @@
 #  define PVXS_IOC_API
 #endif
 
-
 namespace pvxs {
 namespace server {
 class Server;
@@ -67,7 +66,7 @@ namespace ioc {
  * @endcode
  */
 PVXS_IOC_API
-server::Server &server();
+server::Server& server();
 
 /**
  * Load JSON group definition file.
@@ -81,5 +80,6 @@ server::Server &server();
 PVXS_IOC_API
 long dbLoadGroup(const char* jsonFilename);
 
-}} // namespace pvxs::ioc
+}
+} // namespace pvxs::ioc
 #endif // PVXS_IOCHOOKS_H

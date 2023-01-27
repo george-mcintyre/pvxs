@@ -20,7 +20,7 @@ class IOCSource {
 public:
 	static void onGet(const std::shared_ptr<dbChannel>& channel,
 			const Value& valuePrototype, bool forValues, bool forProperties,
-			const std::function<void(Value & )>& returnFn, const std::function<void(const char*)>& errorFn);
+			const std::function<void(Value&)>& returnFn, const std::function<void(const char*)>& errorFn);
 
 	// Get metadata from the given value buffer and deliver it in the given metadata buffer
 	static void getMetadata(void*& pValueBuffer, Metadata& metadata, bool forValues, bool forProperties);
@@ -52,8 +52,8 @@ public:
 	//////////////////////////////
 	// Utility function to get the corresponding database address structure given a pvName
 	static long nameToAddr(const char* pvName, DBADDR* pdbAddress);
-   // Utility function to get the TypeCode that the given database channel is configured for
-	static TypeCode getChannelValueType(const dbChannel *pChannel, bool erroOnLinks = false);
+	// Utility function to get the TypeCode that the given database channel is configured for
+	static TypeCode getChannelValueType(const dbChannel* pChannel, bool erroOnLinks = false);
 
 };
 

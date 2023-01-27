@@ -23,7 +23,9 @@ public:
 	bool atomic, atomic_set;
 	std::string structureId;
 	GroupFieldsConfigMap groupFields;
-	GroupConfig() :atomic(true), atomic_set(false) {}
+	GroupConfig()
+			:atomic(true), atomic_set(false) {
+	}
 };
 
 // A map of group name to GroupConfig

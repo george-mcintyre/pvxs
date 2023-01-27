@@ -10,12 +10,11 @@
 #include <dbEvent.h>
 
 namespace pvxs {
-namespace ioc{
+namespace ioc {
 class DBEventContextDeleter {
 public:
 	void operator()(dbEventCtx eventContext);
 };
-
 
 }
 }

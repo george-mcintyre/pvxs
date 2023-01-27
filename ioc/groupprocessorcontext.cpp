@@ -27,7 +27,7 @@ void GroupProcessorContext::canAssign() const {
  */
 void GroupProcessorContext::assign(const Value& value) {
 	canAssign();
-	auto &groupPvConfig = groupConfigProcessor->groupConfigMap[groupName];
+	auto& groupPvConfig = groupConfigProcessor->groupConfigMap[groupName];
 
 	if (depth == 2) {
 		if (field == "+atomic") {
@@ -44,7 +44,7 @@ void GroupProcessorContext::assign(const Value& value) {
 		field.clear();
 
 	} else if (depth == 3) {
-		auto &groupField = groupPvConfig.groupFields[field];
+		auto& groupField = groupPvConfig.groupFields[field];
 
 		if (key == "+type") {
 			groupField.type = value.as<std::string>();
@@ -63,7 +63,7 @@ void GroupProcessorContext::assign(const Value& value) {
 
 		} else {
 			groupConfigProcessor->groupProcessingWarnings += "Unknown group field option ";
-			groupConfigProcessor->groupProcessingWarnings += field + ":" + key ;
+			groupConfigProcessor->groupProcessingWarnings += field + ":" + key;
 		}
 		key.clear();
 	}

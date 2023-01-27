@@ -75,14 +75,15 @@ if (auto&& __field = value[#_rvalue] ) { \
 namespace pvxs {
 namespace ioc {
 
-
 struct CommonMetadata {
 	DBRstatus
 	DBRamsg
 	DBRtime
 	DBRutag
 
-	enum {mask = DBR_STATUS | DBR_AMSG | DBR_TIME | DBR_UTAG};
+	enum {
+		mask = DBR_STATUS | DBR_AMSG | DBR_TIME | DBR_UTAG
+	};
 };
 
 /**

@@ -26,7 +26,7 @@ public:
 	IOCGroup();
 	virtual ~IOCGroup();
 	virtual void show(int level) const;
-	IOCGroupField &operator[](const std::string&fieldName);
+	IOCGroupField& operator[](const std::string& fieldName);
 };
 
 // A map of group name to IOCGroup

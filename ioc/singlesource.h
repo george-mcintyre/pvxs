@@ -44,7 +44,8 @@ private:
 			db_field_log* pDbFieldLog);
 	static void subscriptionPropertiesCallback(void* userArg, dbChannel* pChannel, int eventsRemaining,
 			db_field_log* pDbFieldLog);
-	static void subscriptionCallback(SingleSourceSubscriptionCtx* subscriptionCtx, dbChannel* pChannel, int eventsRemaining,
+	static void
+	subscriptionCallback(SingleSourceSubscriptionCtx* subscriptionCtx, dbChannel* pChannel, int eventsRemaining,
 			db_field_log* pDbFieldLog);
 	// Called when a client pauses / stops a subscription it has been subscribed to
 	static void onDisableSubscription(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext);

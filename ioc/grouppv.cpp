@@ -11,7 +11,7 @@ namespace ioc {
 
 size_t ioc::GroupPv::channelCount() const {
 	size_t channelCount = 0;
-	for (const auto & field : fields) {
+	for (const auto& field: fields) {
 		if (!field.channel.empty()) {
 			channelCount++;
 		}

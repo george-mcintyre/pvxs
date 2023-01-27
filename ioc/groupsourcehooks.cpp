@@ -47,9 +47,9 @@ void pvxsgl(int level, const char* pattern) {
 				epicsGuard<epicsMutex> G(pPvxsServer->groupMapMutex);
 
 				// For each group
-				for ( auto &mapEntry: pPvxsServer->groupMap ) {
-					auto &groupName = mapEntry.first;
-					auto &group = mapEntry.second;
+				for (auto& mapEntry: pPvxsServer->groupMap) {
+					auto& groupName = mapEntry.first;
+					auto& group = mapEntry.second;
 					// if no pattern specified or the pattern matches
 					if (!pattern[0] || !!epicsStrGlobMatch(groupName.c_str(), pattern)) {
 						// Print the group name

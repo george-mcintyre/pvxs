@@ -241,7 +241,8 @@ void GroupSource::onGet(IOCGroup& group, const std::function<void(Value&)>& retu
 				}
 			} catch (std::exception& e) {
 				std::stringstream errorString;
-				errorString << "Error retrieving value for pvName: " << group.name << (field.name.empty() ? "/" : "." ) << field.fullName << " : "
+				errorString << "Error retrieving value for pvName: " << group.name << (field.name.empty() ? "/" : ".")
+				            << field.fullName << " : "
 				            << e.what();
 				errorFn(errorString.str().c_str());
 				return;

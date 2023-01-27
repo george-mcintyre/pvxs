@@ -33,7 +33,7 @@ struct IOCShFunctionArgument;
  */
 template<> struct IOCShFunctionArgument<int> {
 	static constexpr iocshArgType
-	code = iocshArgInt;
+			code = iocshArgInt;
 	static int get(const iocshArgBuf& buf) {
 		return buf.ival;
 	}
@@ -46,7 +46,7 @@ template<> struct IOCShFunctionArgument<int> {
  */
 template<> struct IOCShFunctionArgument<double> {
 	static constexpr iocshArgType
-	code = iocshArgDouble;
+			code = iocshArgDouble;
 	static double get(const iocshArgBuf& buf) {
 		return buf.dval;
 	}
@@ -59,7 +59,7 @@ template<> struct IOCShFunctionArgument<double> {
  */
 template<> struct IOCShFunctionArgument<const char*> {
 	static constexpr iocshArgType
-	code = iocshArgString;
+			code = iocshArgString;
 	static const char* get(const iocshArgBuf& buf) {
 		return buf.sval;
 	}

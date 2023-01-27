@@ -11,7 +11,7 @@ namespace pvxs {
 namespace ioc {
 
 IOCGroupField::IOCGroupField(const std::string& stringFieldName, const std::string& channelName)
-		: isMeta(false), allowProc(false), channel(channelName),
+		:isMeta(false), allowProc(false), channel(channelName),
 		 fieldName(stringFieldName), isArray(false) {
 	if (!fieldName.fieldNameComponents.empty()) {
 		name = fieldName.fieldNameComponents[0].name;
@@ -32,7 +32,7 @@ Value& IOCGroupField::walkToValue(Value& top) {
 				shared_array<Value> valueArray(constValueArray.thaw());
 				auto size = valueArray.size();   // Is this the capacity
 				if ((index + 1) > size) {
-					valueArray.resize(index+1);
+					valueArray.resize(index + 1);
 				}
 
 				// Put new data into array

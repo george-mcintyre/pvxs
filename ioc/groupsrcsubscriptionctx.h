@@ -14,14 +14,15 @@
 namespace pvxs {
 namespace ioc {
 
-class GroupSourceSubscriptionCtx : public SubscriptionCtx  {
+class GroupSourceSubscriptionCtx : public SubscriptionCtx {
 	std::shared_ptr<IOCGroup> pGroup;
 
 public:
 	std::set<std::shared_ptr<dbChannel>> pValueChannels{};
 	std::set<std::shared_ptr<dbChannel>> pPropertiesChannels{};
 
-	explicit GroupSourceSubscriptionCtx(IOCGroup &group) {};
+	explicit GroupSourceSubscriptionCtx(IOCGroup& group) {
+	};
 };
 
 } // pvxs

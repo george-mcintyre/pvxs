@@ -239,12 +239,13 @@ void SingleSource::subscriptionCallback(SingleSourceSubscriptionCtx* subscriptio
 	// Get and return the value to the monitor
 	bool forValue = (subscriptionContext->pValueChannel.get() == pChannel);
 	auto pdbChannel = forValue ? subscriptionContext->pValueChannel : subscriptionContext->pPropertiesChannel;
-	IOCSource::onGet(pdbChannel, subscriptionContext->prototype, forValue, !forValue, [subscriptionContext](Value& value) {
-		// Return value
-		subscriptionContext->subscriptionControl->tryPost(value);
-	}, [](const char* errorMessage) {
-		throw std::runtime_error(errorMessage);
-	});
+	IOCSource::onGet(pdbChannel, subscriptionContext->prototype, forValue, !forValue,
+			[subscriptionContext](Value& value) {
+				// Return value
+				subscriptionContext->subscriptionControl->tryPost(value);
+			}, [](const char* errorMessage) {
+				throw std::runtime_error(errorMessage);
+			});
 }
 
 /**
@@ -284,7 +285,6 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_
 		getOperation->error(errorMessage);
 	});
 }
-
 
 /**
  * Handler invoked when a peer sends data on a PUT
@@ -382,7 +382,6 @@ template<typename valueType> void SingleSource::setBuffer(const Value& value, vo
 		((valueType*)pValueBuffer)[i] = value[valueRef].as<valueType>();
 	}
 }
-
 
 } // ioc
 } // pvxs

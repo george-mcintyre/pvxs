@@ -121,7 +121,7 @@ TypeCode IOCSource::getChannelValueType(const dbChannel* pChannel, bool errOnLin
 
 	} else {
 		if (dbrType == DBF_INLINK || dbrType == DBF_OUTLINK || dbrType == DBF_FWDLINK) {
-			if ( errOnLinks) {
+			if (errOnLinks) {
 				throw std::runtime_error("Link fields not allowed in this context");
 			} else {
 				// TODO handle links.  For the moment we handle as chars and fail later

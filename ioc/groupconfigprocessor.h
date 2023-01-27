@@ -51,7 +51,8 @@ class GroupConfigProcessor {
 	static int processEndBlock(void* parserContext);
 	static void buildScalarValueType(std::vector<Member>& groupMembers, IOCGroupField& groupField,
 			dbChannel* pdbChannel);
-	static void buildPlainValueType(std::vector<Member>& groupMembers, IOCGroupField& groupField, dbChannel* pdbChannel);
+	static void
+	buildPlainValueType(std::vector<Member>& groupMembers, IOCGroupField& groupField, dbChannel* pdbChannel);
 	static void buildAnyScalarValueType(std::vector<Member>& groupMembers, IOCGroupField& groupField);
 	static void buildStructureValueType(std::vector<Member>& groupMembers, IOCGroupField& groupField);
 	static void buildMetaValueType(std::vector<Member>& groupMembers, const IOCGroupField& groupField);

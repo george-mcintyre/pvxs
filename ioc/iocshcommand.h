@@ -51,7 +51,8 @@ public:
 	}
 
 // Construct a new IOC shell command with a name and description
-	constexpr explicit IOCShCommand(const char* name, ConstString<IOCShFunctionArgumentTypes>... argumentDescriptions, const char* usage)
+	constexpr explicit IOCShCommand(const char* name, ConstString<IOCShFunctionArgumentTypes>... argumentDescriptions,
+			const char* usage)
 			:name(name), argumentNames{ argumentDescriptions..., 0 }, usage(usage) {
 	}
 
@@ -67,7 +68,8 @@ public:
 		static const iocshArg argstack[1 + sizeof...(IOCShFunctionArgumentTypes)] = {
 				{ argumentNames[Idxs], IOCShFunctionArgument<IOCShFunctionArgumentTypes>::code }... };
 		static const iocshArg* const arguments[] = { &argstack[Idxs]..., 0 };
-		static const iocshFuncDef functionDefinition = { name, sizeof...(IOCShFunctionArgumentTypes), arguments, usage };
+		static const iocshFuncDef functionDefinition = { name, sizeof...(IOCShFunctionArgumentTypes), arguments,
+		                                                 usage };
 
 		iocshRegister(&functionDefinition, &call < function, Idxs... >);
 	}
@@ -82,7 +84,8 @@ public:
 	}
 };
 
-void runOnServer(const std::function <void (IOCServer *)>& function, const char *method = nullptr, const char *context = nullptr);
+void runOnServer(const std::function<void(IOCServer*)>& function, const char* method = nullptr,
+		const char* context = nullptr);
 
 } // pvxs
 } // ioc

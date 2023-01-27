@@ -29,10 +29,11 @@ public:
 
 private:
 	// Create request and subscription handlers for single record sources
-	static void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& channelControl, IOCGroup& group);
+	static void
+	createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& channelControl, IOCGroup& group);
 
 	static void onGet(IOCGroup& group, std::unique_ptr<server::ExecOp>& getOperation);
-	static void onGet(IOCGroup& group, const std::function<void(Value & )>& returnFn,
+	static void onGet(IOCGroup& group, const std::function<void(Value&)>& returnFn,
 			const std::function<void(const char*)>& errorFn);
 };
 

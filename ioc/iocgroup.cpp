@@ -34,9 +34,9 @@ void IOCGroup::show(int level) const {
 			for (auto& field: fields) {
 				printf("    ");
 				std::string suffix;
-				if ( field.isMeta) {
+				if (field.isMeta) {
 					suffix = "<meta>";
-				} else if ( field.allowProc ) {
+				} else if (field.allowProc) {
 					suffix = "<proc>";
 				}
 				field.fieldName.show(suffix);

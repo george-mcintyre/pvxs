@@ -40,7 +40,7 @@ IOCGroupFieldName::IOCGroupFieldName(const std::string& fieldName) {
 					throw std::runtime_error("Invalid field array sub-script in : " + fieldName);
 				}
 
-				auto arrayIndex = fieldNamePart.substr(startArraySpecifier+1);
+				auto arrayIndex = fieldNamePart.substr(startArraySpecifier + 1);
 				long index = 0;
 				char* endScan;
 				index = strtol(arrayIndex.c_str(), &endScan, 10);
@@ -93,13 +93,11 @@ std::string IOCGroupFieldName::to_string(size_t padLength) const {
 	return fieldName;
 }
 
-
-
 /**
  * Show this field name.  All components are shown as they were configured.
  */
 void IOCGroupFieldName::show(const std::string& suffix) const {
-	printf("%s%s", to_string(PADDING_WIDTH-suffix.size()).c_str(), suffix.c_str());
+	printf("%s%s", to_string(PADDING_WIDTH - suffix.size()).c_str(), suffix.c_str());
 }
 
 /**
@@ -148,7 +146,7 @@ const IOCGroupFieldNameComponent& IOCGroupFieldName::operator[](size_t i) const 
 	return fieldNameComponents[i];
 }
 const std::string& IOCGroupFieldName::leafFieldName() {
-	return fieldNameComponents[fieldNameComponents.size()-1].name;
+	return fieldNameComponents[fieldNameComponents.size() - 1].name;
 }
 
 /**
@@ -156,8 +154,7 @@ const std::string& IOCGroupFieldName::leafFieldName() {
  *
  * @param stringToPad
  */
-static void pad(std::string& stringToPad, const size_t padLength)
-{
+static void pad(std::string& stringToPad, const size_t padLength) {
 	if (padLength > stringToPad.size()) {
 		stringToPad.insert(stringToPad.size(), padLength - stringToPad.size(), PADDING_CHARACTER);
 	}

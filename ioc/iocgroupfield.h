@@ -33,7 +33,7 @@ public:
 	bool isArray;
 
 	IOCGroupField(const std::string& stringFieldName, const std::string& channelName);
-	Value &walkToValue(Value &top);
+	Value& walkToValue(Value& top);
 };
 
 typedef std::vector<IOCGroupField> IOCGroupFields;
