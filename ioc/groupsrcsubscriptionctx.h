@@ -18,8 +18,8 @@ class GroupSourceSubscriptionCtx : public SubscriptionCtx {
 	std::shared_ptr<IOCGroup> pGroup;
 
 public:
-	std::set<std::shared_ptr<dbChannel>> pValueChannels{};
-	std::set<std::shared_ptr<dbChannel>> pPropertiesChannels{};
+	std::set<std::shared_ptr<dbChannel>> pValueChannels;
+	std::set<std::shared_ptr<dbChannel>> pPropertiesChannels;
 
 	explicit GroupSourceSubscriptionCtx(IOCGroup& group) {
 	};

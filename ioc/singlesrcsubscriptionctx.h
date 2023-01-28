@@ -21,10 +21,10 @@ namespace ioc {
 class SingleSourceSubscriptionCtx : public SubscriptionCtx {
 
 public:
-	SingleSourceSubscriptionCtx(const std::shared_ptr<dbChannel>& sharedPtr);
+	explicit SingleSourceSubscriptionCtx(const std::shared_ptr<dbChannel>& sharedPtr);
 // For locking access to subscription context
-	std::shared_ptr<dbChannel> pValueChannel{};
-	std::shared_ptr<dbChannel> pPropertiesChannel{};
+	std::shared_ptr<dbChannel> pValueChannel;
+	std::shared_ptr<dbChannel> pPropertiesChannel;
 };
 
 } // ioc

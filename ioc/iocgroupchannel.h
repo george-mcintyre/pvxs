@@ -20,29 +20,21 @@ namespace ioc {
  */
 class IOCGroupChannel {
 private:
-	dbChannel* pDbChannel;
+	std::shared_ptr<dbChannel>pDbChannel;
+	void prepare();
 
 public:
-	IOCGroupChannel();
-	IOCGroupChannel(const IOCGroupChannel&) = delete;
-	IOCGroupChannel(IOCGroupChannel&&) noexcept;
-
-	// This constructor calls dbChannelOpen()
-	explicit IOCGroupChannel(dbChannel* pDbChannel);
 	// This constructor calls dbChannelOpen()
 	explicit IOCGroupChannel(const std::string& name);
-
 	~IOCGroupChannel();
 
-	void swap(IOCGroupChannel&);
-
-	explicit operator dbChannel*();
-	explicit operator const dbChannel*() const;
-
-	dbChannel* operator->();
+	// Casting and indirection
+	explicit operator std::shared_ptr<dbChannel>() const;
 	const dbChannel* operator->() const;
 
-	void prepare();
+	// Disallowed methods.  Copy and move constructors
+	IOCGroupChannel(const IOCGroupChannel&) = delete;
+	IOCGroupChannel(IOCGroupChannel&&) noexcept;
 };
 
 } // pvxs

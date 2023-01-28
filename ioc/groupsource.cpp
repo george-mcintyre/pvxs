@@ -207,7 +207,7 @@ void GroupSource::onGet(IOCGroup& group, const std::function<void(Value&)>& retu
 			// TODO all metadata
 			try {
 				if (field.isMeta) {
-					IOCSource::onGet(std::shared_ptr<dbChannel>((dbChannel*)field.channel, [](dbChannel* ch) {}),
+					IOCSource::onGet((std::shared_ptr<dbChannel>)field.channel,
 							leafNode, false,
 							true,
 							[&leafNode](Value& value) {
@@ -230,7 +230,7 @@ void GroupSource::onGet(IOCGroup& group, const std::function<void(Value&)>& retu
 							});
 				} else if (!field.fieldName.empty()) {
 					auto fieldName = field.name.c_str();
-					IOCSource::onGet(std::shared_ptr<dbChannel>((dbChannel*)field.channel, [](dbChannel* ch) {}),
+					IOCSource::onGet((std::shared_ptr<dbChannel>)field.channel,
 							leafNode, true,
 							false,
 							[&leafNode, &fieldName](Value& value) {

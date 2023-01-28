@@ -9,35 +9,14 @@
 
 namespace pvxs {
 namespace ioc {
-
-/**
- * Construct an empty and uninitialized group channel
- */
-IOCGroupChannel::IOCGroupChannel()
-		:pDbChannel(nullptr) {
-}
-
-/**
- * Construct a group channel from a given dbChannel
- *
- * @param pDbChannel pointer to created db channel
- */
-IOCGroupChannel::IOCGroupChannel(dbChannel* pDbChannel)
-		:pDbChannel(pDbChannel) {
-	if (!pDbChannel) {
-		throw std::invalid_argument("attempting to create a group channel with a null dbChannel");
-	}
-	prepare();
-
-}
-
 /**
  * Construct a group channel from a given db channel name
  *
  * @param name the db channel name
  */
 IOCGroupChannel::IOCGroupChannel(const std::string& name)
-		:pDbChannel(dbChannelCreate(name.c_str())) {
+		:pDbChannel(
+		std::shared_ptr<dbChannel>(dbChannelCreate(name.c_str()), [](dbChannel* ch) { dbChannelDelete(ch); })) {
 	if (!pDbChannel) {
 		throw std::invalid_argument(SB() << "invalid group channel name: " << name);
 	}
@@ -45,19 +24,10 @@ IOCGroupChannel::IOCGroupChannel(const std::string& name)
 }
 
 IOCGroupChannel::IOCGroupChannel(IOCGroupChannel&& other) noexcept
-		:pDbChannel(other.pDbChannel) {
-	other.pDbChannel = nullptr;
+		:pDbChannel(std::move(other.pDbChannel)) {
 }
 
-/**
- * Destroy the group channel and clean up the dbChannel resource
- */
-IOCGroupChannel::~IOCGroupChannel() {
-	if (pDbChannel) {
-		dbChannelDelete(pDbChannel);
-		pDbChannel = nullptr;
-	}
-}
+IOCGroupChannel::~IOCGroupChannel() = default;
 
 /**
  * Internal function to prepare the dbChannel for operation by opening it
@@ -66,41 +36,12 @@ void IOCGroupChannel::prepare() {
 	if (!pDbChannel) {
 		throw std::invalid_argument(SB() << "NULL channel while opening group channel");
 	}
-	if (dbChannelOpen(pDbChannel)) {
-		dbChannelDelete(pDbChannel);
+	if (dbChannelOpen(pDbChannel.get())) {
 		throw std::invalid_argument(SB() << "Failed to open group channel " << dbChannelName(pDbChannel));
 	}
 }
 
-/**
- * Exchange the given dbChannel for the dbChannel associated with this group channel
- * @param otherDbChannel
- */
-void IOCGroupChannel::swap(IOCGroupChannel& otherDbChannel) {
-	std::swap(pDbChannel, otherDbChannel.pDbChannel);
-}
-
-/**
- * Cast to a dbChannel pointer
- * @return pointer to the dbChannel associated with this group channel
- */
-IOCGroupChannel::operator dbChannel*() {
-	return pDbChannel;
-}
-
-/**
- * Cast to a const dbChannel pointer
- * @return pointer to the dbChannel associated with this group channel
- */
-IOCGroupChannel::operator const dbChannel*() const {
-	return pDbChannel;
-}
-
-/**
- * Pointer indirection operator
- * @return pointer to the dbChannel associated with this group channel
- */
-dbChannel* IOCGroupChannel::operator->() {
+IOCGroupChannel::operator std::shared_ptr<dbChannel>() const {
 	return pDbChannel;
 }
 
@@ -109,7 +50,7 @@ dbChannel* IOCGroupChannel::operator->() {
  * @return pointer to the dbChannel associated with this group channel
  */
 const dbChannel* IOCGroupChannel::operator->() const {
-	return pDbChannel;
+	return pDbChannel.get();
 }
 
 } // pvxs

@@ -372,7 +372,7 @@ void GroupConfigProcessor::initialiseGroupValueTemplates(IOCGroup& group, const 
 			auto& groupField = group[field.name];
 			auto& type = field.type;
 
-			auto pdbChannel = (dbChannel*)groupField.channel;
+			auto pdbChannel = (std::shared_ptr<dbChannel>)groupField.channel;
 
 			if (type == "meta") {
 				groupField.isMeta = true;
@@ -381,9 +381,9 @@ void GroupConfigProcessor::initialiseGroupValueTemplates(IOCGroup& group, const 
 				groupField.allowProc = true;
 			} else {
 				if (type.empty() || type == "scalar") {
-					buildScalarValueType(groupMembersToAdd, groupField, pdbChannel);
+					buildScalarValueType(groupMembersToAdd, groupField, pdbChannel.get());
 				} else if (type == "plain") {
-					buildPlainValueType(groupMembersToAdd, groupField, pdbChannel);
+					buildPlainValueType(groupMembersToAdd, groupField, pdbChannel.get());
 				} else if (type == "any") {
 					buildAnyScalarValueType(groupMembersToAdd, groupField);
 				} else if (type == "structure") {
