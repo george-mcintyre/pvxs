@@ -206,11 +206,9 @@ void GroupSource::onGet(IOCGroup& group, const std::function<void(Value&)>& retu
 	// For each field, get the value
 	for (auto& field: group.fields) {
 		// find the leaf node in which to set the value
-		Value& leafNode = field.walkToValue(returnValue);
+		auto leafNode = field.findIn(returnValue);
 
-		if (leafNode) {
-			// set the value
-			// TODO all metadata
+		if (leafNode.valid()) {
 			try {
 				if (field.isMeta) {
 					IOCSource::onGet((std::shared_ptr<dbChannel>)field.channel,
@@ -239,8 +237,8 @@ void GroupSource::onGet(IOCGroup& group, const std::function<void(Value&)>& retu
 					IOCSource::onGet((std::shared_ptr<dbChannel>)field.channel,
 							leafNode, true,
 							false,
-							[&leafNode, &fieldName](Value& value) {
-								leafNode[fieldName] = value;
+							[&leafNode](Value& value) {
+								leafNode.from(value);
 							}, [](const char* errorMessage) {
 								throw std::runtime_error(errorMessage);
 							});

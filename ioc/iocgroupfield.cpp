@@ -5,6 +5,7 @@
  */
 
 #include <sstream>
+#include <utility>
 #include "iocgroupfield.h"
 
 namespace pvxs {
@@ -32,8 +33,7 @@ IOCGroupField::IOCGroupField(const std::string& stringFieldName, const std::stri
  * @param top the given value
  * @return the Value referenced by this field within the given value
  */
-Value& IOCGroupField::walkToValue(Value& top) {
-	Value& value = top;
+Value IOCGroupField::findIn(Value value) {
 	if (!fieldName.empty()) {
 		for (const auto& component: fieldName.fieldNameComponents) {
 			value = value[component.name];
@@ -49,7 +49,11 @@ Value& IOCGroupField::walkToValue(Value& top) {
 				}
 
 				// Put new data into array
-				auto newElement = valueArray[index] = value.allocMember();
+				auto newElement = valueArray[index];
+				if ( !newElement) {
+					// Only allocate new member if it is not already allocated
+					valueArray[index] = newElement = value.allocMember();
+				}
 				value = valueArray.freeze();
 				value = newElement;
 			}
@@ -57,5 +61,6 @@ Value& IOCGroupField::walkToValue(Value& top) {
 	}
 	return value;
 }
+
 } // pvxs
 } // ioc

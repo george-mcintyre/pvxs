@@ -59,6 +59,7 @@ record(waveform,"$(user):arrayExample")
 {
     field(FTVL, "DOUBLE")
     field(NELM, "5")
+    field(INP, {const:[1,2,3]})
 }
 record(longin, "$(user):longExample") {
   field(VAL, "102042")
