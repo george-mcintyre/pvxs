@@ -20,7 +20,7 @@
 #include <cmath>
 
 #include "dbentry.h"
-#include "dberrmsg.h"
+#include "dberrormessage.h"
 #include "singlesource.h"
 #include "typeutils.h"
 #include "iocsource.h"
@@ -78,7 +78,7 @@ void SingleSource::onCreate(std::unique_ptr<server::ChannelControl>&& channelCon
 	// Set up a shared pointer to the database channel and provide a deleter lambda for when it will eventually be deleted
 	std::shared_ptr<dbChannel> pChannel(pdbChannel, [](dbChannel* ch) { dbChannelDelete(ch); });
 
-	if (DBErrMsg err = dbChannelOpen(pChannel.get())) {
+	if (DBErrorMessage err = dbChannelOpen(pChannel.get())) {
 		log_debug_printf(_logname, "Error opening database channel for '%s: %s'\n", sourceName, err.c_str());
 		throw std::runtime_error(err.c_str());
 	}
@@ -304,7 +304,7 @@ void SingleSource::onPut(const std::shared_ptr<dbChannel>& channel, std::unique_
 	long nElements;     // number of elements - 1 for scalar or enum, more for arrays
 
 	// Convert pvName to a dbAddress
-	if (DBErrMsg err = IOCSource::nameToAddr(pvName, &dbAddress)) {
+	if (DBErrorMessage err = IOCSource::nameToAddr(pvName, &dbAddress)) {
 		putOperation->error(err.c_str());
 		return;
 	}
@@ -326,7 +326,7 @@ void SingleSource::onPut(const std::shared_ptr<dbChannel>& channel, std::unique_
 		setBuffer(value, pValueBuffer, nElements);
 	}
 
-	if (DBErrMsg err = dbPutField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, nElements)) {
+	if (DBErrorMessage err = dbPutField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, nElements)) {
 		putOperation->error(err.c_str());
 		return;
 	}

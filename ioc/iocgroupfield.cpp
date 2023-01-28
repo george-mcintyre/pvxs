@@ -10,8 +10,14 @@
 namespace pvxs {
 namespace ioc {
 
-IOCGroupField::IOCGroupField(const std::string& stringFieldName, const std::string& channelName)
-		:isMeta(false), allowProc(false), channel(channelName),
+/**
+ * Construct an IOCGroupField from a field name and channel name
+ *
+ * @param stringFieldName the field name
+ * @param stringChannelName the channel name
+ */
+IOCGroupField::IOCGroupField(const std::string& stringFieldName, const std::string& stringChannelName)
+		:isMeta(false), allowProc(false), channel(stringChannelName),
 		 fieldName(stringFieldName), isArray(false) {
 	if (!fieldName.fieldNameComponents.empty()) {
 		name = fieldName.fieldNameComponents[0].name;
@@ -19,6 +25,13 @@ IOCGroupField::IOCGroupField(const std::string& stringFieldName, const std::stri
 	}
 }
 
+/**
+ * Using the field components configured in this IOCGroupField, walk down from the given value,
+ * to arrive at the part of the value referenced by this field.
+ *
+ * @param top the given value
+ * @return the Value referenced by this field within the given value
+ */
 Value& IOCGroupField::walkToValue(Value& top) {
 	Value& value = top;
 	if (!fieldName.empty()) {
@@ -30,7 +43,7 @@ Value& IOCGroupField::walkToValue(Value& top) {
 				shared_array<const Value> constValueArray = value.as<shared_array<const Value>>();
 				// TODO clear value so that we don't do a copy
 				shared_array<Value> valueArray(constValueArray.thaw());
-				auto size = valueArray.size();   // Is this the capacity
+				auto size = valueArray.size();
 				if ((index + 1) > size) {
 					valueArray.resize(index + 1);
 				}

@@ -32,7 +32,7 @@ public:
 	std::string fullName;
 	bool isArray;
 
-	IOCGroupField(const std::string& stringFieldName, const std::string& channelName);
+	IOCGroupField(const std::string& stringFieldName, const std::string& stringChannelName);
 	Value& walkToValue(Value& top);
 };
 

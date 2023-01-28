@@ -12,6 +12,8 @@
 #include <string>
 #include <epicsTypes.h>
 
+#include "groupfieldconfig.h"
+
 namespace pvxs {
 namespace ioc {
 
@@ -26,9 +28,7 @@ public:
 	Triggers triggers;                      // Fields in this group which are posted on events from channel
 	int64_t putOrder;                       // Order to serialise the field for put operations
 
-	GroupPvField()
-			:putOrder(0) {
-	}
+	GroupPvField(const GroupFieldConfig& fieldConfig, const std::string& fieldName);
 
 	bool operator<(const GroupPvField& o) const {
 		return putOrder < o.putOrder;

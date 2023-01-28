@@ -73,6 +73,12 @@ void GroupSource::onCreate(std::unique_ptr<server::ChannelControl>&& channelCont
 
 }
 
+/**
+ * Implementation of the onList() interface of pvxs::server::Source to return a list of all records
+ * managed by this source.
+ *
+ * @return all records managed by this source
+ */
 GroupSource::List GroupSource::onList() {
 	return allRecords;
 }

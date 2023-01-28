@@ -20,7 +20,7 @@ namespace ioc {
  */
 class IOCGroupChannel {
 private:
-	std::shared_ptr<dbChannel>pDbChannel;
+	std::shared_ptr<dbChannel> pDbChannel;
 	void prepare();
 
 public:

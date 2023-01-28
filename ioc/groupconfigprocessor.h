@@ -27,35 +27,18 @@ class GroupConfigProcessor {
 	 * Note that we don't use number, or arrays
 	 */
 	yajl_callbacks yajlParserCallbacks{
-			&processNull,
-			&processBoolean,
-			&processInteger,
-			&processDouble,
+			&parserCallbackNull,
+			&parserCallbackBoolean,
+			&parserCallbackInteger,
+			&parserCallbackDouble,
 			nullptr,            // number
-			&processString,
-			&processStartBlock,
-			&processKey,
-			&processEndBlock,
+			&parserCallbackString,
+			&parserCallbackStartBlock,
+			&parserCallbackKey,
+			&parserCallbackEndBlock,
 			nullptr,            // start_array,
 			nullptr,            // end_array,
 	};
-
-	static bool yajlParseHelper(std::istream& jsonGroupDefinitionStream, yajl_handle handle);
-	static int processNull(void* parserContext);
-	static int processBoolean(void* parserContext, int booleanValue);
-	static int processInteger(void* parserContext, long long int integerVal);
-	static int processDouble(void* parserContext, double doubleVal);
-	static int processString(void* parserContext, const unsigned char* stringVal, size_t stringLen);
-	static int processStartBlock(void* parserContext);
-	static int processKey(void* parserContext, const unsigned char* key, size_t keyLength);
-	static int processEndBlock(void* parserContext);
-	static void buildScalarValueType(std::vector<Member>& groupMembers, IOCGroupField& groupField,
-			dbChannel* pdbChannel);
-	static void
-	buildPlainValueType(std::vector<Member>& groupMembers, IOCGroupField& groupField, dbChannel* pdbChannel);
-	static void buildAnyScalarValueType(std::vector<Member>& groupMembers, IOCGroupField& groupField);
-	static void buildStructureValueType(std::vector<Member>& groupMembers, IOCGroupField& groupField);
-	static void buildMetaValueType(std::vector<Member>& groupMembers, const IOCGroupField& groupField);
 
 public:
 	GroupConfigMap groupConfigMap;
@@ -64,19 +47,49 @@ public:
 	std::string groupProcessingWarnings;
 
 	GroupConfigProcessor() = default;
-	void parseDbConfig();
-	void parseConfigFiles();
-	void resolveTriggers();
-	void createGroups();
-	void parseConfigString(const char* jsonGroupDefinition, const char* dbRecordName = nullptr);
-	static void initialiseGroupFields(IOCGroup& group, const GroupPv& groupPv);
-	static void initialiseGroupValueTemplates(IOCGroup& group, const GroupPv& groupPv);
-	static void setFieldTypeDefinition(std::vector<Member>& groupMembers, const IOCGroupFieldName& fieldName,
-			std::vector<Member> leafMembers);
-	static const char* infoField(DBEntry& dbEntry, const char* key, const char* defaultValue = nullptr);
-	static int yajlProcess(void* parserContext, const std::function<int(GroupProcessorContext*)>& pFunction);
+
 	static void checkForTrailingCommentsAtEnd(const std::string& line);
 	void configureGroups();
+	void createGroups();
+	static const char* infoField(DBEntry& dbEntry, const char* key, const char* defaultValue = nullptr);
+	static void initialiseGroupFields(IOCGroup& group, const GroupPv& groupPv);
+	static void initialiseGroupValueTemplates(IOCGroup& group, const GroupPv& groupPv);
+	void parseConfigFiles();
+	void parseDbConfig();
+	void resolveTriggers();
+	static void setFieldTypeDefinition(std::vector<Member>& groupMembers, const IOCGroupFieldName& fieldName,
+			std::vector<Member> leafMembers);
+	static int yajlProcess(void* parserContext, const std::function<int(GroupProcessorContext*)>& pFunction);
+
+private:
+	static void addMembersForConfiguredFields(IOCGroup& group, const GroupPv& groupPv,
+			std::vector<Member>& groupMembersToAdd);
+	static void addMembersForAnyType(std::vector<Member>& groupMembers, IOCGroupField& groupField);
+	static void addMembersForMetaData(std::vector<Member>& groupMembers, const IOCGroupField& groupField);
+	static void addMembersForPlainType(std::vector<Member>& groupMembers, IOCGroupField& groupField,
+			dbChannel* pdbChannel);
+	static void addMembersForScalarType(std::vector<Member>& groupMembers, IOCGroupField& groupField,
+			dbChannel* pdbChannel);
+	static void addMembersForStructureType(std::vector<Member>& groupMembers, IOCGroupField& groupField);
+	static void configureFieldTriggers(GroupPv& groupPv, GroupPvField& groupPvField, Triggers& targets,
+			const std::string& groupName);
+	static void configureGroupFields(const GroupConfig& groupConfig, GroupPv& groupPv, const std::string& groupName);
+	static void configureGroupTriggers(GroupPv& groupPv, const std::string& groupName);
+	static void configureAtomicity(const GroupConfig& groupConfig, GroupPv& groupPv, const std::string& groupName);
+	void sortGroupFields();
+	static void configureSelfTriggers(GroupPv& groupPv);
+	static int parserCallbackBoolean(void* parserContext, int booleanValue);
+	static int parserCallbackDouble(void* parserContext, double doubleVal);
+	static int parserCallbackEndBlock(void* parserContext);
+	static int parserCallbackInteger(void* parserContext, long long int integerVal);
+	static int parserCallbackKey(void* parserContext, const unsigned char* key, size_t keyLength);
+	static int parserCallbackNull(void* parserContext);
+	static int parserCallbackStartBlock(void* parserContext);
+	static int parserCallbackString(void* parserContext, const unsigned char* stringVal, size_t stringLen);
+	void parseConfigString(const char* jsonGroupDefinition, const char* dbRecordName = nullptr);
+	static void parseTriggerConfiguration(const GroupFieldConfig& fieldConfig, GroupPv& groupPv,
+			const std::string& fieldName);
+	static bool yajlParseHelper(std::istream& jsonGroupDefinitionStream, yajl_handle handle);
 };
 
 } // ioc

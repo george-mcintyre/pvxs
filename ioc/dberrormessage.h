@@ -4,24 +4,27 @@
  * in file LICENSE that is included with this distribution.
  */
 
-#ifndef PVXS_DBERRMSG_H
-#define PVXS_DBERRMSG_H
+#ifndef PVXS_DBERRORMESSAGE_H
+#define PVXS_DBERRORMESSAGE_H
 
 #include <epicsTypes.h>
 
 namespace pvxs {
 namespace ioc {
 
-class DBErrMsg {
+/**
+ * Wrapper class for status returned from base IOC database commands.
+ */
+class DBErrorMessage {
 	long status = 0;
-	char msg[MAX_STRING_SIZE]{};
+	char message[MAX_STRING_SIZE]{};
 public:
-	DBErrMsg(long sts = 0);
-	DBErrMsg& operator=(long sts);
+	DBErrorMessage(long dbStatus = 0);
+	DBErrorMessage& operator=(long dbStatus);
 	explicit operator bool() const;
 	const char* c_str() const;
 };
 
 } // ioc
 } // pvxs
-#endif //PVXS_DBERRMSG_H
+#endif //PVXS_DBERRORMESSAGE_H

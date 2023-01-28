@@ -8,7 +8,7 @@
 
 #include "iocsource.h"
 #include "dbentry.h"
-#include "dberrmsg.h"
+#include "dberrormessage.h"
 #include "typeutils.h"
 
 namespace pvxs {
@@ -24,7 +24,7 @@ void IOCSource::onGet(const std::shared_ptr<dbChannel>& channel,
 	DBADDR dbAddress;   // Special struct for storing database addresses
 
 	// Convert pvName to a dbAddress
-	if (DBErrMsg err = nameToAddr(pvName, &dbAddress)) {
+	if (DBErrorMessage err = nameToAddr(pvName, &dbAddress)) {
 		errorFn(err.c_str());
 		return;
 	}
@@ -53,7 +53,7 @@ void IOCSource::onGet(const std::shared_ptr<dbChannel>& channel,
 		throw std::runtime_error("call to get but neither values not properties requested");
 	}
 
-	if (DBErrMsg err = dbGetField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, &options, &nElements,
+	if (DBErrorMessage err = dbGetField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, &options, &nElements,
 			nullptr)) {
 		errorFn(err.c_str());
 		return;

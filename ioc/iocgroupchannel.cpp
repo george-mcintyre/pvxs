@@ -23,10 +23,18 @@ IOCGroupChannel::IOCGroupChannel(const std::string& name)
 	prepare();
 }
 
+/**
+ * Move constructor
+ *
+ * @param other other IOCGroupChannel
+ */
 IOCGroupChannel::IOCGroupChannel(IOCGroupChannel&& other) noexcept
 		:pDbChannel(std::move(other.pDbChannel)) {
 }
 
+/**
+ * Destructor is default because pDbChannel cleans up after itself.
+ */
 IOCGroupChannel::~IOCGroupChannel() = default;
 
 /**
@@ -40,7 +48,11 @@ void IOCGroupChannel::prepare() {
 		throw std::invalid_argument(SB() << "Failed to open group channel " << dbChannelName(pDbChannel));
 	}
 }
-
+/**
+ * Cast as a shared pointer to a dbChannel.  This returns the pDbChannel member
+ *
+ * @return the pDbChannel member
+ */
 IOCGroupChannel::operator std::shared_ptr<dbChannel>() const {
 	return pDbChannel;
 }

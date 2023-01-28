@@ -24,11 +24,12 @@ SHRLIB_VERSION = $(PVXS_MAJOR_VERSION).$(PVXS_MINOR_VERSION)
 
 pvxsIoc_SRCS += iocserver.cpp
 pvxsIoc_SRCS += dbentry.cpp
-pvxsIoc_SRCS += dberrmsg.cpp
+pvxsIoc_SRCS += dberrormessage.cpp
 pvxsIoc_SRCS += dbeventcontextdeleter.cpp
 pvxsIoc_SRCS += groupconfigprocessor.cpp
 pvxsIoc_SRCS += groupprocessorcontext.cpp
 pvxsIoc_SRCS += grouppv.cpp
+pvxsIoc_SRCS += grouppvfield.cpp
 pvxsIoc_SRCS += groupsource.cpp
 pvxsIoc_SRCS += groupsourcehooks.cpp
 pvxsIoc_SRCS += groupsrcsubscriptionctx.cpp

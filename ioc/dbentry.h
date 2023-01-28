@@ -12,6 +12,9 @@
 namespace pvxs {
 namespace ioc {
 
+/**
+ * Wrapper class for DBENTRY that is a type that encapsulates an IOC database entry.
+ */
 class DBEntry {
 	DBENTRY ent{};
 public:
