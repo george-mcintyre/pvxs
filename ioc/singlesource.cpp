@@ -4,7 +4,6 @@
  * in file LICENSE that is included with this distribution.
  */
 
-#include <cstring>
 #include <algorithm>
 #include <iostream>
 
@@ -22,7 +21,6 @@
 #include "dbentry.h"
 #include "dberrormessage.h"
 #include "singlesource.h"
-#include "typeutils.h"
 #include "iocsource.h"
 
 #include "singlesrcsubscriptionctx.h"
@@ -78,17 +76,15 @@ void SingleSource::onCreate(std::unique_ptr<server::ChannelControl>&& channelCon
 	// Set up a shared pointer to the database channel and provide a deleter lambda for when it will eventually be deleted
 	std::shared_ptr<dbChannel> pChannel(pdbChannel, [](dbChannel* ch) { dbChannelDelete(ch); });
 
-	{
-		DBErrorMessage dbErrorMessage(dbChannelOpen(pChannel.get()));
-		if (dbErrorMessage) {
-			log_debug_printf(_logname, "Error opening database channel for '%s: %s'\n", sourceName,
-					dbErrorMessage.c_str());
-			throw std::runtime_error(dbErrorMessage.c_str());
-		}
+	DBErrorMessage dbErrorMessage(dbChannelOpen(pChannel.get()));
+	if (dbErrorMessage) {
+		log_debug_printf(_logname, "Error opening database channel for '%s: %s'\n", sourceName,
+				dbErrorMessage.c_str());
+		throw std::runtime_error(dbErrorMessage.c_str());
 	}
 
 	// Create callbacks for handling requests and channel subscriptions
-	createRequestAndSubscriptionHandlers(channelControl, pChannel);
+	createRequestAndSubscriptionHandlers(std::move(channelControl), pChannel);
 }
 
 SingleSource::List SingleSource::onList() {
@@ -127,10 +123,33 @@ void SingleSource::show(std::ostream& outputStream) {
  * @param channelControl the control channel pointer that we got from onCreate
  * @param pChannel the pointer to the database channel to set up the handlers for
  */
-void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& channelControl,
+void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>&& channelControl,
 		const std::shared_ptr<dbChannel>& pChannel) {
 	auto subscriptionContext(std::make_shared<SingleSourceSubscriptionCtx>(pChannel));
 
+	Value valuePrototype = getValuePrototype(pChannel);
+
+	// Get and Put requests
+	channelControl->onOp([pChannel, valuePrototype](std::unique_ptr<server::ConnectOp>&& channelConnectOperation) {
+		onOp(pChannel, valuePrototype, std::move(channelConnectOperation));
+	});
+
+	// Subscription requests
+	// Shared ptr for one of captured vars below
+	subscriptionContext->prototype = valuePrototype.cloneEmpty();
+	channelControl
+			->onSubscribe([this, subscriptionContext](std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
+				onSubscribe(subscriptionContext, std::move(subscriptionOperation));
+			});
+}
+
+/**
+ * Create a Value Prototype for storing values returned by the given channel.
+ *
+ * @param pChannel pointer to the channel
+ * @return a value prototype for the given channel
+ */
+Value SingleSource::getValuePrototype(const std::shared_ptr<dbChannel>& pChannel) {
 	auto dbChannel(pChannel.get());
 	short dbrType(dbChannelFinalFieldType(dbChannel));
 	auto valueType(IOCSource::getChannelValueType(pChannel.get()));
@@ -146,122 +165,7 @@ void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::
 	} else {
 		valuePrototype = nt::NTScalar{ valueType, display, control, valueAlarm }.create();
 	}
-
-	// Get and Put requests
-	channelControl->onOp([pChannel, valuePrototype](std::unique_ptr<server::ConnectOp>&& channelConnectOperation) {
-		// First stage for handling any request is to announce the channel type with a `connect()` call
-		// @note The type signalled here must match the eventual type returned by a pvxs get
-		channelConnectOperation->connect(valuePrototype);
-
-		// pvxs get
-		channelConnectOperation->onGet([pChannel, valuePrototype](std::unique_ptr<server::ExecOp>&& getOperation) {
-			onGet(pChannel, getOperation, valuePrototype);
-		});
-
-		// pvxs put
-		channelConnectOperation
-				->onPut([pChannel, valuePrototype](std::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
-					onPut(pChannel, putOperation, valuePrototype, value);
-				});
-	});
-
-	// Subscription requests
-	// Shared ptr for one of captured vars below
-	subscriptionContext->prototype = valuePrototype.cloneEmpty();
-	channelControl
-			->onSubscribe([this, subscriptionContext](
-					std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
-				subscriptionContext->subscriptionControl = subscriptionOperation
-						->connect(subscriptionContext->prototype);
-
-				// Two subscription are made for pvxs
-				// first subscription is for Value changes
-				addSubscriptionEvent(Value, eventContext, subscriptionContext, DBE_VALUE | DBE_ALARM);
-				// second subscription is for Property changes
-				addSubscriptionEvent(Properties, eventContext, subscriptionContext, DBE_PROPERTY);
-
-				// If either fail to complete then raise an error (removes last ref to shared_ptr subscriptionContext)
-				if (!subscriptionContext->pValueEventSubscription
-						|| !subscriptionContext->pPropertiesEventSubscription) {
-					throw std::runtime_error("Failed to create db subscription");
-				}
-
-				// If all goes well, Set up handlers for start and stop monitoring events
-				subscriptionContext->subscriptionControl->onStart([subscriptionContext](bool isStarting) {
-					if (isStarting) {
-						onStartSubscription(subscriptionContext);
-					} else {
-						onDisableSubscription(subscriptionContext);
-					}
-				});
-			});
-}
-
-/**
- * This callback handles notifying of updates to subscribed-to pv values
- *
- * @param userArg the user argument passed to the callback function from the framework: the subscriptionContext
- * @param pChannel pointer to the channel whose value has been updated
- * @param eventsRemaining the remaining number of events to process
- * @param pDbFieldLog the database field log containing the changes to notify
- */
-void SingleSource::subscriptionValueCallback(void* userArg, struct dbChannel* pChannel, int eventsRemaining,
-		struct db_field_log* pDbFieldLog) {
-	auto subscriptionContext = (SingleSourceSubscriptionCtx*)userArg;
-	{
-		epicsGuard<epicsMutex> G((subscriptionContext)->eventLock);
-		subscriptionContext->hadValueEvent = true;
-	}
-	subscriptionCallback(subscriptionContext, pChannel, eventsRemaining, pDbFieldLog);
-}
-
-/**
- * This callback handles notifying of updates to subscribed-to pv properties
- *
- * @param userArg the user argument passed to the callback function from the framework: the subscriptionContext
- * @param pChannel pointer to the channel whose properties have been updated
- * @param eventsRemaining the remaining number of events to process
- * @param pDbFieldLog the database field log containing the changes to notify
- */
-void SingleSource::subscriptionPropertiesCallback(void* userArg, struct dbChannel* pChannel, int eventsRemaining,
-		struct db_field_log* pDbFieldLog) {
-	auto subscriptionContext = (SingleSourceSubscriptionCtx*)userArg;
-	{
-		epicsGuard<epicsMutex> G((subscriptionContext)->eventLock);
-		subscriptionContext->hadPropertyEvent = true;
-	}
-	subscriptionCallback(subscriptionContext, pChannel, eventsRemaining, pDbFieldLog);
-}
-
-void SingleSource::subscriptionCallback(SingleSourceSubscriptionCtx* subscriptionContext, struct dbChannel* pChannel,
-		int eventsRemaining, struct db_field_log* pDbFieldLog) {
-	// Make sure that the initial subscription update has occurred on both channels before continuing
-	if (!subscriptionContext->hadValueEvent || !subscriptionContext->hadPropertyEvent) {
-		return;
-	}
-
-	// Get and return the value to the monitor
-	bool forValue = (subscriptionContext->pValueChannel.get() == pChannel);
-	auto pdbChannel = forValue ? subscriptionContext->pValueChannel : subscriptionContext->pPropertiesChannel;
-	IOCSource::onGet(pdbChannel, subscriptionContext->prototype, forValue, !forValue,
-			[subscriptionContext](Value& value) {
-				// Return value
-				subscriptionContext->subscriptionControl->tryPost(value);
-			}, [](const char* errorMessage) {
-				throw std::runtime_error(errorMessage);
-			});
-}
-
-/**
- * Called when a client starts a subscription it has subscribed to
- *
- * @param pChannel the pointer to the database channel subscribed to
- */
-void SingleSource::onStartSubscription(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext) {
-	db_event_enable(subscriptionContext->pValueEventSubscription.get());
-	db_event_enable(subscriptionContext->pPropertiesEventSubscription.get());
-	db_post_single_event(subscriptionContext->pValueEventSubscription.get());
-	db_post_single_event(subscriptionContext->pPropertiesEventSubscription.get());
+	return valuePrototype;
 }
 
 /**
@@ -281,13 +185,39 @@ void SingleSource::onDisableSubscription(const std::shared_ptr<SingleSourceSubsc
  * @param getOperation the current executing operation
  * @param valuePrototype a value prototype that is made based on the expected type to be returned
  */
-void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& getOperation,
+void SingleSource::get(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& getOperation,
 		const Value& valuePrototype) {
-	IOCSource::onGet(channel, valuePrototype, true, true, [&getOperation](Value& value) {
+	IOCSource::get(channel, valuePrototype, true, true, [&getOperation](Value& value) {
 		getOperation->reply(value);
 	}, [&getOperation](const char* errorMessage) {
 		getOperation->error(errorMessage);
 	});
+}
+
+/**
+ * Handler for the onOp event raised by pvxs Sources when they are started, in order to define the get and put handlers
+ * on a per source basis.
+ * This is called after the event has been intercepted and we add the channel and value prototype to the call.
+ *
+ * @param pChannel the channel to which the get/put operation pertains
+ * @param valuePrototype the value prototype that is appropriate for the given channel
+ * @param channelConnectOperation the channel connect operation object
+ */
+void SingleSource::onOp(const std::shared_ptr<dbChannel>& pChannel, const Value& valuePrototype,
+		std::unique_ptr<server::ConnectOp>&& channelConnectOperation) {
+	// Announce the channel type with a `connect()` call.  This happens only once
+	channelConnectOperation->connect(valuePrototype);
+
+	// Set up handler for get requests
+	channelConnectOperation->onGet([pChannel, valuePrototype](std::unique_ptr<server::ExecOp>&& getOperation) {
+		get(pChannel, getOperation, valuePrototype);
+	});
+
+	// Set up handler for put requests
+	channelConnectOperation
+			->onPut([pChannel, valuePrototype](std::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
+				put(pChannel, putOperation, valuePrototype, value);
+			});
 }
 
 /**
@@ -298,32 +228,15 @@ void SingleSource::onGet(const std::shared_ptr<dbChannel>& channel, std::unique_
  * @param valuePrototype
  * @param value
  */
-void SingleSource::onPut(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& putOperation,
+void SingleSource::put(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& putOperation,
 		const Value& valuePrototype, const Value& value) {
-	const char* pvName = channel->name;
-
 	epicsAny valueBuffer[100]; // value buffer to store the field we will get from the database.
 	void* pValueBuffer = &valueBuffer[0];
-	DBADDR dbAddress;   // Special struct for storing database addresses
 	long nElements;     // number of elements - 1 for scalar or enum, more for arrays
-
-	{
-		// Convert pvName to a dbAddress
-		DBErrorMessage dbErrorMessage(IOCSource::nameToAddr(&dbAddress, pvName));
-		if (dbErrorMessage) {
-			putOperation->error(dbErrorMessage.c_str());
-			return;
-		}
-	}
-
-	if (dbAddress.precord->lset == nullptr) {
-		putOperation->error("pvName not specified in request");
-		return;
-	}
 
 	// Calculate number of elements to save as lowest of actual number of elements and max number
 	// of elements we can store in the buffer we've allocated
-	nElements = MIN(dbAddress.no_elements, sizeof(valueBuffer) / dbAddress.field_size);
+	nElements = MIN(channel->addr.no_elements, sizeof(valueBuffer) / channel->addr.field_size);
 
 	auto isCompound = value["value"].valid();
 	Value valueTarget = value;
@@ -331,71 +244,142 @@ void SingleSource::onPut(const std::shared_ptr<dbChannel>& channel, std::unique_
 		valueTarget = value["value"];
 	}
 
-	if (dbAddress.dbr_field_type == DBR_ENUM) {
+	if (channel->addr.dbr_field_type == DBR_ENUM) {
 		*(uint16_t*)(pValueBuffer) = (valueTarget)["index"].as<uint16_t>();
 	} else if (nElements == 1) {
-		setBuffer(valueTarget, pValueBuffer);
+		IOCSource::setBuffer(valueTarget, pValueBuffer);
 	} else {
-		setBuffer(valueTarget, pValueBuffer, nElements);
+		IOCSource::setBuffer(valueTarget, pValueBuffer, nElements);
 	}
 
-	{
-		DBErrorMessage dbErrorMessage(dbPutField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, nElements));
-		if (dbErrorMessage) {
-			putOperation->error(dbErrorMessage.c_str());
-			return;
-		}
+	DBErrorMessage dbErrorMessage(dbPutField(&channel->addr, channel->addr.dbr_field_type, pValueBuffer, nElements));
+	if (dbErrorMessage) {
+		putOperation->error(dbErrorMessage.c_str());
+		return;
 	}
 	putOperation->reply();
 }
 
 /**
- * Get value into given database buffer
+ * Called by the framework when the monitoring client issues a start or stop subscription
  *
- * @param valueTarget the value to get
- * @param pValueBuffer the database buffer to put it in
+ * @param subscriptionContext the subscription context
+ * @param isStarting true if the client issued a start subscription request, false otherwise
  */
-void SingleSource::setBuffer(const Value& valueTarget, void* pValueBuffer) {
-	auto valueType(valueTarget.type());
-	if (valueType.code == TypeCode::String) {
-		auto strValue = valueTarget.as<std::string>();
-		auto len = MIN(strValue.length(), MAX_STRING_SIZE - 1);
-
-		valueTarget.as<std::string>().copy((char*)pValueBuffer, len);
-		((char*)pValueBuffer)[len] = '\0';
+void SingleSource::onStart(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext, bool isStarting) {
+	if (isStarting) {
+		onStartSubscription(subscriptionContext);
 	} else {
-		SwitchTypeCodeForTemplatedCall(valueType.code, setBuffer, (valueTarget, pValueBuffer));
+		onDisableSubscription(subscriptionContext);
 	}
 }
 
-void SingleSource::setBuffer(const Value& valueTarget, void* pValueBuffer, long nElements) {
-	auto valueType(valueTarget.type());
-	if (valueType.code == TypeCode::StringA) {
-		char valueRef[20];
-		for (auto i = 0; i < nElements; i++) {
-			snprintf(valueRef, 20, "[%d]", i);
-			auto strValue = valueTarget[valueRef].as<std::string>();
-			auto len = MIN(strValue.length(), MAX_STRING_SIZE - 1);
-			strValue.copy((char*)pValueBuffer + MAX_STRING_SIZE * i, len);
-			((char*)pValueBuffer + MAX_STRING_SIZE * i)[len] = '\0';
-		}
-	} else {
-		SwitchTypeCodeForTemplatedCall(valueType.code, setBuffer, (valueTarget, pValueBuffer, nElements));
-	}
+/**
+ * Called when a client starts a subscription it has subscribed to
+ *
+ * @param pChannel the pointer to the database channel subscribed to
+ */
+void SingleSource::onStartSubscription(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext) {
+	db_event_enable(subscriptionContext->pValueEventSubscription.get());
+	db_event_enable(subscriptionContext->pPropertiesEventSubscription.get());
+	db_post_single_event(subscriptionContext->pValueEventSubscription.get());
+	db_post_single_event(subscriptionContext->pPropertiesEventSubscription.get());
 }
 
-// Get the value into the given database value buffer (templated)
-template<typename valueType> void SingleSource::setBuffer(const Value& valueTarget, void* pValueBuffer) {
-	((valueType*)pValueBuffer)[0] = valueTarget.as<valueType>();
+/**
+ * Called by the framework when a client subscribes to a channel.  We intercept the call before this function is called
+ * to add a new subscription context with a value prototype matching the channel definition.
+ *
+ * @param subscriptionContext a new subscription context with a value prototype matching the channel
+ * @param subscriptionOperation the channel subscription operation
+ */
+void SingleSource::onSubscribe(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext,
+		std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) const {
+	// inform peer of data type and acquire control of the subscription queue
+	subscriptionContext->subscriptionControl = subscriptionOperation->connect(subscriptionContext->prototype);
+
+	// Two subscription are made for pvxs
+	// first subscription is for Value changes
+	addSubscriptionEvent(Value, eventContext, subscriptionContext, DBE_VALUE | DBE_ALARM);
+	// second subscription is for Property changes
+	addSubscriptionEvent(Properties, eventContext, subscriptionContext, DBE_PROPERTY);
+
+	// If either fail to complete then raise an error (removes last ref to shared_ptr subscriptionContext)
+	if (!subscriptionContext->pValueEventSubscription
+			|| !subscriptionContext->pPropertiesEventSubscription) {
+		throw std::runtime_error("Failed to create db subscription");
+	}
+
+	// If all goes well, Set up handlers for start and stop monitoring events
+	subscriptionContext->subscriptionControl->onStart([&subscriptionContext](bool isStarting) {
+		onStart(subscriptionContext, isStarting);
+	});
 }
 
-// Get the value into the given database value buffer (templated)
-template<typename valueType>
-void SingleSource::setBuffer(const Value& valueTarget, void* pValueBuffer, long nElements) {
-	auto valueArray = valueTarget.as<shared_array<const valueType>>();
-	for (auto i = 0; i < nElements; i++) {
-		((valueType*)pValueBuffer)[i] = valueArray[i];
+/**
+ * Used by both value and property subscriptions, this function will get and return the database value to the monitor.
+ *
+ * @param subscriptionContext the subscription context
+ * @param pChannel the channel to get the database value
+ * @param eventsRemaining the number of events remaining
+ * @param pDbFieldLog the database field log
+ */
+void SingleSource::subscriptionCallback(SingleSourceSubscriptionCtx* subscriptionContext, struct dbChannel* pChannel,
+		int eventsRemaining, struct db_field_log* pDbFieldLog) {
+	// Make sure that the initial subscription update has occurred on both channels before continuing
+	// As we make two initial updates when opening a new subscription, we need both to have completed before continuing
+	if (!subscriptionContext->hadValueEvent || !subscriptionContext->hadPropertyEvent) {
+		return;
 	}
+
+	// Get and return the value to the monitor
+	bool forValue = (subscriptionContext->pValueChannel.get() == pChannel);
+	auto pdbChannel = forValue ? subscriptionContext->pValueChannel : subscriptionContext->pPropertiesChannel;
+	IOCSource::get(pdbChannel, subscriptionContext->prototype, forValue, !forValue,
+			[subscriptionContext](Value& value) {
+				// Return value
+				subscriptionContext->subscriptionControl->tryPost(value);
+			}, [](const char* errorMessage) {
+				throw std::runtime_error(errorMessage);
+			});
+}
+
+/**
+ * This callback handles notifying of updates to subscribed-to pv properties.  The macro addSubscriptionEvent(...)
+ * creates the call to this function, so your IDE may mark it as unused (don't believe it :) )
+ *
+ * @param userArg the user argument passed to the callback function from the framework: the subscriptionContext
+ * @param pChannel pointer to the channel whose properties have been updated
+ * @param eventsRemaining the remaining number of events to process
+ * @param pDbFieldLog the database field log containing the changes to notify
+ */
+void SingleSource::subscriptionPropertiesCallback(void* userArg, struct dbChannel* pChannel, int eventsRemaining,
+		struct db_field_log* pDbFieldLog) {
+	auto subscriptionContext = (SingleSourceSubscriptionCtx*)userArg;
+	{
+		epicsGuard<epicsMutex> G((subscriptionContext)->eventLock);
+		subscriptionContext->hadPropertyEvent = true;
+	}
+	subscriptionCallback(subscriptionContext, pChannel, eventsRemaining, pDbFieldLog);
+}
+
+/**
+ * This callback handles notifying of updates to subscribed-to pv values.  The macro addSubscriptionEvent(...)
+ * creates the call to this function, so your IDE may mark it as unused (don't believe it :) )
+ *
+ * @param userArg the user argument passed to the callback function from the framework: the subscriptionContext
+ * @param pChannel pointer to the channel whose value has been updated
+ * @param eventsRemaining the remaining number of events to process
+ * @param pDbFieldLog the database field log containing the changes to notify
+ */
+void SingleSource::subscriptionValueCallback(void* userArg, struct dbChannel* pChannel, int eventsRemaining,
+		struct db_field_log* pDbFieldLog) {
+	auto subscriptionContext = (SingleSourceSubscriptionCtx*)userArg;
+	{
+		epicsGuard<epicsMutex> G((subscriptionContext)->eventLock);
+		subscriptionContext->hadValueEvent = true;
+	}
+	subscriptionCallback(subscriptionContext, pChannel, eventsRemaining, pDbFieldLog);
 }
 
 } // ioc

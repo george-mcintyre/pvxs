@@ -13,48 +13,58 @@
 #include "singlesrcsubscriptionctx.h"
 #include "metadata.h"
 
+#define MAX_RECEIVE_BUFFER_SIZE 100
+
 namespace pvxs {
 namespace ioc {
 
 class IOCSource {
 public:
-	static void onGet(const std::shared_ptr<dbChannel>& channel,
+	static void get(const std::shared_ptr<dbChannel>& channel,
 			const Value& valuePrototype, bool forValues, bool forProperties,
 			const std::function<void(Value&)>& returnFn, const std::function<void(const char*)>& errorFn);
-
-	// Get metadata from the given value buffer and deliver it in the given metadata buffer
-	static void getMetadata(void*& pValueBuffer, Metadata& metadata, bool forValues, bool forProperties);
 
 	//////////////////////////////
 	// Get & Subscription
 	//////////////////////////////
-	// Set a return value from the given database value buffer
-	static void setValue(Value& valueTarget, const void* pValueBuffer);
-	// Set a return value from the given database value buffer
-	static void setValue(Value& valueTarget, const void* pValueBuffer, const long& nElements);
-	// Set a return value from the given database value buffer (templated)
-	template<typename valueType> static void setValue(Value& valueTarget, const void* pValueBuffer);
-	// Set a return value from the given database value buffer (templated)
-	template<typename valueType> static void setValue(Value& valueTarget, const void* pValueBuffer, const long& nElements);
-	// Set alarm metadata in the given return value
-	static void setAlarmMetadata(Value& value, const Metadata& metadata);
-	// Set timestamp metadata in the given return value
-	static void setTimestampMetadata(Value& value, const Metadata& metadata);
-	// Set display metadata in the given return value
-	static void setDisplayMetadata(Value& value, const Metadata& metadata);
-	// Set control metadata in the given return value
-	static void setControlMetadata(Value& value, const Metadata& metadata);
-	// Set alarm limit metadata in the given return value
-	static void setAlarmLimitMetadata(Value& value, const Metadata& metadata);
+	// Get a return value from the given database value buffer
+	static void getValue(Value& valueTarget, const void* pValueBuffer);
+	// Get a return value from the given database value buffer
+	static void getValue(Value& valueTarget, const void* pValueBuffer, const long& nElements);
+	// Get a return value from the given database value buffer (templated)
+	template<typename valueType> static void getValue(Value& valueTarget, const void* pValueBuffer);
+	// Get a return value from the given database value buffer (templated)
+	template<typename valueType> static void getValue(Value& valueTarget, const void* pValueBuffer, const long& nElements);
+	// Get alarm metadata in the given return value
+	static void getAlarmMetadata(Value& value, const Metadata& metadata);
+	// Get timestamp metadata in the given return value
+	static void getTimestampMetadata(Value& value, const Metadata& metadata);
+	// Get display metadata in the given return value
+	static void getDisplayMetadata(Value& value, const Metadata& metadata);
+	// Get control metadata in the given return value
+	static void getControlMetadata(Value& value, const Metadata& metadata);
+	// Get alarm limit metadata in the given return value
+	static void getAlarmLimitMetadata(Value& value, const Metadata& metadata);
+
+	//////////////////////////////
+	// Set
+	//////////////////////////////
+	// Set the value into the given database value buffer
+	static void setBuffer(const Value& valueTarget, void* pValueBuffer);
+	// Set the value into the given database value buffer
+	static void setBuffer(const Value& valueTarget, void* pValueBuffer, long nElements);
+	// Set the value into the given database value buffer (templated)
+	template<typename valueType> static void setBuffer(const Value& valueTarget, void* pValueBuffer);
+	// Set the value into the given database value buffer (templated)
+	template<typename valueType> static void setBuffer(const Value& valueTarget, void* pValueBuffer, long nElements);
 
 	//////////////////////////////
 	// Common Utils
 	//////////////////////////////
-	// Utility function to get the corresponding database address structure given a pvName
-	static long nameToAddr(DBADDR* pdbAddress, const char* pvName);
 	// Utility function to get the TypeCode that the given database channel is configured for
 	static TypeCode getChannelValueType(const dbChannel* pChannel, bool errOnLinks = false);
-
+	// Get metadata from the given value buffer and deliver it in the given metadata buffer
+	static void getMetadata(void*& pValueBuffer, Metadata& metadata, bool forValues, bool forProperties);
 };
 
 } // pvxs

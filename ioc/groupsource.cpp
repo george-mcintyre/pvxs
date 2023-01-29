@@ -211,7 +211,7 @@ void GroupSource::onGet(IOCGroup& group, const std::function<void(Value&)>& retu
 		if (leafNode.valid()) {
 			try {
 				if (field.isMeta) {
-					IOCSource::onGet((std::shared_ptr<dbChannel>)field.channel,
+					IOCSource::get((std::shared_ptr<dbChannel>)field.channel,
 							leafNode, false,
 							true,
 							[&leafNode](Value& value) {
@@ -233,7 +233,7 @@ void GroupSource::onGet(IOCGroup& group, const std::function<void(Value&)>& retu
 								throw std::runtime_error(errorMessage);
 							});
 				} else if (!field.fieldName.empty()) {
-					IOCSource::onGet((std::shared_ptr<dbChannel>)field.channel,
+					IOCSource::get((std::shared_ptr<dbChannel>)field.channel,
 							leafNode, true,
 							false,
 							[&leafNode](Value& value) {

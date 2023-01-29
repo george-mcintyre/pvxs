@@ -14,31 +14,32 @@
 namespace pvxs {
 namespace ioc {
 
-void IOCSource::onGet(const std::shared_ptr<dbChannel>& channel,
-		const Value& valuePrototype, bool forValues, bool forProperties,
+/**
+ * IOC function that will get data from the database.  This will use the provided value prototype to determine the shape
+ * of the data to be returned (if it has a `value` subfield, it is a structure).  The provided channel
+ * is used to retrieve the data and the flags forValues and forProperties are used to determine whether to fetch
+ * values, properties or both from the database.
+ *
+ * When the data has been retrieved the provided returnFn is called with the value, otherwise the errorFn is called
+ * with the error text.
+ *
+ * @param channel the channel to get the data from
+ * @param valuePrototype the value prototype to use to determine the shape of the data
+ * @param forValues the flag to denote that value is to be retrieved from the database
+ * @param forProperties the flag to denote that properties are to be retrieved from the database
+ * @param returnFn the function to call when the data has been retrieved
+ * @param errorFn the function to call on errors
+ */
+void IOCSource::get(const std::shared_ptr<dbChannel>& channel,
+		const Value& valuePrototype, const bool forValues, const bool forProperties,
 		const std::function<void(Value&)>& returnFn, const std::function<void(const char*)>& errorFn) {
-	const char* pvName = channel->name;
 
-	epicsAny valueBuffer[100]; // value buffer to store the field we will get from the database.
+	epicsAny valueBuffer[MAX_RECEIVE_BUFFER_SIZE];      // value buffer to store the field we will get from the database.
 	void* pValueBuffer = &valueBuffer[0];
-	DBADDR dbAddress;   // Special struct for storing database addresses
-
-	// Convert pvName to a dbAddress
-	{
-		DBErrorMessage dbErrorMessage(nameToAddr(&dbAddress, pvName));
-		if (dbErrorMessage) {
-			errorFn(dbErrorMessage.c_str());
-			return;
-		}
-	}
-	if (dbAddress.precord->lset == nullptr) {
-		errorFn("pvName not specified in request");
-		return;
-	}
 
 	// Calculate number of elements to retrieve as lowest of actual number of elements and max number
 	// of elements we can store in the buffer we've allocated
-	auto nElements = (long)std::min((size_t)dbAddress.no_elements, sizeof(valueBuffer) / dbAddress.field_size);
+	auto nElements = (long)std::min((size_t)channel->addr.no_elements, sizeof(valueBuffer) / channel->addr.field_size);
 
 	// Get field value and all metadata
 	// Note that metadata will precede the value in the buffer and will be laid out in the order of the
@@ -55,14 +56,11 @@ void IOCSource::onGet(const std::shared_ptr<dbChannel>& channel,
 		throw std::runtime_error("call to get but neither values not properties requested");
 	}
 
-	{
-		DBErrorMessage dbErrorMessage(
-				dbGetField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, &options, &nElements,
-						nullptr));
-		if (dbErrorMessage) {
-			errorFn(dbErrorMessage.c_str());
-			return;
-		}
+	DBErrorMessage dbErrorMessage(dbGetField(&channel->addr, channel->addr.dbr_field_type,
+			pValueBuffer, &options, &nElements, nullptr));
+	if (dbErrorMessage) {
+		errorFn(dbErrorMessage.c_str());
+		return;
 	}
 
 	// Extract metadata
@@ -82,7 +80,7 @@ void IOCSource::onGet(const std::shared_ptr<dbChannel>& channel,
 	}
 
 	if (forValues) {
-		auto isEnum =dbAddress.dbr_field_type == DBR_ENUM;
+		auto isEnum = channel->addr.dbr_field_type == DBR_ENUM;
 		if (isEnum) {
 			valueTarget["index"] = *((uint16_t*)pValueBuffer);
 
@@ -93,22 +91,22 @@ void IOCSource::onGet(const std::shared_ptr<dbChannel>& channel,
 			}
 			valueTarget["choices"] = choices.freeze().castTo<const void>();
 		} else if (nElements == 1) {
-			setValue(valueTarget, pValueBuffer);
+			getValue(valueTarget, pValueBuffer);
 		} else {
-			setValue(valueTarget, pValueBuffer, nElements);
+			getValue(valueTarget, pValueBuffer, nElements);
 		}
 	}
 
-	if ( isCompound) {
+	if (isCompound) {
 		// Add metadata to response
-		setTimestampMetadata(value, metadata);
+		getTimestampMetadata(value, metadata);
 		if (forValues) {
-			setAlarmMetadata(value, metadata);
+			getAlarmMetadata(value, metadata);
 		}
 		if (forProperties) {
-			setDisplayMetadata(value, metadata);
-			setControlMetadata(value, metadata);
-			setAlarmLimitMetadata(value, metadata);
+			getDisplayMetadata(value, metadata);
+			getControlMetadata(value, metadata);
+			getAlarmLimitMetadata(value, metadata);
 		}
 	}
 
@@ -202,12 +200,12 @@ void IOCSource::getMetadata(void*& pValueBuffer, Metadata& metadata, bool forVal
  * @param valueTarget the value to set
  * @param pValueBuffer pointer to the database value buffer
  */
-void IOCSource::setValue(Value& valueTarget, const void* pValueBuffer) {
+void IOCSource::getValue(Value& valueTarget, const void* pValueBuffer) {
 	auto valueType(valueTarget.type());
 	if (valueType.code == TypeCode::String) {
 		valueTarget = ((const char*)pValueBuffer);
 	} else {
-		SwitchTypeCodeForTemplatedCall(valueType.code, setValue, (valueTarget, pValueBuffer));
+		SwitchTypeCodeForTemplatedCall(valueType.code, getValue, (valueTarget, pValueBuffer));
 	}
 }
 
@@ -218,12 +216,12 @@ void IOCSource::setValue(Value& valueTarget, const void* pValueBuffer) {
  * @param pValueBuffer the database value buffer
  * @param nElements the number of elements in the buffer
  */
-void IOCSource::setValue(Value& valueTarget, const void* pValueBuffer, const long& nElements) {
+void IOCSource::getValue(Value& valueTarget, const void* pValueBuffer, const long& nElements) {
 	auto valueType(valueTarget.type());
 	if (valueType.code == TypeCode::String) {
 		valueTarget = ((const char*)pValueBuffer);
 	} else {
-		SwitchTypeCodeForTemplatedCall(valueType.code, setValue, (valueTarget, pValueBuffer, nElements));
+		SwitchTypeCodeForTemplatedCall(valueType.code, getValue, (valueTarget, pValueBuffer, nElements));
 	}
 }
 
@@ -233,7 +231,7 @@ void IOCSource::setValue(Value& valueTarget, const void* pValueBuffer, const lon
  * @param metadata metadata containing alarm metadata
  * @param value the value to set metadata for
  */
-void IOCSource::setAlarmMetadata(Value& value, const Metadata& metadata) {
+void IOCSource::getAlarmMetadata(Value& value, const Metadata& metadata) {
 	checkedSetField(metadata.metadata.status, alarm.status);
 	checkedSetField(metadata.metadata.severity, alarm.severity);
 	checkedSetField(metadata.metadata.acks, alarm.acks);
@@ -247,7 +245,7 @@ void IOCSource::setAlarmMetadata(Value& value, const Metadata& metadata) {
  * @param metadata metadata containing timestamp metadata
  * @param value the value to set metadata for
  */
-void IOCSource::setTimestampMetadata(Value& value, const Metadata& metadata) {
+void IOCSource::getTimestampMetadata(Value& value, const Metadata& metadata) {
 	checkedSetField(metadata.metadata.time.secPastEpoch, timeStamp.secondsPastEpoch);
 	checkedSetField(metadata.metadata.time.nsec, timeStamp.nanoseconds);
 	checkedSetField(metadata.metadata.utag, timeStamp.userTag);
@@ -260,7 +258,7 @@ void IOCSource::setTimestampMetadata(Value& value, const Metadata& metadata) {
  * @param metadata metadata containing display metadata
  * @param value the value to set metadata for
  */
-void IOCSource::setDisplayMetadata(Value& value, const Metadata& metadata) {
+void IOCSource::getDisplayMetadata(Value& value, const Metadata& metadata) {
 	if (value["display"]) {
 		checkedSetDoubleField(metadata.graphicsDouble->lower_disp_limit, display.limitLow);
 		checkedSetDoubleField(metadata.graphicsDouble->upper_disp_limit, display.limitHigh);
@@ -277,7 +275,7 @@ void IOCSource::setDisplayMetadata(Value& value, const Metadata& metadata) {
  * @param metadata metadata containing control metadata
  * @param value the value to set metadata for
  */
-void IOCSource::setControlMetadata(Value& value, const Metadata& metadata) {
+void IOCSource::getControlMetadata(Value& value, const Metadata& metadata) {
 	if (value["control"]) {
 		checkedSetDoubleField(metadata.controlDouble->lower_ctrl_limit, control.limitLow);
 		checkedSetDoubleField(metadata.controlDouble->upper_ctrl_limit, control.limitHigh);
@@ -291,7 +289,7 @@ void IOCSource::setControlMetadata(Value& value, const Metadata& metadata) {
  * @param metadata metadata containing alarm limit metadata
  * @param value the value to set metadata for
  */
-void IOCSource::setAlarmLimitMetadata(Value& value, const Metadata& metadata) {
+void IOCSource::getAlarmLimitMetadata(Value& value, const Metadata& metadata) {
 	if (value["valueAlarm"]) {
 		checkedSetDoubleField(metadata.alarmDouble->lower_alarm_limit, valueAlarm.lowAlarmLimit);
 		checkedSetDoubleField(metadata.alarmDouble->lower_warning_limit, valueAlarm.lowWarningLimit);
@@ -313,7 +311,7 @@ void IOCSource::setAlarmLimitMetadata(Value& value, const Metadata& metadata) {
  * @param valueTarget the return value
  * @param pValueBuffer the pointer to the data containing the database data to store in the return value
  */
-template<typename valueType> void IOCSource::setValue(Value& valueTarget, const void* pValueBuffer) {
+template<typename valueType> void IOCSource::getValue(Value& valueTarget, const void* pValueBuffer) {
 	valueTarget = ((valueType*)pValueBuffer)[0];
 }
 
@@ -332,7 +330,7 @@ template<typename valueType> void IOCSource::setValue(Value& valueTarget, const 
  * @param nElements the number of elements in the array
  */
 template<typename valueType>
-void IOCSource::setValue(Value& valueTarget, const void* pValueBuffer, const long& nElements) {
+void IOCSource::getValue(Value& valueTarget, const void* pValueBuffer, const long& nElements) {
 	shared_array<valueType> values(nElements);
 	for (auto i = 0; i < nElements; i++) {
 		values[i] = ((valueType*)pValueBuffer)[i];
@@ -341,19 +339,52 @@ void IOCSource::setValue(Value& valueTarget, const void* pValueBuffer, const lon
 }
 
 /**
- * Utility function to get the corresponding database address structure given a pvName
+ * Get value into given database buffer
  *
- * @param pvName the pvName
- * @param pdbAddress pointer to the database address structure
- * @return status that can be decoded with DBErrMsg - 0 means success
+ * @param valueTarget the value to get
+ * @param pValueBuffer the database buffer to put it in
  */
-long IOCSource::nameToAddr(DBADDR* pdbAddress, const char* pvName) {
-	long status = dbNameToAddr(pvName, pdbAddress);
+void IOCSource::setBuffer(const Value& valueTarget, void* pValueBuffer) {
+	auto valueType(valueTarget.type());
+	if (valueType.code == TypeCode::String) {
+		auto strValue = valueTarget.as<std::string>();
+		auto len = MIN(strValue.length(), MAX_STRING_SIZE - 1);
 
-	if (status) {
-		printf("PV '%s' not found\n", pvName);
+		valueTarget.as<std::string>().copy((char*)pValueBuffer, len);
+		((char*)pValueBuffer)[len] = '\0';
+	} else {
+		SwitchTypeCodeForTemplatedCall(valueType.code, setBuffer, (valueTarget, pValueBuffer));
 	}
-	return status;
+}
+
+void IOCSource::setBuffer(const Value& valueTarget, void* pValueBuffer, long nElements) {
+	auto valueType(valueTarget.type());
+	if (valueType.code == TypeCode::StringA) {
+		char valueRef[20];
+		for (auto i = 0; i < nElements; i++) {
+			snprintf(valueRef, 20, "[%d]", i);
+			auto strValue = valueTarget[valueRef].as<std::string>();
+			auto len = MIN(strValue.length(), MAX_STRING_SIZE - 1);
+			strValue.copy((char*)pValueBuffer + MAX_STRING_SIZE * i, len);
+			((char*)pValueBuffer + MAX_STRING_SIZE * i)[len] = '\0';
+		}
+	} else {
+		SwitchTypeCodeForTemplatedCall(valueType.code, setBuffer, (valueTarget, pValueBuffer, nElements));
+	}
+}
+
+// Get the value into the given database value buffer (templated)
+template<typename valueType> void IOCSource::setBuffer(const Value& valueTarget, void* pValueBuffer) {
+	((valueType*)pValueBuffer)[0] = valueTarget.as<valueType>();
+}
+
+// Get the value into the given database value buffer (templated)
+template<typename valueType>
+void IOCSource::setBuffer(const Value& valueTarget, void* pValueBuffer, long nElements) {
+	auto valueArray = valueTarget.as<shared_array<const valueType>>();
+	for (auto i = 0; i < nElements; i++) {
+		((valueType*)pValueBuffer)[i] = valueArray[i];
+	}
 }
 
 } // pvxs
