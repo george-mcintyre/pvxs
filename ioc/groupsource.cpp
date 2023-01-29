@@ -119,59 +119,40 @@ void GroupSource::show(std::ostream& outputStream) {
  */
 void GroupSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& channelControl,
 		IOCGroup& group) {
-//	auto subscriptionContext(std::make_shared<GroupSourceSubscriptionCtx>(group));
+	auto subscriptionContext(std::make_shared<GroupSourceSubscriptionCtx>(group));
 
 	// Get and Put requests
 	channelControl->onOp([&](std::unique_ptr<server::ConnectOp>&& channelConnectOperation) {
-		// First stage for handling any request is to announce the channel type with a `connect()` call
-		// @note The type signalled here must match the eventual type returned by a pvxs get
-		channelConnectOperation->connect(group.valueTemplate);
-
-		// pvxs get
-		channelConnectOperation->onGet([&](std::unique_ptr<server::ExecOp>&& getOperation) {
-			onGet(group, getOperation);
-		});
-
-		// pvxs put
-		channelConnectOperation
-				->onPut([&](std::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
-//					onPut(group, putOperation, value);
-				});
+		onOp(group, std::move(channelConnectOperation));
 	});
-/*
 
-	// Subscription requests
-	// Shared ptr for one of captured vars below
-	subscriptionContext->prototype = valuePrototype.cloneEmpty();
-	channelControl
-			->onSubscribe([this, subscriptionContext](
-					std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
-				subscriptionContext->subscriptionControl = subscriptionOperation
-						->connect(subscriptionContext->prototype);
+	// TODO Subscription requests
+}
 
-				// Two subscription are made for pvxs
-				// first subscription is for Value changes
-				addSubscriptionEvent(Value, eventContext, subscriptionContext, DBE_VALUE | DBE_ALARM);
-				// second subscription is for Property changes
-				addSubscriptionEvent(Properties, eventContext, subscriptionContext, DBE_PROPERTY);
+/**
+ * Handler for the onOp event raised by pvxs Sources when they are started, in order to define the get and put handlers
+ * on a per source basis.
+ * This is called after the event has been intercepted and we add the group to the call.
+ *
+ * @param group the group to which the get/put operation pertains
+ * @param channelConnectOperation the channel connect operation object
+ */
+void GroupSource::onOp(IOCGroup& group,
+		std::unique_ptr<server::ConnectOp>&& channelConnectOperation) {// First stage for handling any request is to announce the channel type with a `connect()` call
+// @note The type signalled here must match the eventual type returned by a pvxs get
+	channelConnectOperation->connect(group.valueTemplate);
 
-				// If either fail to complete then raise an error (removes last ref to shared_ptr subscriptionContext)
-				if (!subscriptionContext->pValueEventSubscription
-						|| !subscriptionContext->pPropertiesEventSubscription) {
-					throw std::runtime_error("Failed to create db subscription");
-				}
+	// pvxs get
+	channelConnectOperation->onGet([&](std::__1::unique_ptr<server::ExecOp>&& getOperation) {
+		get(group, getOperation);
+	});
 
-				// If all goes well, Set up handlers for start and stop monitoring events
-				subscriptionContext->subscriptionControl->onStart([subscriptionContext](bool isStarting) {
-					if (isStarting) {
-						onStartSubscription(subscriptionContext);
-					} else {
-						onDisableSubscription(subscriptionContext);
-					}
-				});
+	// pvxs put
+	channelConnectOperation
+			->onPut([&](std::__1::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
+				// TODO put requests
+//					put(group, putOperation, value);
 			});
-*/
-
 }
 
 /**
@@ -180,8 +161,8 @@ void GroupSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::C
  * @param group the group to get
  * @param getOperation the current executing operation
  */
-void GroupSource::onGet(IOCGroup& group, std::unique_ptr<server::ExecOp>& getOperation) {
-	onGet(group, [&getOperation](Value& value) {
+void GroupSource::get(IOCGroup& group, std::unique_ptr<server::ExecOp>& getOperation) {
+	groupGet(group, [&getOperation](Value& value) {
 		getOperation->reply(value);
 	}, [&getOperation](const char* errorMessage) {
 		getOperation->error(errorMessage);
@@ -196,7 +177,7 @@ void GroupSource::onGet(IOCGroup& group, std::unique_ptr<server::ExecOp>& getOpe
  * @param returnFn function to call with the result
  * @param errorFn function to call on errors
  */
-void GroupSource::onGet(IOCGroup& group, const std::function<void(Value&)>& returnFn,
+void GroupSource::groupGet(IOCGroup& group, const std::function<void(Value&)>& returnFn,
 		const std::function<void(const char*)>& errorFn) {
 
 	// Make an empty value to return

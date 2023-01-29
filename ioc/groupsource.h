@@ -32,9 +32,10 @@ private:
 	static void
 	createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& channelControl, IOCGroup& group);
 
-	static void onGet(IOCGroup& group, std::unique_ptr<server::ExecOp>& getOperation);
-	static void onGet(IOCGroup& group, const std::function<void(Value&)>& returnFn,
+	static void get(IOCGroup& group, std::unique_ptr<server::ExecOp>& getOperation);
+	static void groupGet(IOCGroup& group, const std::function<void(Value&)>& returnFn,
 			const std::function<void(const char*)>& errorFn);
+	static void onOp(IOCGroup& group, std::unique_ptr<server::ConnectOp>&& channelConnectOperation);
 };
 
 } // ioc
