@@ -54,7 +54,7 @@ private:
 	//////////////////////////////
 	// Handler invoked when a peer sends data on a put
 	static void put(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& putOperation,
-			const Value& valuePrototype, const Value& value);
+			const Value& value);
 
 	//////////////////////////////
 	// Subscriptions

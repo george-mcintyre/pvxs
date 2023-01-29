@@ -36,6 +36,8 @@ private:
 	static void groupGet(IOCGroup& group, const std::function<void(Value&)>& returnFn,
 			const std::function<void(const char*)>& errorFn);
 	static void onOp(IOCGroup& group, std::unique_ptr<server::ConnectOp>&& channelConnectOperation);
+	static void putGroup(IOCGroup& group, std::unique_ptr<server::ExecOp>& putOperation, const Value& value);
+	static void put(const std::shared_ptr<dbChannel>& channel, const Value& value);
 };
 
 } // ioc

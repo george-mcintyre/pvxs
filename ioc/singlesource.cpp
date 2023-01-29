@@ -216,7 +216,7 @@ void SingleSource::onOp(const std::shared_ptr<dbChannel>& pChannel, const Value&
 	// Set up handler for put requests
 	channelConnectOperation
 			->onPut([pChannel, valuePrototype](std::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
-				put(pChannel, putOperation, valuePrototype, value);
+				put(pChannel, putOperation, value);
 			});
 }
 
@@ -225,11 +225,10 @@ void SingleSource::onOp(const std::shared_ptr<dbChannel>& pChannel, const Value&
  *
  * @param channel
  * @param putOperation
- * @param valuePrototype
  * @param value
  */
 void SingleSource::put(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& putOperation,
-		const Value& valuePrototype, const Value& value) {
+		const Value& value) {
 	epicsAny valueBuffer[100]; // value buffer to store the field we will get from the database.
 	void* pValueBuffer = &valueBuffer[0];
 	long nElements;     // number of elements - 1 for scalar or enum, more for arrays

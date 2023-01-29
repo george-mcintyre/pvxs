@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
         epicsEvent done;
         int ret=0;
 
-        auto op =ctxt.put(pvname)
+        auto op = ctxt.put(pvname, <#initializer#>)
                 .pvRequest(request)
                 .build([&values](Value&& prototype) -> Value {
                     auto val = std::move(prototype);

@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
         // attempt to change.
         // uses simple builder form to assign .value
 
-        ctxt.put(argv[1])
+	    ctxt.put(argv[1], <#initializer#>)
                 .set("value", current+1)
                 .exec()
                 ->wait(5.0);
@@ -77,7 +77,7 @@ int main(int argc, char* argv[])
         // change again.
         // use build() callback
 
-        auto op = ctxt.put(argv[1])
+        auto op = ctxt.put(argv[1], <#initializer#>)
                 // provide present value to build() callback.
                 .fetchPresent(true)
                 .build([](Value&& current) -> Value {
