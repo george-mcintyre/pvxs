@@ -58,22 +58,23 @@ public:
 	void parseDbConfig();
 	void resolveTriggers();
 	static void setFieldTypeDefinition(std::vector<Member>& groupMembers, const IOCGroupFieldName& fieldName,
-			std::vector<Member> leafMembers);
+			const std::vector<Member>& leafMembers);
 	static int yajlProcess(void* parserContext, const std::function<int(GroupProcessorContext*)>& pFunction);
 
 private:
-	static void addMembersForConfiguredFields(IOCGroup& group, const GroupPv& groupPv,
-			std::vector<Member>& groupMembersToAdd);
-	static void addMembersForAnyType(std::vector<Member>& groupMembers, IOCGroupField& groupField);
+	static void
+	addMembersForConfiguredFields(std::vector<Member>& groupMembers, IOCGroup& group, const GroupPv& groupPv);
+	static void addMembersForAnyType(std::vector<Member>& groupMembers, const IOCGroupField& groupField);
 	static void addMembersForMetaData(std::vector<Member>& groupMembers, const IOCGroupField& groupField);
-	static void addMembersForPlainType(std::vector<Member>& groupMembers, IOCGroupField& groupField,
-			dbChannel* pdbChannel);
-	static void addMembersForScalarType(std::vector<Member>& groupMembers, IOCGroupField& groupField,
-			dbChannel* pdbChannel);
-	static void addMembersForStructureType(std::vector<Member>& groupMembers, IOCGroupField& groupField);
-	static void configureFieldTriggers(GroupPv& groupPv, GroupPvField& groupPvField, Triggers& targets,
+	static void addMembersForPlainType(std::vector<Member>& groupMembers, const IOCGroupField& groupField,
+			const dbChannel* pdbChannel);
+	static void addMembersForScalarType(std::vector<Member>& groupMembers, const IOCGroupField& groupField,
+			const dbChannel* pdbChannel);
+	static void addMembersForStructureType(std::vector<Member>& groupMembers, const IOCGroupField& groupField);
+	static void configureFieldTriggers(GroupPvField& groupPvField, const GroupPv& groupPv,
+			const Triggers& targets, const std::string& groupName);
+	static void configureGroupFields(GroupPv& groupPv, const GroupConfig& groupConfig,
 			const std::string& groupName);
-	static void configureGroupFields(const GroupConfig& groupConfig, GroupPv& groupPv, const std::string& groupName);
 	static void configureGroupTriggers(GroupPv& groupPv, const std::string& groupName);
 	static void configureAtomicity(const GroupConfig& groupConfig, GroupPv& groupPv, const std::string& groupName);
 	void sortGroupFields();
@@ -87,7 +88,7 @@ private:
 	static int parserCallbackStartBlock(void* parserContext);
 	static int parserCallbackString(void* parserContext, const unsigned char* stringVal, size_t stringLen);
 	void parseConfigString(const char* jsonGroupDefinition, const char* dbRecordName = nullptr);
-	static void parseTriggerConfiguration(const GroupFieldConfig& fieldConfig, GroupPv& groupPv,
+	static void parseTriggerConfiguration(GroupPv& groupPv, const GroupFieldConfig& fieldConfig,
 			const std::string& fieldName);
 	static bool yajlParseHelper(std::istream& jsonGroupDefinitionStream, yajl_handle handle);
 };

@@ -145,7 +145,7 @@ const IOCGroupFieldNameComponent& IOCGroupFieldName::back() const {
 const IOCGroupFieldNameComponent& IOCGroupFieldName::operator[](size_t i) const {
 	return fieldNameComponents[i];
 }
-const std::string& IOCGroupFieldName::leafFieldName() {
+const std::string& IOCGroupFieldName::leafFieldName() const {
 	return fieldNameComponents[fieldNameComponents.size() - 1].name;
 }
 

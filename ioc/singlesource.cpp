@@ -78,9 +78,13 @@ void SingleSource::onCreate(std::unique_ptr<server::ChannelControl>&& channelCon
 	// Set up a shared pointer to the database channel and provide a deleter lambda for when it will eventually be deleted
 	std::shared_ptr<dbChannel> pChannel(pdbChannel, [](dbChannel* ch) { dbChannelDelete(ch); });
 
-	if (DBErrorMessage err = dbChannelOpen(pChannel.get())) {
-		log_debug_printf(_logname, "Error opening database channel for '%s: %s'\n", sourceName, err.c_str());
-		throw std::runtime_error(err.c_str());
+	{
+		DBErrorMessage dbErrorMessage(dbChannelOpen(pChannel.get()));
+		if (dbErrorMessage) {
+			log_debug_printf(_logname, "Error opening database channel for '%s: %s'\n", sourceName,
+					dbErrorMessage.c_str());
+			throw std::runtime_error(dbErrorMessage.c_str());
+		}
 	}
 
 	// Create callbacks for handling requests and channel subscriptions
@@ -303,10 +307,13 @@ void SingleSource::onPut(const std::shared_ptr<dbChannel>& channel, std::unique_
 	DBADDR dbAddress;   // Special struct for storing database addresses
 	long nElements;     // number of elements - 1 for scalar or enum, more for arrays
 
-	// Convert pvName to a dbAddress
-	if (DBErrorMessage err = IOCSource::nameToAddr(pvName, &dbAddress)) {
-		putOperation->error(err.c_str());
-		return;
+	{
+		// Convert pvName to a dbAddress
+		DBErrorMessage dbErrorMessage(IOCSource::nameToAddr(&dbAddress, pvName));
+		if (dbErrorMessage) {
+			putOperation->error(dbErrorMessage.c_str());
+			return;
+		}
 	}
 
 	if (dbAddress.precord->lset == nullptr) {
@@ -332,9 +339,12 @@ void SingleSource::onPut(const std::shared_ptr<dbChannel>& channel, std::unique_
 		setBuffer(valueTarget, pValueBuffer, nElements);
 	}
 
-	if (DBErrorMessage err = dbPutField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, nElements)) {
-		putOperation->error(err.c_str());
-		return;
+	{
+		DBErrorMessage dbErrorMessage(dbPutField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, nElements));
+		if (dbErrorMessage) {
+			putOperation->error(dbErrorMessage.c_str());
+			return;
+		}
 	}
 	putOperation->reply();
 }

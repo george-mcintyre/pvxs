@@ -6,6 +6,6 @@
 
 #include "dbeventcontextdeleter.h"
 
-void pvxs::ioc::DBEventContextDeleter::operator()(dbEventCtx eventContext) {
+void pvxs::ioc::DBEventContextDeleter::operator()(const dbEventCtx& eventContext) {
 	db_close_events(eventContext);
 }

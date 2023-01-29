@@ -19,8 +19,8 @@ class DBErrorMessage {
 	long status = 0;
 	char message[MAX_STRING_SIZE]{};
 public:
-	DBErrorMessage(long dbStatus = 0);
-	DBErrorMessage& operator=(long dbStatus);
+	explicit DBErrorMessage(const long& dbStatus = 0);
+	DBErrorMessage& operator=(const long& dbStatus);
 	explicit operator bool() const;
 	const char* c_str() const;
 };

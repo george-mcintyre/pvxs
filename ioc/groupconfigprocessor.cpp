@@ -125,7 +125,7 @@ void GroupConfigProcessor::configureGroups() {
 			}
 
 			// configure the group fields
-			configureGroupFields(groupConfig, currentGroup, groupName);
+			configureGroupFields(currentGroup, groupConfig, groupName);
 
 			if (groupConfig.atomic_set) {
 				configureAtomicity(groupConfig, currentGroup, groupName);
@@ -148,7 +148,7 @@ void GroupConfigProcessor::configureGroups() {
  * @param groupName the name of the group being configured
  * @return reference to the current group
  */
-void GroupConfigProcessor::configureGroupFields(const GroupConfig& groupConfig, GroupPv& groupPv,
+void GroupConfigProcessor::configureGroupFields(GroupPv& groupPv, const GroupConfig& groupConfig,
 		const std::string& groupName) {
 	for (auto&& fieldEntry: groupConfig.groupFields) {
 		const std::string& fieldName = fieldEntry.first;
@@ -171,7 +171,7 @@ void GroupConfigProcessor::configureGroupFields(const GroupConfig& groupConfig, 
 				currentField.channel.c_str());
 
 		if (!fieldConfig.trigger.empty()) {
-			parseTriggerConfiguration(fieldConfig, groupPv, fieldName);
+			parseTriggerConfiguration(groupPv, fieldConfig, fieldName);
 		}
 	}
 }
@@ -220,7 +220,7 @@ void GroupConfigProcessor::configureAtomicity(const GroupConfig& groupConfig, Gr
  * @param groupPv the group to update
  * @param fieldName the field name in the group
  */
-void GroupConfigProcessor::parseTriggerConfiguration(const GroupFieldConfig& fieldConfig, GroupPv& groupPv,
+void GroupConfigProcessor::parseTriggerConfiguration(GroupPv& groupPv, const GroupFieldConfig& fieldConfig,
 		const std::string& fieldName) {
 	assert(!fieldConfig.trigger.empty());
 	Triggers triggers;
@@ -293,7 +293,7 @@ void GroupConfigProcessor::configureGroupTriggers(GroupPv& groupPv, const std::s
 		log_debug_printf(_logname, "  pvxs trigger '%s.%s'  -> ", groupName.c_str(), field.c_str());
 
 		// For all of this trigger's targets
-		configureFieldTriggers(groupPv, currentField, targets, groupName);
+		configureFieldTriggers(currentField, groupPv, targets, groupName);
 		log_debug_printf(_logname, "%s\n", "");
 	}
 }
@@ -306,8 +306,8 @@ void GroupConfigProcessor::configureGroupTriggers(GroupPv& groupPv, const std::s
  * @param targets the field's trigger targets
  * @param groupName the name of the group
  */
-void GroupConfigProcessor::configureFieldTriggers(GroupPv& groupPv, GroupPvField& groupPvField,
-		Triggers& targets, const std::string& groupName) {
+void GroupConfigProcessor::configureFieldTriggers(GroupPvField& groupPvField, const GroupPv& groupPv,
+		const Triggers& targets, const std::string& groupName) {
 	for (auto&& target: targets) {
 		// If the target is star then map to all fields
 		if (target == "*") {
@@ -324,7 +324,7 @@ void GroupConfigProcessor::configureFieldTriggers(GroupPv& groupPv, GroupPvField
 						groupName.c_str(), target.c_str());
 				continue;
 			}
-			auto& targetMemberIndex = groupPv.fieldMap[target];
+			auto& targetMemberIndex = ((GroupPvFieldsMap&)groupPv.fieldMap)[target];
 			auto& targetMember = groupPv.fields[targetMemberIndex];
 
 			// And if it references a PV
@@ -439,7 +439,7 @@ void GroupConfigProcessor::initialiseGroupValueTemplates(IOCGroup& group, const 
 	});
 
 	// for each field add any required members to the list
-	addMembersForConfiguredFields(group, groupPv, groupMembersToAdd);
+	addMembersForConfiguredFields(groupMembersToAdd, group, groupPv);
 
 	// Add all the collected group members to the group type
 	TypeDef groupType(TypeCode::Struct, groupPv.structureId, {});
@@ -455,10 +455,10 @@ void GroupConfigProcessor::initialiseGroupValueTemplates(IOCGroup& group, const 
  *
  * @param group the given group
  * @param groupPv the source configuration group
- * @param groupMembersToAdd the vector to add members to
+ * @param groupMembers the vector to add members to
  */
-void GroupConfigProcessor::addMembersForConfiguredFields(IOCGroup& group, const GroupPv& groupPv,
-		std::vector<Member>& groupMembersToAdd) {
+void GroupConfigProcessor::addMembersForConfiguredFields(std::vector<Member>& groupMembers, IOCGroup& group,
+		const GroupPv& groupPv) {
 	for (auto& field: groupPv.fields) {
 		if (!field.channel.empty()) {
 			auto& groupField = group[field.name];
@@ -467,17 +467,17 @@ void GroupConfigProcessor::addMembersForConfiguredFields(IOCGroup& group, const 
 			auto pdbChannel = (std::__1::shared_ptr<dbChannel>)groupField.channel;
 			if (type == "meta") {
 				groupField.isMeta = true;
-				addMembersForMetaData(groupMembersToAdd, groupField);
+				addMembersForMetaData(groupMembers, groupField);
 			} else if (type == "proc") {
 				groupField.allowProc = true;
 			} else if (type.empty() || type == "scalar") {
-				addMembersForScalarType(groupMembersToAdd, groupField, pdbChannel.get());
+				addMembersForScalarType(groupMembers, groupField, pdbChannel.get());
 			} else if (type == "plain") {
-				addMembersForPlainType(groupMembersToAdd, groupField, pdbChannel.get());
+				addMembersForPlainType(groupMembers, groupField, pdbChannel.get());
 			} else if (type == "any") {
-				addMembersForAnyType(groupMembersToAdd, groupField);
+				addMembersForAnyType(groupMembers, groupField);
 			} else if (type == "structure") {
-				addMembersForStructureType(groupMembersToAdd, groupField);
+				addMembersForStructureType(groupMembers, groupField);
 			} else {
 				throw std::runtime_error(std::string("Unknown +type=") + type);
 			}
@@ -538,7 +538,7 @@ void GroupConfigProcessor::parseConfigString(const char* jsonGroupDefinition, co
  * @param keyLength the length of the key
  * @return non-zero if successful
  */
-int GroupConfigProcessor::parserCallbackKey(void* parserContext, const unsigned char* key, size_t keyLength) {
+int GroupConfigProcessor::parserCallbackKey(void* parserContext, const unsigned char* key, const size_t keyLength) {
 	return GroupConfigProcessor::yajlProcess(parserContext, [&key, &keyLength](GroupProcessorContext* self) {
 		if (keyLength == 0 && self->depth != 2) {
 			throw std::runtime_error("empty group or key name not allowed");
@@ -629,7 +629,7 @@ int GroupConfigProcessor::parserCallbackDouble(void* parserContext, double doubl
  * @param stringLen the string length
  * @return non-zero if successful
  */
-int GroupConfigProcessor::parserCallbackString(void* parserContext, const unsigned char* stringVal, size_t stringLen) {
+int GroupConfigProcessor::parserCallbackString(void* parserContext, const unsigned char* stringVal, const size_t stringLen) {
 	return GroupConfigProcessor::yajlProcess(parserContext, [&stringVal, &stringLen](GroupProcessorContext* self) {
 		std::string val((const char*)stringVal, stringLen);
 		auto value = pvxs::TypeDef(TypeCode::String).create();
@@ -724,8 +724,8 @@ void GroupConfigProcessor::checkForTrailingCommentsAtEnd(const std::string& line
  * @param groupField the group field used to determine the members to add and how to create them
  * @param pdbChannel the db channel to get information on what scalar type to create
  */
-void GroupConfigProcessor::addMembersForScalarType(std::vector<Member>& groupMembers, IOCGroupField& groupField,
-		dbChannel* pdbChannel) {
+void GroupConfigProcessor::addMembersForScalarType(std::vector<Member>& groupMembers, const IOCGroupField& groupField,
+		const dbChannel* pdbChannel) {
 	using namespace pvxs::members;
 	assert(!groupField.fieldName.empty()); // Must not call with empty field name
 
@@ -755,8 +755,8 @@ void GroupConfigProcessor::addMembersForScalarType(std::vector<Member>& groupMem
  * @param groupField the given group field
  * @param pdbChannel the channel used to get the type of the leaf member
  */
-void GroupConfigProcessor::addMembersForPlainType(std::vector<Member>& groupMembers, IOCGroupField& groupField,
-		dbChannel* pdbChannel) {
+void GroupConfigProcessor::addMembersForPlainType(std::vector<Member>& groupMembers, const IOCGroupField& groupField,
+		const dbChannel* pdbChannel) {
 	assert(!groupField.fieldName.empty()); // Must not call with empty field name
 
 	// Get the type for the leaf
@@ -774,7 +774,7 @@ void GroupConfigProcessor::addMembersForPlainType(std::vector<Member>& groupMemb
 * @param groupField the given group field
  */
 void GroupConfigProcessor::addMembersForAnyType(std::vector<Member>& groupMembers,
-		IOCGroupField& groupField) {
+		const IOCGroupField& groupField) {
 	assert(!groupField.fieldName.empty()); // Must not call with empty field name
 	TypeDef leaf(TypeCode::Any);
 	std::vector<Member> newScalarMembers({ leaf.as("") });
@@ -791,7 +791,7 @@ void GroupConfigProcessor::addMembersForAnyType(std::vector<Member>& groupMember
  * @param groupField the group field used to determine the members to add and how to create them
  */
 void GroupConfigProcessor::addMembersForStructureType(std::vector<Member>& groupMembers,
-		IOCGroupField& groupField) {
+		const IOCGroupField& groupField) {
 	using namespace pvxs::members;
 
 	std::vector<Member> newIdMembers(
@@ -850,7 +850,7 @@ void GroupConfigProcessor::addMembersForMetaData(std::vector<Member>& groupMembe
  */
 void GroupConfigProcessor::setFieldTypeDefinition(std::vector<Member>& groupMembers,
 		const IOCGroupFieldName& fieldName,
-		std::vector<Member> leafMembers) {
+		const std::vector<Member>& leafMembers) {
 	using namespace pvxs::members;
 
 	// Make up the full structure starting from the leaf

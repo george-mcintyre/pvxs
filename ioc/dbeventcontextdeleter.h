@@ -13,7 +13,7 @@ namespace pvxs {
 namespace ioc {
 class DBEventContextDeleter {
 public:
-	void operator()(dbEventCtx eventContext);
+	void operator()(const dbEventCtx& eventContext);
 };
 
 }

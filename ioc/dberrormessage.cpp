@@ -16,7 +16,7 @@ namespace ioc {
  *
  * @param dbStatus database command status code
  */
-DBErrorMessage::DBErrorMessage(long dbStatus) {
+DBErrorMessage::DBErrorMessage(const long& dbStatus) {
 	(*this) = dbStatus;
 }
 
@@ -26,7 +26,7 @@ DBErrorMessage::DBErrorMessage(long dbStatus) {
  * @param dbStatus database command status code
  * @return updated  DBErrorMessage object
  */
-DBErrorMessage& DBErrorMessage::operator=(long dbStatus) {
+DBErrorMessage& DBErrorMessage::operator=(const long& dbStatus) {
 	status = dbStatus;
 	if (!dbStatus) {
 		message[0] = '\0';

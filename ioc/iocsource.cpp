@@ -24,11 +24,13 @@ void IOCSource::onGet(const std::shared_ptr<dbChannel>& channel,
 	DBADDR dbAddress;   // Special struct for storing database addresses
 
 	// Convert pvName to a dbAddress
-	if (DBErrorMessage err = nameToAddr(pvName, &dbAddress)) {
-		errorFn(err.c_str());
-		return;
+	{
+		DBErrorMessage dbErrorMessage(nameToAddr(&dbAddress, pvName));
+		if (dbErrorMessage) {
+			errorFn(dbErrorMessage.c_str());
+			return;
+		}
 	}
-
 	if (dbAddress.precord->lset == nullptr) {
 		errorFn("pvName not specified in request");
 		return;
@@ -53,10 +55,14 @@ void IOCSource::onGet(const std::shared_ptr<dbChannel>& channel,
 		throw std::runtime_error("call to get but neither values not properties requested");
 	}
 
-	if (DBErrorMessage err = dbGetField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, &options, &nElements,
-			nullptr)) {
-		errorFn(err.c_str());
-		return;
+	{
+		DBErrorMessage dbErrorMessage(
+				dbGetField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, &options, &nElements,
+						nullptr));
+		if (dbErrorMessage) {
+			errorFn(dbErrorMessage.c_str());
+			return;
+		}
 	}
 
 	// Extract metadata
@@ -95,14 +101,14 @@ void IOCSource::onGet(const std::shared_ptr<dbChannel>& channel,
 
 	if ( isCompound) {
 		// Add metadata to response
-		setTimestampMetadata(metadata, value);
+		setTimestampMetadata(value, metadata);
 		if (forValues) {
-			setAlarmMetadata(metadata, value);
+			setAlarmMetadata(value, metadata);
 		}
 		if (forProperties) {
-			setDisplayMetadata(metadata, value);
-			setControlMetadata(metadata, value);
-			setAlarmLimitMetadata(metadata, value);
+			setDisplayMetadata(value, metadata);
+			setControlMetadata(value, metadata);
+			setAlarmLimitMetadata(value, metadata);
 		}
 	}
 
@@ -114,9 +120,10 @@ void IOCSource::onGet(const std::shared_ptr<dbChannel>& channel,
  * Utility function to get the TypeCode that the given database channel is configured for
  *
  * @param pChannel the pointer to the database channel to get the TypeCode for
+ * @param errOnLinks determines whether to throw an error on finding links, default no
  * @return the TypeCode that the channel is configured for
  */
-TypeCode IOCSource::getChannelValueType(const dbChannel* pChannel, bool errOnLinks) {
+TypeCode IOCSource::getChannelValueType(const dbChannel* pChannel, const bool errOnLinks) {
 	auto dbChannel(pChannel);
 	short dbrType(dbChannelFinalFieldType(dbChannel));
 	auto nFinalElements(dbChannelFinalElements(dbChannel));
@@ -195,7 +202,7 @@ void IOCSource::getMetadata(void*& pValueBuffer, Metadata& metadata, bool forVal
  * @param valueTarget the value to set
  * @param pValueBuffer pointer to the database value buffer
  */
-void IOCSource::setValue(Value& valueTarget, void* pValueBuffer) {
+void IOCSource::setValue(Value& valueTarget, const void* pValueBuffer) {
 	auto valueType(valueTarget.type());
 	if (valueType.code == TypeCode::String) {
 		valueTarget = ((const char*)pValueBuffer);
@@ -211,7 +218,7 @@ void IOCSource::setValue(Value& valueTarget, void* pValueBuffer) {
  * @param pValueBuffer the database value buffer
  * @param nElements the number of elements in the buffer
  */
-void IOCSource::setValue(Value& valueTarget, void* pValueBuffer, long nElements) {
+void IOCSource::setValue(Value& valueTarget, const void* pValueBuffer, const long& nElements) {
 	auto valueType(valueTarget.type());
 	if (valueType.code == TypeCode::String) {
 		valueTarget = ((const char*)pValueBuffer);
@@ -226,7 +233,7 @@ void IOCSource::setValue(Value& valueTarget, void* pValueBuffer, long nElements)
  * @param metadata metadata containing alarm metadata
  * @param value the value to set metadata for
  */
-void IOCSource::setAlarmMetadata(Metadata& metadata, Value& value) {
+void IOCSource::setAlarmMetadata(Value& value, const Metadata& metadata) {
 	checkedSetField(metadata.metadata.status, alarm.status);
 	checkedSetField(metadata.metadata.severity, alarm.severity);
 	checkedSetField(metadata.metadata.acks, alarm.acks);
@@ -240,7 +247,7 @@ void IOCSource::setAlarmMetadata(Metadata& metadata, Value& value) {
  * @param metadata metadata containing timestamp metadata
  * @param value the value to set metadata for
  */
-void IOCSource::setTimestampMetadata(Metadata& metadata, Value& value) {
+void IOCSource::setTimestampMetadata(Value& value, const Metadata& metadata) {
 	checkedSetField(metadata.metadata.time.secPastEpoch, timeStamp.secondsPastEpoch);
 	checkedSetField(metadata.metadata.time.nsec, timeStamp.nanoseconds);
 	checkedSetField(metadata.metadata.utag, timeStamp.userTag);
@@ -253,7 +260,7 @@ void IOCSource::setTimestampMetadata(Metadata& metadata, Value& value) {
  * @param metadata metadata containing display metadata
  * @param value the value to set metadata for
  */
-void IOCSource::setDisplayMetadata(Metadata& metadata, Value& value) {
+void IOCSource::setDisplayMetadata(Value& value, const Metadata& metadata) {
 	if (value["display"]) {
 		checkedSetDoubleField(metadata.graphicsDouble->lower_disp_limit, display.limitLow);
 		checkedSetDoubleField(metadata.graphicsDouble->upper_disp_limit, display.limitHigh);
@@ -270,7 +277,7 @@ void IOCSource::setDisplayMetadata(Metadata& metadata, Value& value) {
  * @param metadata metadata containing control metadata
  * @param value the value to set metadata for
  */
-void IOCSource::setControlMetadata(const Metadata& metadata, Value& value) {
+void IOCSource::setControlMetadata(Value& value, const Metadata& metadata) {
 	if (value["control"]) {
 		checkedSetDoubleField(metadata.controlDouble->lower_ctrl_limit, control.limitLow);
 		checkedSetDoubleField(metadata.controlDouble->upper_ctrl_limit, control.limitHigh);
@@ -284,7 +291,7 @@ void IOCSource::setControlMetadata(const Metadata& metadata, Value& value) {
  * @param metadata metadata containing alarm limit metadata
  * @param value the value to set metadata for
  */
-void IOCSource::setAlarmLimitMetadata(const Metadata& metadata, Value& value) {
+void IOCSource::setAlarmLimitMetadata(Value& value, const Metadata& metadata) {
 	if (value["valueAlarm"]) {
 		checkedSetDoubleField(metadata.alarmDouble->lower_alarm_limit, valueAlarm.lowAlarmLimit);
 		checkedSetDoubleField(metadata.alarmDouble->lower_warning_limit, valueAlarm.lowWarningLimit);
@@ -306,7 +313,7 @@ void IOCSource::setAlarmLimitMetadata(const Metadata& metadata, Value& value) {
  * @param valueTarget the return value
  * @param pValueBuffer the pointer to the data containing the database data to store in the return value
  */
-template<typename valueType> void IOCSource::setValue(Value& valueTarget, void* pValueBuffer) {
+template<typename valueType> void IOCSource::setValue(Value& valueTarget, const void* pValueBuffer) {
 	valueTarget = ((valueType*)pValueBuffer)[0];
 }
 
@@ -325,7 +332,7 @@ template<typename valueType> void IOCSource::setValue(Value& valueTarget, void* 
  * @param nElements the number of elements in the array
  */
 template<typename valueType>
-void IOCSource::setValue(Value& valueTarget, void* pValueBuffer, long nElements) {
+void IOCSource::setValue(Value& valueTarget, const void* pValueBuffer, const long& nElements) {
 	shared_array<valueType> values(nElements);
 	for (auto i = 0; i < nElements; i++) {
 		values[i] = ((valueType*)pValueBuffer)[i];
@@ -340,7 +347,7 @@ void IOCSource::setValue(Value& valueTarget, void* pValueBuffer, long nElements)
  * @param pdbAddress pointer to the database address structure
  * @return status that can be decoded with DBErrMsg - 0 means success
  */
-long IOCSource::nameToAddr(const char* pvName, DBADDR* pdbAddress) {
+long IOCSource::nameToAddr(DBADDR* pdbAddress, const char* pvName) {
 	long status = dbNameToAddr(pvName, pdbAddress);
 
 	if (status) {
