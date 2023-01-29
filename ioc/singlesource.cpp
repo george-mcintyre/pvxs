@@ -216,47 +216,13 @@ void SingleSource::onOp(const std::shared_ptr<dbChannel>& pChannel, const Value&
 	// Set up handler for put requests
 	channelConnectOperation
 			->onPut([pChannel, valuePrototype](std::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
-				put(pChannel, putOperation, value);
+				try {
+					IOCSource::put(pChannel, value);
+					putOperation->reply();
+				} catch (std::exception& e) {
+					putOperation->error(e.what());
+				}
 			});
-}
-
-/**
- * Handler invoked when a peer sends data on a PUT
- *
- * @param channel
- * @param putOperation
- * @param value
- */
-void SingleSource::put(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& putOperation,
-		const Value& value) {
-	epicsAny valueBuffer[100]; // value buffer to store the field we will get from the database.
-	void* pValueBuffer = &valueBuffer[0];
-	long nElements;     // number of elements - 1 for scalar or enum, more for arrays
-
-	// Calculate number of elements to save as lowest of actual number of elements and max number
-	// of elements we can store in the buffer we've allocated
-	nElements = MIN(channel->addr.no_elements, sizeof(valueBuffer) / channel->addr.field_size);
-
-	auto isCompound = value["value"].valid();
-	Value valueTarget = value;
-	if (isCompound) {
-		valueTarget = value["value"];
-	}
-
-	if (channel->addr.dbr_field_type == DBR_ENUM) {
-		*(uint16_t*)(pValueBuffer) = (valueTarget)["index"].as<uint16_t>();
-	} else if (nElements == 1) {
-		IOCSource::setBuffer(valueTarget, pValueBuffer);
-	} else {
-		IOCSource::setBuffer(valueTarget, pValueBuffer, nElements);
-	}
-
-	DBErrorMessage dbErrorMessage(dbPutField(&channel->addr, channel->addr.dbr_field_type, pValueBuffer, nElements));
-	if (dbErrorMessage) {
-		putOperation->error(dbErrorMessage.c_str());
-		return;
-	}
-	putOperation->reply();
 }
 
 /**

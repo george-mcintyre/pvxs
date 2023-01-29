@@ -171,7 +171,7 @@ void GroupSource::putGroup(IOCGroup& group, std::unique_ptr<server::ExecOp>& put
 			auto leafNode = field.findIn(value);
 
 			if (leafNode.valid()) {
-				put((std::shared_ptr<dbChannel>)field.channel, leafNode);
+				IOCSource::put((std::shared_ptr<dbChannel>)field.channel, leafNode);
 			}
 		} catch (std::exception& e) {
 			putOperation->error(e.what());
@@ -179,41 +179,6 @@ void GroupSource::putGroup(IOCGroup& group, std::unique_ptr<server::ExecOp>& put
 		}
 	}
 	putOperation->reply();
-}
-
-/**
- * Put a given value to the specified channel.  Throw an exception if there are any errors.
- *
- * @param channel
- * @param value
- */
-void GroupSource::put(const std::shared_ptr<dbChannel>& channel, const Value& value) {
-	epicsAny valueBuffer[100]; // value buffer to store the field we will get from the database.
-	void* pValueBuffer = &valueBuffer[0];
-	long nElements;     // number of elements - 1 for scalar or enum, more for arrays
-
-	// Calculate number of elements to save as lowest of actual number of elements and max number
-	// of elements we can store in the buffer we've allocated
-	nElements = MIN(channel->addr.no_elements, sizeof(valueBuffer) / channel->addr.field_size);
-
-	auto isCompound = value["value"].valid();
-	Value valueTarget = value;
-	if (isCompound) {
-		valueTarget = value["value"];
-	}
-
-	if (channel->addr.dbr_field_type == DBR_ENUM) {
-		*(uint16_t*)(pValueBuffer) = (valueTarget)["index"].as<uint16_t>();
-	} else if (nElements == 1) {
-		IOCSource::setBuffer(valueTarget, pValueBuffer);
-	} else {
-		IOCSource::setBuffer(valueTarget, pValueBuffer, nElements);
-	}
-
-	DBErrorMessage dbErrorMessage(dbPutField(&channel->addr, channel->addr.dbr_field_type, pValueBuffer, nElements));
-	if (dbErrorMessage) {
-		throw std::runtime_error(dbErrorMessage.c_str());
-	}
 }
 
 /**

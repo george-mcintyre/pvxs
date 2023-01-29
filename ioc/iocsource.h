@@ -23,6 +23,7 @@ public:
 	static void get(const std::shared_ptr<dbChannel>& channel,
 			const Value& valuePrototype, bool forValues, bool forProperties,
 			const std::function<void(Value&)>& returnFn, const std::function<void(const char*)>& errorFn);
+	static void put(const std::shared_ptr<dbChannel>& channel, const Value& value);
 
 	//////////////////////////////
 	// Get & Subscription

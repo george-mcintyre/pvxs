@@ -50,13 +50,6 @@ private:
 			const Value& valuePrototype);
 
 	//////////////////////////////
-	// Put
-	//////////////////////////////
-	// Handler invoked when a peer sends data on a put
-	static void put(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& putOperation,
-			const Value& value);
-
-	//////////////////////////////
 	// Subscriptions
 	//////////////////////////////
 	// Called when values are requested by a subscription
