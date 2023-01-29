@@ -29,13 +29,13 @@ public:
 	// Get & Subscription
 	//////////////////////////////
 	// Set a return value from the given database value buffer
-	static void setValue(Value& value, void* pValueBuffer);
+	static void setValue(Value& valueTarget, void* pValueBuffer);
 	// Set a return value from the given database value buffer
-	static void setValue(Value& value, void* pValueBuffer, long nElements);
+	static void setValue(Value& valueTarget, void* pValueBuffer, long nElements);
 	// Set a return value from the given database value buffer (templated)
-	template<typename valueType> static void setValue(Value& value, void* pValueBuffer);
+	template<typename valueType> static void setValue(Value& valueTarget, void* pValueBuffer);
 	// Set a return value from the given database value buffer (templated)
-	template<typename valueType> static void setValue(Value& value, void* pValueBuffer, long nElements);
+	template<typename valueType> static void setValue(Value& valueTarget, void* pValueBuffer, long nElements);
 	// Set alarm metadata in the given return value
 	static void setAlarmMetadata(Metadata& metadata, Value& value);
 	// Set timestamp metadata in the given return value

@@ -66,7 +66,7 @@ record("*", "$(user):aiExample") {
 record("*", "$(user):calcExample") {
   info(Q:group, {
     "$(user):structExample":{
-        "calc":{+type:"plain", +channel:"VAL", +putorder:1}
+        "calc":{+channel:"VAL", +putorder:1}
     }
   })
 }

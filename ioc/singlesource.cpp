@@ -318,12 +318,18 @@ void SingleSource::onPut(const std::shared_ptr<dbChannel>& channel, std::unique_
 	// of elements we can store in the buffer we've allocated
 	nElements = MIN(dbAddress.no_elements, sizeof(valueBuffer) / dbAddress.field_size);
 
+	auto isCompound = value["value"].valid();
+	Value valueTarget = value;
+	if (isCompound) {
+		valueTarget = value["value"];
+	}
+
 	if (dbAddress.dbr_field_type == DBR_ENUM) {
-		*(uint16_t*)(pValueBuffer) = (value)["value.index"].as<uint16_t>();
+		*(uint16_t*)(pValueBuffer) = (valueTarget)["index"].as<uint16_t>();
 	} else if (nElements == 1) {
-		setBuffer(value, pValueBuffer);
+		setBuffer(valueTarget, pValueBuffer);
 	} else {
-		setBuffer(value, pValueBuffer, nElements);
+		setBuffer(valueTarget, pValueBuffer, nElements);
 	}
 
 	if (DBErrorMessage err = dbPutField(&dbAddress, dbAddress.dbr_field_type, pValueBuffer, nElements)) {
@@ -336,50 +342,49 @@ void SingleSource::onPut(const std::shared_ptr<dbChannel>& channel, std::unique_
 /**
  * Get value into given database buffer
  *
- * @param value the value to get
+ * @param valueTarget the value to get
  * @param pValueBuffer the database buffer to put it in
  */
-void SingleSource::setBuffer(const Value& value, void* pValueBuffer) {
-	auto valueType(value["value"].type());
+void SingleSource::setBuffer(const Value& valueTarget, void* pValueBuffer) {
+	auto valueType(valueTarget.type());
 	if (valueType.code == TypeCode::String) {
-		auto strValue = value["value"].as<std::string>();
+		auto strValue = valueTarget.as<std::string>();
 		auto len = MIN(strValue.length(), MAX_STRING_SIZE - 1);
 
-		value["value"].as<std::string>().copy((char*)pValueBuffer, len);
+		valueTarget.as<std::string>().copy((char*)pValueBuffer, len);
 		((char*)pValueBuffer)[len] = '\0';
 	} else {
-		SwitchTypeCodeForTemplatedCall(valueType.code, setBuffer, (value, pValueBuffer));
+		SwitchTypeCodeForTemplatedCall(valueType.code, setBuffer, (valueTarget, pValueBuffer));
 	}
 }
 
-void SingleSource::setBuffer(const Value& value, void* pValueBuffer, long nElements) {
-	auto valueType(value["value"].type());
+void SingleSource::setBuffer(const Value& valueTarget, void* pValueBuffer, long nElements) {
+	auto valueType(valueTarget.type());
 	if (valueType.code == TypeCode::StringA) {
 		char valueRef[20];
 		for (auto i = 0; i < nElements; i++) {
-			snprintf(valueRef, 20, "value[%d]", i);
-			auto strValue = value[valueRef].as<std::string>();
+			snprintf(valueRef, 20, "[%d]", i);
+			auto strValue = valueTarget[valueRef].as<std::string>();
 			auto len = MIN(strValue.length(), MAX_STRING_SIZE - 1);
 			strValue.copy((char*)pValueBuffer + MAX_STRING_SIZE * i, len);
 			((char*)pValueBuffer + MAX_STRING_SIZE * i)[len] = '\0';
 		}
 	} else {
-		SwitchTypeCodeForTemplatedCall(valueType.code, setBuffer, (value, pValueBuffer, nElements));
+		SwitchTypeCodeForTemplatedCall(valueType.code, setBuffer, (valueTarget, pValueBuffer, nElements));
 	}
 }
 
 // Get the value into the given database value buffer (templated)
-template<typename valueType> void SingleSource::setBuffer(const Value& value, void* pValueBuffer) {
-	((valueType*)pValueBuffer)[0] = value["value"].as<valueType>();
+template<typename valueType> void SingleSource::setBuffer(const Value& valueTarget, void* pValueBuffer) {
+	((valueType*)pValueBuffer)[0] = valueTarget.as<valueType>();
 }
 
 // Get the value into the given database value buffer (templated)
-template<typename valueType> void SingleSource::setBuffer(const Value& value, void* pValueBuffer, long nElements) {
-	char valueRef[20];
-	// auto s = value.as<shared_array<const valueType>>();
+template<typename valueType>
+void SingleSource::setBuffer(const Value& valueTarget, void* pValueBuffer, long nElements) {
+	auto valueArray = valueTarget.as<shared_array<const valueType>>();
 	for (auto i = 0; i < nElements; i++) {
-		snprintf(valueRef, 20, "value[%d]", i);
-		((valueType*)pValueBuffer)[i] = value[valueRef].as<valueType>();
+		((valueType*)pValueBuffer)[i] = valueArray[i];
 	}
 }
 

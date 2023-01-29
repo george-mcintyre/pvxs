@@ -69,32 +69,41 @@ void IOCSource::onGet(const std::shared_ptr<dbChannel>& channel,
 
 	// If we're setting values then,
 	// based on whether it is an enum, scalar or array then call the appropriate setter
+	auto isCompound = value["value"].valid();
+	Value valueTarget = value;
+	if (isCompound) {
+		valueTarget = value["value"];
+	}
+
 	if (forValues) {
-		if (dbAddress.dbr_field_type == DBR_ENUM) {
-			value["value.index"] = *((uint16_t*)pValueBuffer);
+		auto isEnum =dbAddress.dbr_field_type == DBR_ENUM;
+		if (isEnum) {
+			valueTarget["index"] = *((uint16_t*)pValueBuffer);
 
 			// TODO Don't output choices for subscriptions unless changed
 			shared_array<std::string> choices(metadata.enumStrings->no_str);
 			for (epicsUInt32 i = 0; i < metadata.enumStrings->no_str; i++) {
 				choices[i] = metadata.enumStrings->strs[i];
 			}
-			value["value.choices"] = choices.freeze().castTo<const void>();
+			valueTarget["choices"] = choices.freeze().castTo<const void>();
 		} else if (nElements == 1) {
-			setValue(value, pValueBuffer);
+			setValue(valueTarget, pValueBuffer);
 		} else {
-			setValue(value, pValueBuffer, nElements);
+			setValue(valueTarget, pValueBuffer, nElements);
 		}
 	}
 
-	// Add metadata to response
-	setTimestampMetadata(metadata, value);
-	if (forValues) {
-		setAlarmMetadata(metadata, value);
-	}
-	if (forProperties) {
-		setDisplayMetadata(metadata, value);
-		setControlMetadata(metadata, value);
-		setAlarmLimitMetadata(metadata, value);
+	if ( isCompound) {
+		// Add metadata to response
+		setTimestampMetadata(metadata, value);
+		if (forValues) {
+			setAlarmMetadata(metadata, value);
+		}
+		if (forProperties) {
+			setDisplayMetadata(metadata, value);
+			setControlMetadata(metadata, value);
+			setAlarmLimitMetadata(metadata, value);
+		}
 	}
 
 	// Send reply
@@ -183,31 +192,31 @@ void IOCSource::getMetadata(void*& pValueBuffer, Metadata& metadata, bool forVal
 /**
  * Set a return value from the given database value buffer
  *
- * @param value the value to set
+ * @param valueTarget the value to set
  * @param pValueBuffer pointer to the database value buffer
  */
-void IOCSource::setValue(Value& value, void* pValueBuffer) {
-	auto valueType(value["value"].type());
+void IOCSource::setValue(Value& valueTarget, void* pValueBuffer) {
+	auto valueType(valueTarget.type());
 	if (valueType.code == TypeCode::String) {
-		value["value"] = ((const char*)pValueBuffer);
+		valueTarget = ((const char*)pValueBuffer);
 	} else {
-		SwitchTypeCodeForTemplatedCall(valueType.code, setValue, (value, pValueBuffer));
+		SwitchTypeCodeForTemplatedCall(valueType.code, setValue, (valueTarget, pValueBuffer));
 	}
 }
 
 /**
  * Set a return value from the given database value buffer.  This is the array version of the function
  *
- * @param value the value to set
+ * @param valueTarget the value to set
  * @param pValueBuffer the database value buffer
  * @param nElements the number of elements in the buffer
  */
-void IOCSource::setValue(Value& value, void* pValueBuffer, long nElements) {
-	auto valueType(value["value"].type());
+void IOCSource::setValue(Value& valueTarget, void* pValueBuffer, long nElements) {
+	auto valueType(valueTarget.type());
 	if (valueType.code == TypeCode::String) {
-		value["value"] = ((const char*)pValueBuffer);
+		valueTarget = ((const char*)pValueBuffer);
 	} else {
-		SwitchTypeCodeForTemplatedCall(valueType.code, setValue, (value, pValueBuffer, nElements));
+		SwitchTypeCodeForTemplatedCall(valueType.code, setValue, (valueTarget, pValueBuffer, nElements));
 	}
 }
 
@@ -294,11 +303,11 @@ void IOCSource::setAlarmLimitMetadata(const Metadata& metadata, Value& value) {
  *   TypeCode::Float32 	TypeCode::Float64
  *
  * @tparam valueType the type of the scalar stored in the buffer.  One of the supported types
- * @param value the return value
+ * @param valueTarget the return value
  * @param pValueBuffer the pointer to the data containing the database data to store in the return value
  */
-template<typename valueType> void IOCSource::setValue(Value& value, void* pValueBuffer) {
-	value["value"] = ((valueType*)pValueBuffer)[0];
+template<typename valueType> void IOCSource::setValue(Value& valueTarget, void* pValueBuffer) {
+	valueTarget = ((valueType*)pValueBuffer)[0];
 }
 
 /**
@@ -311,17 +320,17 @@ template<typename valueType> void IOCSource::setValue(Value& value, void* pValue
  *   TypeCode::Float32 	TypeCode::Float64
  *
  * @tparam valueType the type of the scalars stored in this array.  One of the supported types
- * @param value the return value
+ * @param valueTarget the return value
  * @param pValueBuffer the pointer to the data containing the database data to store in the return value
  * @param nElements the number of elements in the array
  */
 template<typename valueType>
-void IOCSource::setValue(Value& value, void* pValueBuffer, long nElements) {
+void IOCSource::setValue(Value& valueTarget, void* pValueBuffer, long nElements) {
 	shared_array<valueType> values(nElements);
 	for (auto i = 0; i < nElements; i++) {
 		values[i] = ((valueType*)pValueBuffer)[i];
 	}
-	value["value"] = values.freeze().template castTo<const void>();
+	valueTarget = values.freeze().template castTo<const void>();
 }
 
 /**

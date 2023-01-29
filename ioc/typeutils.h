@@ -42,7 +42,7 @@ switch (_typeCode) {                               \
     default:                                              \
         std::stringstream errorString;                    \
         errorString << "Unsupported Type: " << TypeCode(_typeCode) ;     \
-        throw std::logic_error(errorString.str() );      \
+        /*throw std::logic_error(errorString.str() );*/      \
 }
 
 namespace pvxs {

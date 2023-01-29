@@ -233,12 +233,11 @@ void GroupSource::onGet(IOCGroup& group, const std::function<void(Value&)>& retu
 								throw std::runtime_error(errorMessage);
 							});
 				} else if (!field.fieldName.empty()) {
-					auto fieldName = field.name.c_str();
 					IOCSource::onGet((std::shared_ptr<dbChannel>)field.channel,
 							leafNode, true,
 							false,
 							[&leafNode](Value& value) {
-								leafNode.from(value);
+								leafNode.assign(value);
 							}, [](const char* errorMessage) {
 								throw std::runtime_error(errorMessage);
 							});

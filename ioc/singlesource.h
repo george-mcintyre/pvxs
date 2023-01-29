@@ -66,13 +66,13 @@ private:
 	static void onPut(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& putOperation,
 			const Value& valuePrototype, const Value& value);
 	// Set the value into the given database value buffer
-	static void setBuffer(const Value& value, void* pValueBuffer);
+	static void setBuffer(const Value& valueTarget, void* pValueBuffer);
 	// Set the value into the given database value buffer
-	static void setBuffer(const Value& value, void* pValueBuffer, long nElements);
+	static void setBuffer(const Value& valueTarget, void* pValueBuffer, long nElements);
 	// Set the value into the given database value buffer (templated)
-	template<typename valueType> static void setBuffer(const Value& value, void* pValueBuffer);
+	template<typename valueType> static void setBuffer(const Value& valueTarget, void* pValueBuffer);
 	// Set the value into the given database value buffer (templated)
-	template<typename valueType> static void setBuffer(const Value& value, void* pValueBuffer, long nElements);
+	template<typename valueType> static void setBuffer(const Value& valueTarget, void* pValueBuffer, long nElements);
 };
 
 } // ioc
