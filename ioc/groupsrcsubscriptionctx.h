@@ -15,15 +15,15 @@ namespace pvxs {
 namespace ioc {
 
 // TODO use correct template for subscription context
-class GroupSourceSubscriptionCtx : public SubscriptionCtx<std::shared_ptr<void>> {
-	IOCGroup& pGroup;
+class GroupSourceSubscriptionCtx : public SubscriptionCtx {
+	IOCGroup& group;
 
 public:
 	std::set<std::shared_ptr<dbChannel>> pValueChannels;
 	std::set<std::shared_ptr<dbChannel>> pPropertiesChannels;
 
-	explicit GroupSourceSubscriptionCtx(IOCGroup& group) : pGroup(group)  {
-		prototype = group.valueTemplate;
+	explicit GroupSourceSubscriptionCtx(IOCGroup& subscribedGroup) :group(subscribedGroup)  {
+		prototype = subscribedGroup.valueTemplate;
 	};
 };
 
