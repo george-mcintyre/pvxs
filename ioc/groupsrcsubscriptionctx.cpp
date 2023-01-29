@@ -4,28 +4,29 @@
  * in file LICENSE that is included with this distribution.
  */
 
+#include "groupsrcsubscriptionctx.h"
 namespace pvxs {
 namespace ioc {
 
-/*
-GroupSourceSubscriptionCtx::GroupSourceSubscriptionCtx(IOCGroup& group)
-		:pGroup(std::make_shared<IOCGroup>()) {
-	// Populate the pValueChannels with all the channels for fields in the group
-	for (auto& field: group.fields) {
-		if (field.channel->name) {
-			auto pDbChannel = std::shared_ptr<dbChannel>((dbChannel*)field.channel);
-			if (field.isMeta) {
-				pPropertiesChannels.insert(pDbChannel);
-			} else {
-				pValueChannels.insert(pDbChannel);
-			}
-		}
+GroupSourceSubscriptionCtx::GroupSourceSubscriptionCtx(IOCGroup& subscribedGroup, IOCGroupField& subscribedField)
+		:group(subscribedGroup), field(subscribedField), leafNode(field.findIn(prototype)) {
+	prototype = group.valueTemplate;
+
+	// values channel
+	auto& channel = field.channel;
+	pValueChannel = (std::shared_ptr<dbChannel>)channel;
+
+	// properties channel
+	pPropertiesChannel = std::shared_ptr<dbChannel>(dbChannelCreate(dbChannelName(pValueChannel)),
+			[](dbChannel* ch) {
+				if (ch) {
+					dbChannelDelete(ch);
+				}
+			});
+	if (pPropertiesChannel && dbChannelOpen(pValueChannel.get())) {
+		throw std::bad_alloc();
 	}
-
-	// Populate the
-
-}
-*/
+};
 
 } // pvxs
 } // ioc

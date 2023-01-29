@@ -33,20 +33,6 @@
         }                                                                          \
     })
 
-/**
- * Add a subscription event by calling db_add_event using the given subscriptionCtx
- * and selecting the correct elements based on the given type of event being added.
- * You need to specify the correct options that correspond to the event type.
- * Adds a deleter to clean up the subscription by calling db_cancel_event.
- *
- * @param _type the type of event being added.  `Value` or `Properties`
- * @param _eventContext the name of the dbEventCtx to use to add events
- * @param _subscriptionContext - The subscriptionCtx to use
- * @param _options the options. DBE_VALUE, DBE_ALARM, or DBE_PROPERTY or some combination
- */
- // TODO Define macro
-#define addGroupSubscriptionEvent(_type, _eventContext, _subscriptionContext, _options)
-
 namespace pvxs {
 namespace ioc {
 

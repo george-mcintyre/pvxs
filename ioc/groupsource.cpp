@@ -124,12 +124,16 @@ void GroupSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::C
 		onOp(group, std::move(channelConnectOperation));
 	});
 
-	// TODO Subscription requests
-	auto subscriptionContext(std::make_shared<GroupSourceSubscriptionCtx>(group));
-	channelControl
-			->onSubscribe([this,subscriptionContext](std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
-				onSubscribe(subscriptionContext, std::move(subscriptionOperation));
-			});
+	// Subscriptions - one db subscription per field
+	for ( auto& field: group.fields ) {
+		if ( field.channel->name != nullptr) {
+			auto subscriptionContext(std::make_shared<GroupSourceSubscriptionCtx>(group, field));
+			channelControl
+					->onSubscribe([this, subscriptionContext](std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
+						onSubscribe(subscriptionContext, std::move(subscriptionOperation));
+					});
+		}
+	}
 }
 
 /**
@@ -268,11 +272,11 @@ void GroupSource::onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>&
 	// inform peer of data type and acquire control of the subscription queue
 	subscriptionContext->subscriptionControl = subscriptionOperation->connect(subscriptionContext->prototype);
 
-	// Two subscription are made for pvxs
+	// Two subscription are made for each group channel for pvxs
 	// first subscription is for Value changes
-	addGroupSubscriptionEvent(Value, eventContext, subscriptionContext, DBE_VALUE | DBE_ALARM);
+	addSubscriptionEvent(Value, eventContext, subscriptionContext, DBE_VALUE | DBE_ALARM);
 	// second subscription is for Property changes
-	addGroupSubscriptionEvent(Properties, eventContext, subscriptionContext, DBE_PROPERTY);
+	addSubscriptionEvent(Properties, eventContext, subscriptionContext, DBE_PROPERTY);
 
 	// If either fail to complete then raise an error (removes last ref to shared_ptr subscriptionContext)
 	if (!subscriptionContext->pValueEventSubscription
@@ -356,18 +360,16 @@ void GroupSource::subscriptionCallback(GroupSourceSubscriptionCtx* subscriptionC
 		return;
 	}
 
-/*
 	// Get and return the value to the monitor
 	bool forValue = (subscriptionContext->pValueChannel.get() == pChannel);
 	auto pdbChannel = forValue ? subscriptionContext->pValueChannel : subscriptionContext->pPropertiesChannel;
-	IOCSource::get(pdbChannel, subscriptionContext->prototype, forValue, !forValue,
+	IOCSource::get(pdbChannel, subscriptionContext->leafNode, forValue, !forValue,
 			[subscriptionContext](Value& value) {
 				// Return value
 				subscriptionContext->subscriptionControl->tryPost(value);
 			}, [](const char* errorMessage) {
 				throw std::runtime_error(errorMessage);
 			});
-*/
 }
 
 /**
@@ -407,7 +409,6 @@ void GroupSource::subscriptionValueCallback(void* userArg, dbChannel* pChannel, 
 	}
 	subscriptionCallback(subscriptionContext, pChannel, eventsRemaining, pDbFieldLog);
 }
-
 
 } // ioc
 } // pvxs
