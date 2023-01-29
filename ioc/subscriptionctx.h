@@ -39,12 +39,13 @@ namespace ioc {
 /**
  * A subscription context
  */
+template<typename EventSubscription>
 class SubscriptionCtx {
 public:
 // For locking access to subscription context
 	epicsMutex eventLock{};
-	std::shared_ptr<void> pValueEventSubscription{};
-	std::shared_ptr<void> pPropertiesEventSubscription{};
+	EventSubscription pValueEventSubscription{};
+	EventSubscription pPropertiesEventSubscription{};
 	bool hadValueEvent = false;
 	bool hadPropertyEvent = false;
 	std::unique_ptr<server::MonitorControlOp> subscriptionControl{};
