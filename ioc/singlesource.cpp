@@ -11,7 +11,6 @@
 #include <pvxs/nt.h>
 #include <pvxs/log.h>
 
-#include <epicsTypes.h>
 #include <dbStaticLib.h>
 #include <dbAccess.h>
 #include <dbChannel.h>
@@ -169,16 +168,6 @@ Value SingleSource::getValuePrototype(const std::shared_ptr<dbChannel>& pChannel
 }
 
 /**
- * Called when a client pauses / stops a subscription it has been subscribed to
- *
- * @param pChannel the pointer to the database channel subscribed to
- */
-void SingleSource::onDisableSubscription(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext) {
-	db_event_disable(subscriptionContext->pValueEventSubscription.get());
-	db_event_disable(subscriptionContext->pPropertiesEventSubscription.get());
-}
-
-/**
  * Handle the get operation
  *
  * @param channel the channel that the request comes in on
@@ -192,6 +181,16 @@ void SingleSource::get(const std::shared_ptr<dbChannel>& channel, std::unique_pt
 	}, [&getOperation](const char* errorMessage) {
 		getOperation->error(errorMessage);
 	});
+}
+
+/**
+ * Called when a client pauses / stops a subscription it has been subscribed to
+ *
+ * @param pChannel the pointer to the database channel subscribed to
+ */
+void SingleSource::onDisableSubscription(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext) {
+	db_event_disable(subscriptionContext->pValueEventSubscription.get());
+	db_event_disable(subscriptionContext->pPropertiesEventSubscription.get());
 }
 
 /**
@@ -217,6 +216,7 @@ void SingleSource::onOp(const std::shared_ptr<dbChannel>& pChannel, const Value&
 	channelConnectOperation
 			->onPut([pChannel, valuePrototype](std::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
 				try {
+					// TODO locking
 					IOCSource::put(pChannel, value);
 					putOperation->reply();
 				} catch (std::exception& e) {

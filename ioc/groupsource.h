@@ -9,18 +9,13 @@
 
 #include "dbeventcontextdeleter.h"
 #include "iocserver.h"
+#include "groupsrcsubscriptionctx.h"
 
 namespace pvxs {
 namespace ioc {
 
 class GroupSource : public server::Source {
 public:
-	// List of all database records that this single source serves
-	List allRecords;
-
-	// The event context for all subscriptions
-	std::unique_ptr<std::remove_pointer<dbEventCtx>::type, DBEventContextDeleter> eventContext;
-
 	GroupSource();
 	void onCreate(std::unique_ptr<server::ChannelControl>&& channelControl) final;
 	List onList() final;
@@ -28,15 +23,42 @@ public:
 	void show(std::ostream& outputStream) final;
 
 private:
-	// Create request and subscription handlers for single record sources
-	static void
-	createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& channelControl, IOCGroup& group);
+	// List of all database records that this single source serves
+	List allRecords;
+	// The event context for all subscriptions
+	std::unique_ptr<std::remove_pointer<dbEventCtx>::type, DBEventContextDeleter> eventContext;
 
+	// Create request and subscription handlers for single record sources
+	void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& channelControl,
+			IOCGroup& group);
+	// Handles all get, put and subscribe requests
+	static void onOp(IOCGroup& group, std::unique_ptr<server::ConnectOp>&& channelConnectOperation);
+
+	//////////////////////////////
+	// Get
+	//////////////////////////////
 	static void get(IOCGroup& group, std::unique_ptr<server::ExecOp>& getOperation);
 	static void groupGet(IOCGroup& group, const std::function<void(Value&)>& returnFn,
 			const std::function<void(const char*)>& errorFn);
-	static void onOp(IOCGroup& group, std::unique_ptr<server::ConnectOp>&& channelConnectOperation);
+
+	//////////////////////////////
+	// Put
+	//////////////////////////////
 	static void putGroup(IOCGroup& group, std::unique_ptr<server::ExecOp>& putOperation, const Value& value);
+
+	//////////////////////////////
+	// Subscriptions
+	//////////////////////////////
+	// Called when values are requested by a subscription
+	void subscriptionValueCallback(void* userArg, dbChannel* pChannel, int eventsRemaining, db_field_log* pDbFieldLog);
+	void subscriptionPropertiesCallback(void* userArg, dbChannel* pChannel, int eventsRemaining, db_field_log* pDbFieldLog);
+	void subscriptionCallback(pvxs::ioc::GroupSourceSubscriptionCtx* subscriptionContext, dbChannel* pChannel,
+			int eventsRemaining, db_field_log* pDbFieldLog);
+	static void onDisableSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext);
+	static void onStartSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext);
+	void onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext,
+			std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) const;
+	static void onStart(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext, bool isStarting) ;
 };
 
 } // ioc

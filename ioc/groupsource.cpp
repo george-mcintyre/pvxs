@@ -15,7 +15,6 @@
 #include "iocshcommand.h"
 #include "groupsrcsubscriptionctx.h"
 #include "iocsource.h"
-#include "dberrormessage.h"
 
 namespace pvxs {
 namespace ioc {
@@ -120,65 +119,17 @@ void GroupSource::show(std::ostream& outputStream) {
  */
 void GroupSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& channelControl,
 		IOCGroup& group) {
-	auto subscriptionContext(std::make_shared<GroupSourceSubscriptionCtx>(group));
-
 	// Get and Put requests
 	channelControl->onOp([&](std::unique_ptr<server::ConnectOp>&& channelConnectOperation) {
 		onOp(group, std::move(channelConnectOperation));
 	});
 
 	// TODO Subscription requests
-}
-
-/**
- * Handler for the onOp event raised by pvxs Sources when they are started, in order to define the get and put handlers
- * on a per source basis.
- * This is called after the event has been intercepted and we add the group to the call.
- *
- * @param group the group to which the get/put operation pertains
- * @param channelConnectOperation the channel connect operation object
- */
-void GroupSource::onOp(IOCGroup& group,
-		std::unique_ptr<server::ConnectOp>&& channelConnectOperation) {// First stage for handling any request is to announce the channel type with a `connect()` call
-// @note The type signalled here must match the eventual type returned by a pvxs get
-	channelConnectOperation->connect(group.valueTemplate);
-
-	// pvxs get
-	channelConnectOperation->onGet([&](std::__1::unique_ptr<server::ExecOp>&& getOperation) {
-		get(group, getOperation);
-	});
-
-	// pvxs put
-	channelConnectOperation
-			->onPut([&](std::__1::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
-				putGroup(group, putOperation, value);
+	auto subscriptionContext(std::make_shared<GroupSourceSubscriptionCtx>(group));
+	channelControl
+			->onSubscribe([this,subscriptionContext](std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
+				onSubscribe(subscriptionContext, std::move(subscriptionOperation));
 			});
-}
-
-/**
- * Handler invoked when a peer sends data on a PUT
- *
- * @param group
- * @param putOperation
- * @param value
- */
-void GroupSource::putGroup(IOCGroup& group, std::unique_ptr<server::ExecOp>& putOperation, const Value& value) {
-	// Loop through all fields
-	// TODO putOrder
-	for (auto& field: group.fields) {
-		// find the leaf node in which to put the value
-		try {
-			auto leafNode = field.findIn(value);
-
-			if (leafNode.valid()) {
-				IOCSource::put((std::shared_ptr<dbChannel>)field.channel, leafNode);
-			}
-		} catch (std::exception& e) {
-			putOperation->error(e.what());
-			return;
-		}
-	}
-	putOperation->reply();
 }
 
 /**
@@ -269,6 +220,194 @@ void GroupSource::groupGet(IOCGroup& group, const std::function<void(Value&)>& r
 	// Send reply
 	returnFn(returnValue);
 }
+
+/**
+ * Called when a client pauses / stops a subscription it has been subscribed to
+ *
+ * @param pChannel the pointer to the database channel subscribed to
+ */
+void GroupSource::onDisableSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext) {
+	db_event_disable(subscriptionContext->pValueEventSubscription.get());
+	db_event_disable(subscriptionContext->pPropertiesEventSubscription.get());
+}
+
+/**
+ * Handler for the onOp event raised by pvxs Sources when they are started, in order to define the get and put handlers
+ * on a per source basis.
+ * This is called after the event has been intercepted and we add the group to the call.
+ *
+ * @param group the group to which the get/put operation pertains
+ * @param channelConnectOperation the channel connect operation object
+ */
+void GroupSource::onOp(IOCGroup& group,
+		std::unique_ptr<server::ConnectOp>&& channelConnectOperation) {// First stage for handling any request is to announce the channel type with a `connect()` call
+// @note The type signalled here must match the eventual type returned by a pvxs get
+	channelConnectOperation->connect(group.valueTemplate);
+
+	// pvxs get
+	channelConnectOperation->onGet([&](std::__1::unique_ptr<server::ExecOp>&& getOperation) {
+		get(group, getOperation);
+	});
+
+	// pvxs put
+	channelConnectOperation
+			->onPut([&](std::__1::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
+				putGroup(group, putOperation, value);
+			});
+}
+
+/**
+ * Called by the framework when a client subscribes to a channel.  We intercept the call before this function is called
+ * to add a new subscription context with a value prototype matching the channel definition.
+ *
+ * @param subscriptionContext a new subscription context with a value prototype matching the channel
+ * @param subscriptionOperation the channel subscription operation
+ */
+void GroupSource::onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext,
+		std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) const {
+	// inform peer of data type and acquire control of the subscription queue
+	subscriptionContext->subscriptionControl = subscriptionOperation->connect(subscriptionContext->prototype);
+
+	// Two subscription are made for pvxs
+	// first subscription is for Value changes
+	addGroupSubscriptionEvent(Value, eventContext, subscriptionContext, DBE_VALUE | DBE_ALARM);
+	// second subscription is for Property changes
+	addGroupSubscriptionEvent(Properties, eventContext, subscriptionContext, DBE_PROPERTY);
+
+	// If either fail to complete then raise an error (removes last ref to shared_ptr subscriptionContext)
+	if (!subscriptionContext->pValueEventSubscription
+			|| !subscriptionContext->pPropertiesEventSubscription) {
+		throw std::runtime_error("Failed to create db subscription");
+	}
+
+	// If all goes well, Set up handlers for start and stop monitoring events
+	subscriptionContext->subscriptionControl->onStart([&subscriptionContext](bool isStarting) {
+		onStart(subscriptionContext, isStarting);
+	});
+}
+
+/**
+ * Called by the framework when the monitoring client issues a start or stop subscription
+ *
+ * @param subscriptionContext the subscription context
+ * @param isStarting true if the client issued a start subscription request, false otherwise
+ */
+void GroupSource::onStart(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext, bool isStarting) {
+	if (isStarting) {
+		onStartSubscription(subscriptionContext);
+	} else {
+		onDisableSubscription(subscriptionContext);
+	}
+}
+
+/**
+ * Called when a client starts a subscription it has subscribed to
+ *
+ * @param pChannel the pointer to the database channel subscribed to
+ */
+void GroupSource::onStartSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext) {
+	db_event_enable(subscriptionContext->pValueEventSubscription.get());
+	db_event_enable(subscriptionContext->pPropertiesEventSubscription.get());
+	db_post_single_event(subscriptionContext->pValueEventSubscription.get());
+	db_post_single_event(subscriptionContext->pPropertiesEventSubscription.get());
+}
+
+/**
+ * Handler invoked when a peer sends data on a PUT
+ *
+ * @param group
+ * @param putOperation
+ * @param value
+ */
+void GroupSource::putGroup(IOCGroup& group, std::unique_ptr<server::ExecOp>& putOperation, const Value& value) {
+	// Loop through all fields
+	// TODO putOrder
+
+	for (auto& field: group.fields) {
+		// find the leaf node in which to put the value
+		try {
+			auto leafNode = field.findIn(value);
+
+			if (leafNode.valid()) {
+				// TODO set metadata
+				IOCSource::put((std::shared_ptr<dbChannel>)field.channel, leafNode);
+			}
+		} catch (std::exception& e) {
+			putOperation->error(e.what());
+			return;
+		}
+	}
+	putOperation->reply();
+}
+
+/**
+ * Used by both value and property subscriptions, this function will get and return the database value to the monitor.
+ *
+ * @param subscriptionContext the subscription context
+ * @param pChannel the channel to get the database value
+ * @param eventsRemaining the number of events remaining
+ * @param pDbFieldLog the database field log
+ */
+void GroupSource::subscriptionCallback(GroupSourceSubscriptionCtx* subscriptionContext, dbChannel* pChannel,
+		int eventsRemaining, struct db_field_log* pDbFieldLog) {
+	// Make sure that the initial subscription update has occurred on both channels before continuing
+	// As we make two initial updates when opening a new subscription, we need both to have completed before continuing
+	if (!subscriptionContext->hadValueEvent || !subscriptionContext->hadPropertyEvent) {
+		return;
+	}
+
+/*
+	// Get and return the value to the monitor
+	bool forValue = (subscriptionContext->pValueChannel.get() == pChannel);
+	auto pdbChannel = forValue ? subscriptionContext->pValueChannel : subscriptionContext->pPropertiesChannel;
+	IOCSource::get(pdbChannel, subscriptionContext->prototype, forValue, !forValue,
+			[subscriptionContext](Value& value) {
+				// Return value
+				subscriptionContext->subscriptionControl->tryPost(value);
+			}, [](const char* errorMessage) {
+				throw std::runtime_error(errorMessage);
+			});
+*/
+}
+
+/**
+ * This callback handles notifying of updates to subscribed-to pv properties.  The macro addSubscriptionEvent(...)
+ * creates the call to this function, so your IDE may mark it as unused (don't believe it :) )
+ *
+ * @param userArg the user argument passed to the callback function from the framework: the subscriptionContext
+ * @param group the group whose value has been updated
+ * @param eventsRemaining the remaining number of events to process
+ * @param pDbFieldLog the database field log containing the changes to notify
+ */
+void GroupSource::subscriptionPropertiesCallback(void* userArg, dbChannel* pChannel, int eventsRemaining,
+		struct db_field_log* pDbFieldLog) {
+	auto subscriptionContext = (GroupSourceSubscriptionCtx*)userArg;
+	{
+		epicsGuard<epicsMutex> G((subscriptionContext)->eventLock);
+		subscriptionContext->hadPropertyEvent = true;
+	}
+	subscriptionCallback(subscriptionContext, pChannel, eventsRemaining, pDbFieldLog);
+}
+
+/**
+ * This callback handles notifying of updates to subscribed-to pv values.  The macro addSubscriptionEvent(...)
+ * creates the call to this function, so your IDE may mark it as unused (don't believe it :) )
+ *
+ * @param userArg the user argument passed to the callback function from the framework: the subscriptionContext
+ * @param pChannel the group whose value has been updated
+ * @param eventsRemaining the remaining number of events to process
+ * @param pDbFieldLog the database field log containing the changes to notify
+ */
+void GroupSource::subscriptionValueCallback(void* userArg, dbChannel* pChannel, int eventsRemaining,
+		struct db_field_log* pDbFieldLog) {
+	auto subscriptionContext = (GroupSourceSubscriptionCtx*)userArg;
+	{
+		epicsGuard<epicsMutex> G((subscriptionContext)->eventLock);
+		subscriptionContext->hadValueEvent = true;
+	}
+	subscriptionCallback(subscriptionContext, pChannel, eventsRemaining, pDbFieldLog);
+}
+
 
 } // ioc
 } // pvxs

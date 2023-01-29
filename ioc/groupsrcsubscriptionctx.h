@@ -16,13 +16,14 @@ namespace ioc {
 
 // TODO use correct template for subscription context
 class GroupSourceSubscriptionCtx : public SubscriptionCtx<std::shared_ptr<void>> {
-	std::shared_ptr<IOCGroup> pGroup;
+	IOCGroup& pGroup;
 
 public:
 	std::set<std::shared_ptr<dbChannel>> pValueChannels;
 	std::set<std::shared_ptr<dbChannel>> pPropertiesChannels;
 
-	explicit GroupSourceSubscriptionCtx(IOCGroup& group) {
+	explicit GroupSourceSubscriptionCtx(IOCGroup& group) : pGroup(group)  {
+		prototype = group.valueTemplate;
 	};
 };
 
