@@ -285,7 +285,7 @@ void GroupSource::onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>&
 		subscriptionContext
 				->subscribeField(eventContext.get(), field, subscriptionValueCallback, DBE_VALUE | DBE_ALARM);
 		subscriptionContext
-				->subscribeField(eventContext.get(), field, subscriptionValueCallback, DBE_VALUE | DBE_ALARM, false);
+				->subscribeField(eventContext.get(), field, subscriptionPropertiesCallback, DBE_PROPERTY, false);
 	}
 
 	// If all goes well, Set up handlers for start and stop monitoring events
@@ -386,7 +386,9 @@ void GroupSource::subscriptionCallback(GroupSourceSubscriptionCtx* subscriptionC
 	IOCSource::get(sharedChannelPointer, leafNode, forValue, !forValue,
 			[&returnValue, &leafNode, &subscriptionContext](Value& value) {
 				// Return value
-				leafNode.assign(value);
+				if (value.valid()) {
+					leafNode.assign(value);
+				}
 				subscriptionContext->subscriptionControl->tryPost(returnValue);
 			}, [](const char* errorMessage) {
 				throw std::runtime_error(errorMessage);

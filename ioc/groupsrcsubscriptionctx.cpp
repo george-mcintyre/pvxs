@@ -33,6 +33,10 @@ void GroupSourceSubscriptionCtx::subscribeField(dbEventCtx eventContext, const I
 					db_cancel_event(pEventSubscription);
 				}
 			});
+
+	// Populate field map
+	fieldMap.insert({ pChannel.get(), field });
+
 	if (!pEventSubscription) {
 		throw std::runtime_error("Failed to create db subscription");
 	}
