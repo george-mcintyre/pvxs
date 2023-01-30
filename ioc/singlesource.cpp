@@ -176,7 +176,7 @@ Value SingleSource::getValuePrototype(const std::shared_ptr<dbChannel>& pChannel
  */
 void SingleSource::get(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& getOperation,
 		const Value& valuePrototype) {
-	IOCSource::get(channel, valuePrototype, true, true, [&getOperation](Value& value) {
+	IOCSource::get(channel, valuePrototype.cloneEmpty(), true, true, [&getOperation](Value& value) {
 		getOperation->reply(value);
 	}, [&getOperation](const char* errorMessage) {
 		getOperation->error(errorMessage);
@@ -300,7 +300,7 @@ void SingleSource::subscriptionCallback(SingleSourceSubscriptionCtx* subscriptio
 	// Get and return the value to the monitor
 	bool forValue = (subscriptionContext->pValueChannel.get() == pChannel);
 	auto pdbChannel = forValue ? subscriptionContext->pValueChannel : subscriptionContext->pPropertiesChannel;
-	IOCSource::get(pdbChannel, subscriptionContext->prototype, forValue, !forValue,
+	IOCSource::get(pdbChannel, subscriptionContext->prototype.cloneEmpty(), forValue, !forValue,
 			[subscriptionContext](Value& value) {
 				// Return value
 				subscriptionContext->subscriptionControl->tryPost(value);

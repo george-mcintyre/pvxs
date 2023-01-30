@@ -464,7 +464,7 @@ void GroupConfigProcessor::addMembersForConfiguredFields(std::vector<Member>& gr
 			auto& groupField = group[field.name];
 			auto& type = field.type;
 
-			auto pdbChannel = (std::__1::shared_ptr<dbChannel>)groupField.channel;
+			auto pdbChannel = (std::__1::shared_ptr<dbChannel>)groupField.valueChannel;
 			if (type == "meta") {
 				groupField.isMeta = true;
 				addMembersForMetaData(groupMembers, groupField);

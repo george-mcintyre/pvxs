@@ -124,14 +124,15 @@ void GroupSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::C
 		onOp(group, std::move(channelConnectOperation));
 	});
 
+	auto subscriptionContext(std::make_shared<GroupSourceSubscriptionCtx>(group));
+	channelControl
+			->onSubscribe([this, subscriptionContext](std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
+				onSubscribe(subscriptionContext, std::move(subscriptionOperation));
+			});
+
 	// Subscriptions - one db subscription per field
-	for ( auto& field: group.fields ) {
-		if ( field.channel->name != nullptr) {
-			auto subscriptionContext(std::make_shared<GroupSourceSubscriptionCtx>(group, field));
-			channelControl
-					->onSubscribe([this, subscriptionContext](std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
-						onSubscribe(subscriptionContext, std::move(subscriptionOperation));
-					});
+	for (auto& field: group.fields) {
+		if (field.valueChannel->name != nullptr) {
 		}
 	}
 }
@@ -173,7 +174,7 @@ void GroupSource::groupGet(IOCGroup& group, const std::function<void(Value&)>& r
 		if (leafNode.valid()) {
 			try {
 				if (field.isMeta) {
-					IOCSource::get((std::shared_ptr<dbChannel>)field.channel,
+					IOCSource::get((std::shared_ptr<dbChannel>)field.valueChannel,
 							leafNode, false,
 							true,
 							[&leafNode](Value& value) {
@@ -201,7 +202,7 @@ void GroupSource::groupGet(IOCGroup& group, const std::function<void(Value&)>& r
 								throw std::runtime_error(errorMessage);
 							});
 				} else if (!field.fieldName.empty()) {
-					IOCSource::get((std::shared_ptr<dbChannel>)field.channel,
+					IOCSource::get((std::shared_ptr<dbChannel>)field.valueChannel,
 							leafNode, true,
 							false,
 							[&leafNode](Value& value) {
@@ -231,8 +232,15 @@ void GroupSource::groupGet(IOCGroup& group, const std::function<void(Value&)>& r
  * @param pChannel the pointer to the database channel subscribed to
  */
 void GroupSource::onDisableSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext) {
-	db_event_disable(subscriptionContext->pValueEventSubscription.get());
-	db_event_disable(subscriptionContext->pPropertiesEventSubscription.get());
+	for (auto& pEventSubscriptionEntry: subscriptionContext->pValueEventSubscription) {
+		auto& pEventSubscription = pEventSubscriptionEntry.second;
+		db_event_disable(pEventSubscription.second.get());
+	}
+
+	for (auto& pEventSubscriptionEntry: subscriptionContext->pPropertiesEventSubscription) {
+		auto& pEventSubscription = pEventSubscriptionEntry.second;
+		db_event_disable(pEventSubscription.second.get());
+	}
 }
 
 /**
@@ -272,16 +280,12 @@ void GroupSource::onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>&
 	// inform peer of data type and acquire control of the subscription queue
 	subscriptionContext->subscriptionControl = subscriptionOperation->connect(subscriptionContext->prototype);
 
-	// Two subscription are made for each group channel for pvxs
-	// first subscription is for Value changes
-	addSubscriptionEvent(Value, eventContext, subscriptionContext, DBE_VALUE | DBE_ALARM);
-	// second subscription is for Property changes
-	addSubscriptionEvent(Properties, eventContext, subscriptionContext, DBE_PROPERTY);
-
-	// If either fail to complete then raise an error (removes last ref to shared_ptr subscriptionContext)
-	if (!subscriptionContext->pValueEventSubscription
-			|| !subscriptionContext->pPropertiesEventSubscription) {
-		throw std::runtime_error("Failed to create db subscription");
+	for (auto& field: subscriptionContext->group.fields) {
+		// Two subscription are made for each group channel for pvxs
+		subscriptionContext
+				->subscribeField(eventContext.get(), field, subscriptionValueCallback, DBE_VALUE | DBE_ALARM);
+		subscriptionContext
+				->subscribeField(eventContext.get(), field, subscriptionValueCallback, DBE_VALUE | DBE_ALARM, false);
 	}
 
 	// If all goes well, Set up handlers for start and stop monitoring events
@@ -310,10 +314,17 @@ void GroupSource::onStart(const std::shared_ptr<GroupSourceSubscriptionCtx>& sub
  * @param pChannel the pointer to the database channel subscribed to
  */
 void GroupSource::onStartSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext) {
-	db_event_enable(subscriptionContext->pValueEventSubscription.get());
-	db_event_enable(subscriptionContext->pPropertiesEventSubscription.get());
-	db_post_single_event(subscriptionContext->pValueEventSubscription.get());
-	db_post_single_event(subscriptionContext->pPropertiesEventSubscription.get());
+	for (auto& pEventSubscriptionEntry: subscriptionContext->pValueEventSubscription) {
+		auto& pEventSubscription = pEventSubscriptionEntry.second;
+		db_event_enable(pEventSubscription.second.get());
+		db_post_single_event(pEventSubscription.second.get());
+	}
+
+	for (auto& pEventSubscriptionEntry: subscriptionContext->pPropertiesEventSubscription) {
+		auto& pEventSubscription = pEventSubscriptionEntry.second;
+		db_event_enable(pEventSubscription.second.get());
+		db_post_single_event(pEventSubscription.second.get());
+	}
 }
 
 /**
@@ -334,7 +345,7 @@ void GroupSource::putGroup(IOCGroup& group, std::unique_ptr<server::ExecOp>& put
 
 			if (leafNode.valid()) {
 				// TODO set metadata
-				IOCSource::put((std::shared_ptr<dbChannel>)field.channel, leafNode);
+				IOCSource::put((std::shared_ptr<dbChannel>)field.valueChannel, leafNode);
 			}
 		} catch (std::exception& e) {
 			putOperation->error(e.what());
@@ -361,12 +372,22 @@ void GroupSource::subscriptionCallback(GroupSourceSubscriptionCtx* subscriptionC
 	}
 
 	// Get and return the value to the monitor
-	bool forValue = (subscriptionContext->pValueChannel.get() == pChannel);
-	auto pdbChannel = forValue ? subscriptionContext->pValueChannel : subscriptionContext->pPropertiesChannel;
-	IOCSource::get(pdbChannel, subscriptionContext->leafNode, forValue, !forValue,
-			[subscriptionContext](Value& value) {
+	bool forValue = subscriptionContext->pValueEventSubscription.count(pChannel) == 1;
+	auto& eventSubscriptionMap = forValue ? subscriptionContext->pValueEventSubscription
+	                                      : subscriptionContext->pPropertiesEventSubscription;
+	auto& sharedChannelPointer = eventSubscriptionMap[pChannel].first;
+	auto returnValue = subscriptionContext->prototype.cloneEmpty();
+	auto fieldMapEntry = subscriptionContext->fieldMap.find(pChannel);
+	if (fieldMapEntry == subscriptionContext->fieldMap.end()) {
+		throw std::runtime_error("Internal error: subscribed group channel, field not found");
+	}
+	// Find leaf node in return value so that if we assign it then return value will be updated
+	auto leafNode = fieldMapEntry->second.findIn(returnValue);
+	IOCSource::get(sharedChannelPointer, leafNode, forValue, !forValue,
+			[&returnValue, &leafNode, &subscriptionContext](Value& value) {
 				// Return value
-				subscriptionContext->subscriptionControl->tryPost(value);
+				leafNode.assign(value);
+				subscriptionContext->subscriptionControl->tryPost(returnValue);
 			}, [](const char* errorMessage) {
 				throw std::runtime_error(errorMessage);
 			});

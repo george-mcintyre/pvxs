@@ -69,7 +69,7 @@ void IOCSource::get(const std::shared_ptr<dbChannel>& channel,
 
 	// read out the value from the buffer
 	// Create a placeholder for the return value
-	auto value(valuePrototype.cloneEmpty());
+	auto value(valuePrototype);
 
 	// If we're setting values then,
 	// based on whether it is an enum, scalar or array then call the appropriate setter

@@ -25,7 +25,8 @@ private:
 public:
 	IOCGroupTriggers triggers;          // index in IOCGroup::fields
 	bool isMeta, allowProc;
-	IOCGroupChannel channel;
+	IOCGroupChannel valueChannel;
+	IOCGroupChannel propertiesChannel;  // Used only in subscriptions
 	IOCGroupFieldName fieldName;
 	std::string name;
 	std::string id; // For future structure functionality
@@ -33,7 +34,7 @@ public:
 	bool isArray;
 
 	IOCGroupField(const std::string& stringFieldName, const std::string& stringChannelName);
-	Value findIn(Value value);
+	Value findIn(Value value) const;
 };
 
 typedef std::vector<IOCGroupField> IOCGroupFields;

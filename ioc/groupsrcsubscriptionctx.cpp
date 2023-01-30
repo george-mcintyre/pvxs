@@ -4,27 +4,37 @@
  * in file LICENSE that is included with this distribution.
  */
 
+#include <functional>
+#include <unordered_set>
+
 #include "groupsrcsubscriptionctx.h"
 namespace pvxs {
 namespace ioc {
 
-GroupSourceSubscriptionCtx::GroupSourceSubscriptionCtx(IOCGroup& subscribedGroup, IOCGroupField& subscribedField)
-		:group(subscribedGroup), field(subscribedField), leafNode(field.findIn(prototype)) {
+GroupSourceSubscriptionCtx::GroupSourceSubscriptionCtx(const IOCGroup& subscribedGroup)
+		:group(subscribedGroup), fieldMap() {
 	prototype = group.valueTemplate;
-
-	// values channel
-	auto& channel = field.channel;
-	pValueChannel = (std::shared_ptr<dbChannel>)channel;
-
-	// properties channel
-	pPropertiesChannel = std::shared_ptr<dbChannel>(dbChannelCreate(dbChannelName(pValueChannel)),
-			[](dbChannel* ch) {
-				if (ch) {
-					dbChannelDelete(ch);
+}
+void GroupSourceSubscriptionCtx::subscribeField(dbEventCtx eventContext, const IOCGroupField& field,
+		EVENTFUNC* subscriptionValueCallback, unsigned int selectOptions, bool forValues) {
+	auto pChannel = ((std::shared_ptr<dbChannel>)(forValues ? field.valueChannel : field.propertiesChannel));
+	auto& pEventSubMap = forValues ? pValueEventSubscription[pChannel.get()] : pPropertiesEventSubscription[pChannel
+			.get()];
+	pEventSubMap.first = pChannel; // set the shared pointer
+	auto& pEventSubscription = pEventSubMap.second; // set the event subscription
+	pEventSubscription.reset(
+			db_add_event(
+					eventContext,
+					pChannel.get(),
+					subscriptionValueCallback,
+					this, selectOptions),
+			[](dbEventSubscription pEventSubscription) {
+				if (pEventSubscription) {
+					db_cancel_event(pEventSubscription);
 				}
 			});
-	if (pPropertiesChannel && dbChannelOpen(pValueChannel.get())) {
-		throw std::bad_alloc();
+	if (!pEventSubscription) {
+		throw std::runtime_error("Failed to create db subscription");
 	}
 };
 

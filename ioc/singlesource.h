@@ -31,7 +31,7 @@ private:
 	// List of all database records that this single source serves
 	List allRecords;
 	// The event context for all subscriptions
-	std::unique_ptr<std::remove_pointer<dbEventCtx>::type, DBEventContextDeleter> eventContext;
+	DBEventContext eventContext;
 
 	// Create request and subscription handlers for single record sources
 	void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>&& channelControl,

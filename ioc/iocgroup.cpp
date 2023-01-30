@@ -40,7 +40,7 @@ void IOCGroup::show(int level) const {
 					suffix = "<proc>";
 				}
 				field.fieldName.show(suffix);
-				printf(" <-> %s\n", dbChannelName(field.channel));
+				printf(" <-> %s\n", dbChannelName(field.valueChannel));
 			}
 		}
 	}

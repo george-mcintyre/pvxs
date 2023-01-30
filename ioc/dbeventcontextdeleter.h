@@ -7,6 +7,8 @@
 #ifndef PVXS_DBEVENTCONTEXTDELETER_H
 #define PVXS_DBEVENTCONTEXTDELETER_H
 
+#include <memory>
+#include <type_traits>
 #include <dbEvent.h>
 
 namespace pvxs {
@@ -15,6 +17,8 @@ class DBEventContextDeleter {
 public:
 	void operator()(const dbEventCtx& eventContext);
 };
+
+typedef std::unique_ptr<std::remove_pointer<dbEventCtx>::type, DBEventContextDeleter> DBEventContext;
 
 }
 }

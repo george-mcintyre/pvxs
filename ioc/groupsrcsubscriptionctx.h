@@ -7,23 +7,29 @@
 #ifndef PVXS_GROUPSRCSUBSCRIPTIONCTX_H
 #define PVXS_GROUPSRCSUBSCRIPTIONCTX_H
 
+#include <map>
 #include <pvxs/source.h>
 #include "iocgroup.h"
 #include "subscriptionctx.h"
+#include "dbeventcontextdeleter.h"
 
 namespace pvxs {
 namespace ioc {
 
-class GroupSourceSubscriptionCtx : public SubscriptionCtx {
-	IOCGroup& group;
-	IOCGroupField& field;
-
+class GroupSourceSubscriptionCtx : public SubscriptionCtx<std::map<dbChannel*,
+                                                                   std::pair<std::shared_ptr<dbChannel>,
+                                                                             std::shared_ptr<void>>>> {
 public:
-	std::shared_ptr<dbChannel> pValueChannel;
-	std::shared_ptr<dbChannel> pPropertiesChannel;
-	Value leafNode;
+	const IOCGroup& group;
+	std::map<dbChannel*, const IOCGroupField&> fieldMap;
 
-	explicit GroupSourceSubscriptionCtx(IOCGroup& group, IOCGroupField& field);
+	// Map channel to field index in group.fields
+	void subscribeField(dbEventCtx eventContext,
+			const IOCGroupField& field,
+			void (* subscriptionValueCallback)(void* userArg, dbChannel* pChannel, int eventsRemaining,
+					struct db_field_log* pDbFieldLog), unsigned selectOptions, bool forValues = true);
+
+	explicit GroupSourceSubscriptionCtx(const IOCGroup& group);
 };
 
 } // pvxs

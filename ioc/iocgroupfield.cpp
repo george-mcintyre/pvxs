@@ -18,7 +18,7 @@ namespace ioc {
  * @param stringChannelName the channel name
  */
 IOCGroupField::IOCGroupField(const std::string& stringFieldName, const std::string& stringChannelName)
-		:isMeta(false), allowProc(false), channel(stringChannelName),
+		:isMeta(false), allowProc(false), valueChannel(stringChannelName), propertiesChannel(stringChannelName),
 		 fieldName(stringFieldName), isArray(false) {
 	if (!fieldName.fieldNameComponents.empty()) {
 		name = fieldName.fieldNameComponents[0].name;
@@ -33,7 +33,7 @@ IOCGroupField::IOCGroupField(const std::string& stringFieldName, const std::stri
  * @param top the given value
  * @return the Value referenced by this field within the given value
  */
-Value IOCGroupField::findIn(Value value) {
+Value IOCGroupField::findIn(Value value) const {
 	if (!fieldName.empty()) {
 		for (const auto& component: fieldName.fieldNameComponents) {
 			value = value[component.name];
@@ -41,7 +41,7 @@ Value IOCGroupField::findIn(Value value) {
 				// Get required array capacity
 				auto index = component.index;
 				shared_array<const Value> constValueArray = value.as<shared_array<const Value>>();
-				value=shared_array<const Value>();
+				value = shared_array<const Value>();
 				shared_array<Value> valueArray(constValueArray.thaw());
 				auto size = valueArray.size();
 				if ((index + 1) > size) {

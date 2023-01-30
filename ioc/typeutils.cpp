@@ -42,13 +42,13 @@ TypeCode::code_t toTypeCode(dbfType databaseTypeCode) {
 	case DBF_DOUBLE:
 		return TypeCode::Float64;
 	case DBF_ENUM:
+	case DBF_MENU:
 		return TypeCode::Struct;
 	case DBF_STRING:
 	case DBF_INLINK:
 	case DBF_OUTLINK:
 	case DBF_FWDLINK:
 		return TypeCode::String;
-	case DBF_MENU: // TODO test on PINI fields, treat exactly as Enum for processing
 	case DBF_DEVICE:
 	case DBF_NOACCESS:
 	default:
