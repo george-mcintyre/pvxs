@@ -41,7 +41,7 @@ Value IOCGroupField::findIn(Value value) {
 				// Get required array capacity
 				auto index = component.index;
 				shared_array<const Value> constValueArray = value.as<shared_array<const Value>>();
-				// TODO clear value so that we don't do a copy
+				value=shared_array<const Value>();
 				shared_array<Value> valueArray(constValueArray.thaw());
 				auto size = valueArray.size();
 				if ((index + 1) > size) {

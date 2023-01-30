@@ -121,7 +121,8 @@ void IOCSource::get(const std::shared_ptr<dbChannel>& channel,
  * @param value
  */
 void IOCSource::put(const std::shared_ptr<dbChannel>& channel, const Value& value) {
-	epicsAny valueBuffer[100]; // value buffer to store the field we will get from the database.
+	// TODO remove fixed length array, make dynamic for non-scalars
+	epicsAny valueBuffer[MAX_RECEIVE_BUFFER_SIZE]; // value buffer to store the field we will get from the database.
 	void* pValueBuffer = &valueBuffer[0];
 	long nElements;     // number of elements - 1 for scalar or enum, more for arrays
 

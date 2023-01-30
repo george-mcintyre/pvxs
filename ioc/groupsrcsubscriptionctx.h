@@ -14,7 +14,6 @@
 namespace pvxs {
 namespace ioc {
 
-// TODO use correct template for subscription context
 class GroupSourceSubscriptionCtx : public SubscriptionCtx {
 	IOCGroup& group;
 	IOCGroupField& field;

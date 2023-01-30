@@ -48,7 +48,7 @@ TypeCode::code_t toTypeCode(dbfType databaseTypeCode) {
 	case DBF_OUTLINK:
 	case DBF_FWDLINK:
 		return TypeCode::String;
-	case DBF_MENU:
+	case DBF_MENU: // TODO test on PINI fields, treat exactly as Enum for processing
 	case DBF_DEVICE:
 	case DBF_NOACCESS:
 	default:
