@@ -25,7 +25,6 @@ SHRLIB_VERSION = $(PVXS_MAJOR_VERSION).$(PVXS_MINOR_VERSION)
 pvxsIoc_SRCS += iocserver.cpp
 pvxsIoc_SRCS += dbentry.cpp
 pvxsIoc_SRCS += dberrormessage.cpp
-pvxsIoc_SRCS += dblocker.cpp
 pvxsIoc_SRCS += dbmanylocker.cpp
 pvxsIoc_SRCS += dbeventcontextdeleter.cpp
 pvxsIoc_SRCS += groupconfigprocessor.cpp

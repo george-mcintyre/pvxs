@@ -1007,9 +1007,6 @@ void GroupConfigProcessor::initialiseDbLocker(IOCGroup& group) {
 		auto pPropertiesChannel = ((std::shared_ptr<dbChannel>)field.valueChannel).get();
 		group.valueChannels.push_back(pValueChannel->addr.precord);
 		group.propertiesChannels.push_back(pPropertiesChannel->addr.precord);
-
-		field.lock = DBLock(pValueChannel->addr.precord);
-		field.propertiesLock = DBLock(pPropertiesChannel->addr.precord);
 	}
 	group.lock = DBManyLock(group.valueChannels);
 	group.propertiesLock = DBManyLock(group.propertiesChannels);

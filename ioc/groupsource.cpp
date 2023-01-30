@@ -351,7 +351,7 @@ void GroupSource::putGroup(IOCGroup& group, std::unique_ptr<server::ExecOp>& put
 		} else {
 			// Loop through all fields
 			for (auto& field: group.fields) {
-				DBLocker F(field.lock);
+				DBLocker F(((std::shared_ptr<dbChannel>)field.valueChannel).get()->addr.precord);
 				putField(value, field);
 			}
 		}

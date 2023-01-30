@@ -15,30 +15,16 @@
 namespace pvxs {
 namespace ioc {
 
-class DBLock {
+class DBLocker {
 public:
-	dbLocker* pLocker;
-
-	DBLock();
-	explicit DBLock(dbCommon* channel, unsigned flags = 0);
-	~DBLock();
-	explicit operator dbLocker*() const;
-	DBLock(DBLock&& other) noexcept;
-	DBLock& operator=(DBLock&& other) noexcept;
-
-	DBLock(const DBLock&) = delete;
-	DBLock& operator=(const DBLock& other) = delete;
-};
-
-struct DBLocker {
-	const DBLock& lock;
-	explicit DBLocker(DBLock& L)
+	dbCommon* const lock;
+	explicit DBLocker(dbCommon* L)
 			:lock(L) {
-		dbScanLockMany(lock.pLocker);
+		dbScanLock(lock);
 	}
 
 	~DBLocker() {
-		dbScanUnlockMany(lock.pLocker);
+		dbScanUnlock(lock);
 	}
 };
 

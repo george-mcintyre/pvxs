@@ -217,8 +217,7 @@ void SingleSource::onOp(const std::shared_ptr<dbChannel>& pChannel, const Value&
 	channelConnectOperation
 			->onPut([pChannel, valuePrototype](std::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
 				try {
-					DBLock L(pChannel->addr.precord);
-					DBLocker F(L);
+					DBLocker F(pChannel->addr.precord);
 					IOCSource::put(pChannel, value);
 					putOperation->reply();
 				} catch (std::exception& e) {
