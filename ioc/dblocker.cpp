@@ -32,6 +32,7 @@ DBLock::DBLock(dbCommon* channel, unsigned int flags) {
 
 DBLock::~DBLock() {
 	if (pLocker) {
+		// TODO Why does this say that the memory was never allocated
 //		dbLockerFree(pLocker);
 		pLocker = nullptr;
 	}

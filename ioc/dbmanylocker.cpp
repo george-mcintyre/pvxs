@@ -32,6 +32,7 @@ DBManyLock::DBManyLock(const std::vector<dbCommon*>& channels, unsigned flags) {
 
 DBManyLock::~DBManyLock() {
 	if (pLocker) {
+		// TODO Why does this say that the memory was never allocated
 //		dbLockerFree(pLocker);
 		pLocker = nullptr;
 	}
