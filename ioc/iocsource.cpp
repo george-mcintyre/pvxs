@@ -33,13 +33,10 @@ namespace ioc {
 void IOCSource::get(const std::shared_ptr<dbChannel>& channel,
 		const Value& valuePrototype, const bool forValues, const bool forProperties,
 		const std::function<void(Value&)>& returnFn, const std::function<void(const char*)>& errorFn) {
-
-	epicsAny valueBuffer[MAX_RECEIVE_BUFFER_SIZE];      // value buffer to store the field we will get from the database.
+	// value buffer to store the field we will get from the database including metadata.
+	epicsAny valueBuffer[channel->addr.no_elements * channel->addr.field_size + MAX_METADATA_SIZE];
 	void* pValueBuffer = &valueBuffer[0];
-
-	// Calculate number of elements to retrieve as lowest of actual number of elements and max number
-	// of elements we can store in the buffer we've allocated
-	auto nElements = (long)std::min((size_t)channel->addr.no_elements, sizeof(valueBuffer) / channel->addr.field_size);
+	auto nElements = (long)channel->addr.no_elements;
 
 	// Get field value and all metadata
 	// Note that metadata will precede the value in the buffer and will be laid out in the order of the
@@ -121,8 +118,8 @@ void IOCSource::get(const std::shared_ptr<dbChannel>& channel,
  * @param value
  */
 void IOCSource::put(const std::shared_ptr<dbChannel>& channel, const Value& value) {
-	// TODO remove fixed length array, make dynamic for non-scalars
-	epicsAny valueBuffer[MAX_RECEIVE_BUFFER_SIZE]; // value buffer to store the field we will get from the database.
+	// value buffer to store the field we will get from the database including metadata.
+	epicsAny valueBuffer[channel->addr.no_elements * channel->addr.field_size + MAX_METADATA_SIZE];
 	void* pValueBuffer = &valueBuffer[0];
 	long nElements;     // number of elements - 1 for scalar or enum, more for arrays
 

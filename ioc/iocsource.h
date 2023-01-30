@@ -13,7 +13,8 @@
 #include "singlesrcsubscriptionctx.h"
 #include "metadata.h"
 
-#define MAX_RECEIVE_BUFFER_SIZE 100
+// Maximum amount of space that metadata can use in the buffer returned by dbGetField()
+#define MAX_METADATA_SIZE 100
 
 namespace pvxs {
 namespace ioc {
