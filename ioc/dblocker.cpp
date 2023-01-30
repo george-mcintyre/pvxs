@@ -7,6 +7,7 @@
 // Created on 30/01/2023.
 //
 
+#include <iostream>
 #include <vector>
 #include <dbCommon.h>
 #include "dblocker.h"
@@ -15,7 +16,6 @@ namespace pvxs {
 namespace ioc {
 DBLock::DBLock()
 		:pLocker(nullptr) {
-
 }
 
 DBLock::DBLock(dbCommon* channel, unsigned int flags) {
@@ -32,8 +32,7 @@ DBLock::DBLock(dbCommon* channel, unsigned int flags) {
 
 DBLock::~DBLock() {
 	if (pLocker) {
-		// TODO Why does this say that the memory was never allocated
-//		dbLockerFree(pLocker);
+		dbLockerFree(pLocker);
 		pLocker = nullptr;
 	}
 }
@@ -41,6 +40,20 @@ DBLock::~DBLock() {
 DBLock::operator dbLocker*() const {
 	return pLocker;
 }
+
+DBLock::DBLock(DBLock&& other) noexcept {
+	other.pLocker = nullptr;
+}
+
+DBLock& DBLock::operator=(DBLock&& other) noexcept {
+	if (pLocker) {
+		dbLockerFree(pLocker);
+	}
+	pLocker = other.pLocker;
+	other.pLocker = nullptr;
+	return *this;
+}
+//
 
 } // pvxs
 } // ioc

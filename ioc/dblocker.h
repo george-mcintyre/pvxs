@@ -20,14 +20,18 @@ public:
 	dbLocker* pLocker;
 
 	DBLock();
-	DBLock(const DBLock&) = default;
 	explicit DBLock(dbCommon* channel, unsigned flags = 0);
 	~DBLock();
 	explicit operator dbLocker*() const;
+	DBLock(DBLock&& other) noexcept;
+	DBLock& operator=(DBLock&& other) noexcept;
+
+	DBLock(const DBLock&) = delete;
+	DBLock& operator=(const DBLock& other) = delete;
 };
 
 struct DBLocker {
-	DBLock lock;
+	const DBLock& lock;
 	explicit DBLocker(DBLock& L)
 			:lock(L) {
 		dbScanLockMany(lock.pLocker);

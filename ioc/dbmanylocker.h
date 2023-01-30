@@ -21,17 +21,18 @@ public:
 	dbLocker* pLocker{};
 
 	DBManyLock();
-	DBManyLock& operator=(const DBManyLock& other) = default;
-	DBManyLock(DBManyLock& other) = default;
 	explicit DBManyLock(const std::vector<dbCommon*>& channels, unsigned flags = 0);
 	~DBManyLock();
 	explicit operator dbLocker*() const;
+	DBManyLock(DBManyLock&& other) noexcept;
+	DBManyLock& operator=(DBManyLock&& other) noexcept;
 
 	DBManyLock(const DBManyLock&) = delete;
+	DBManyLock& operator=(const DBManyLock& other) = delete;
 };
 
 struct DBManyLocker {
-	const DBManyLock lock;
+	const DBManyLock& lock;
 	explicit DBManyLocker(DBManyLock& L)
 			:lock(L) {
 		dbScanLockMany(lock.pLocker);
