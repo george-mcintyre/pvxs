@@ -114,17 +114,19 @@ int main(int argc, char *argv[])
         epicsEvent done;
         int ret=0;
 
-        auto op = ctxt.put(pvname, <#initializer#>)
-                .pvRequest(request)
-                .build([&values](Value&& prototype) -> Value {
-                    auto val = std::move(prototype);
-                    for(auto& pair : values) {
-                        try{
-                            val[pair.first] = pair.second;
-                        }catch(NoConvert& e){
-                            throw std::runtime_error(SB()<<"Unable to assign "<<pair.first<<" from \""<<escape(pair.second)<<"\"");
-                        }
-                    }
+        auto op = ctxt.put(pvname)
+		        .pvRequest(request)
+		        .build([&values](Value&& prototype) -> Value {
+			        auto val = std::move(prototype);
+			        for (auto& pair: values) {
+				        try {
+					        val[pair.first] = pair.second;
+				        } catch (NoConvert& e) {
+					        throw std::runtime_error(
+							        SB() << "Unable to assign " << pair.first << " from \"" << escape(pair.second)
+							             << "\"");
+				        }
+			        }
                     return val;
                 })
                 .result([&ret, &done](client::Result&& result) {

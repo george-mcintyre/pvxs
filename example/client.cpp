@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
         // attempt to change.
         // uses simple builder form to assign .value
 
-	    ctxt.put(argv[1], <#initializer#>)
+        ctxt.put(argv[1])
                 .set("value", current+1)
                 .exec()
                 ->wait(5.0);
@@ -77,16 +77,16 @@ int main(int argc, char* argv[])
         // change again.
         // use build() callback
 
-        auto op = ctxt.put(argv[1], <#initializer#>)
-                // provide present value to build() callback.
-                .fetchPresent(true)
-                .build([](Value&& current) -> Value {
-                    // allocate an empty container
-                    auto toput(current.cloneEmpty());
+	    auto op = ctxt.put(argv[1])
+					    // provide present value to build() callback.
+			    .fetchPresent(true)
+			    .build([](Value&& current) -> Value {
+				    // allocate an empty container
+				    auto toput(current.cloneEmpty());
 
-                    // fill in .value.
-                    // Assignment implicitly marks .value as changed
-                    toput["value"] = current["value"].as<int32_t>() + 1;
+				    // fill in .value.
+				    // Assignment implicitly marks .value as changed
+				    toput["value"] = current["value"].as<int32_t>() + 1;
 
                     // return the container to be sent
                     return toput;
