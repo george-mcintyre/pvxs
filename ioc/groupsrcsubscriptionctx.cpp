@@ -17,7 +17,7 @@ GroupSourceSubscriptionCtx::GroupSourceSubscriptionCtx(IOCGroup& subscribedGroup
 }
 void GroupSourceSubscriptionCtx::subscribeField(dbEventCtx eventContext, const IOCGroupField& field,
 		EVENTFUNC* subscriptionValueCallback, unsigned int selectOptions, bool forValues) {
-	auto pChannel = ((std::shared_ptr<dbChannel>)(forValues ? field.valueChannel : field.propertiesChannel));
+	auto& pChannel = (forValues ? field.valueChannel : field.propertiesChannel).ptr();
 	auto& pEventSubMap = forValues ? pValueEventSubscription[pChannel.get()] : pPropertiesEventSubscription[pChannel
 			.get()];
 	pEventSubMap.first = pChannel; // set the shared pointer

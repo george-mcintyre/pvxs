@@ -175,7 +175,7 @@ Value SingleSource::getValuePrototype(const std::shared_ptr<dbChannel>& pChannel
  * @param getOperation the current executing operation
  * @param valuePrototype a value prototype that is made based on the expected type to be returned
  */
-void SingleSource::get(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& getOperation,
+void SingleSource::get(dbChannel* channel, std::unique_ptr<server::ExecOp>& getOperation,
 		const Value& valuePrototype) {
 	IOCSource::get(channel, valuePrototype.cloneEmpty(), true, true, [&getOperation](Value& value) {
 		getOperation->reply(value);
@@ -210,7 +210,7 @@ void SingleSource::onOp(const std::shared_ptr<dbChannel>& pChannel, const Value&
 
 	// Set up handler for get requests
 	channelConnectOperation->onGet([pChannel, valuePrototype](std::unique_ptr<server::ExecOp>&& getOperation) {
-		get(pChannel, getOperation, valuePrototype);
+		get(pChannel.get(), getOperation, valuePrototype);
 	});
 
 	// Set up handler for put requests
@@ -218,7 +218,7 @@ void SingleSource::onOp(const std::shared_ptr<dbChannel>& pChannel, const Value&
 			->onPut([pChannel, valuePrototype](std::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
 				try {
 					DBLocker F(pChannel->addr.precord);
-					IOCSource::put(pChannel, value);
+					IOCSource::put(pChannel.get(), value);
 					putOperation->reply();
 				} catch (std::exception& e) {
 					putOperation->error(e.what());
@@ -300,8 +300,8 @@ void SingleSource::subscriptionCallback(SingleSourceSubscriptionCtx* subscriptio
 
 	// Get and return the value to the monitor
 	bool forValue = (subscriptionContext->pValueChannel.get() == pChannel);
-	auto pdbChannel = forValue ? subscriptionContext->pValueChannel : subscriptionContext->pPropertiesChannel;
-	IOCSource::get(pdbChannel, subscriptionContext->prototype.cloneEmpty(), forValue, !forValue,
+	auto& pdbChannel = forValue ? subscriptionContext->pValueChannel : subscriptionContext->pPropertiesChannel;
+	IOCSource::get(pdbChannel.get(), subscriptionContext->prototype.cloneEmpty(), forValue, !forValue,
 			[subscriptionContext](Value& value) {
 				// Return value
 				subscriptionContext->subscriptionControl->tryPost(value);

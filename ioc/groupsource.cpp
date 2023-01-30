@@ -126,6 +126,7 @@ void GroupSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::C
 		onOp(group, std::move(channelConnectOperation));
 	});
 
+	// TODO optimise context by making it a FieldContext that contains field and prototype but is long lived
 	auto subscriptionContext(std::make_shared<GroupSourceSubscriptionCtx>(group));
 	channelControl
 			->onSubscribe([this, subscriptionContext](std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
@@ -176,7 +177,7 @@ void GroupSource::groupGet(IOCGroup& group, const std::function<void(Value&)>& r
 		if (leafNode.valid()) {
 			try {
 				if (field.isMeta) {
-					IOCSource::get((std::shared_ptr<dbChannel>)field.valueChannel,
+					IOCSource::get((dbChannel*)field.valueChannel,
 							leafNode, false,
 							true,
 							[&leafNode](Value& value) {
@@ -204,7 +205,7 @@ void GroupSource::groupGet(IOCGroup& group, const std::function<void(Value&)>& r
 								throw std::runtime_error(errorMessage);
 							});
 				} else if (!field.fieldName.empty()) {
-					IOCSource::get((std::shared_ptr<dbChannel>)field.valueChannel,
+					IOCSource::get((dbChannel*)field.valueChannel,
 							leafNode, true,
 							false,
 							[&leafNode](Value& value) {
@@ -351,7 +352,7 @@ void GroupSource::putGroup(IOCGroup& group, std::unique_ptr<server::ExecOp>& put
 		} else {
 			// Loop through all fields
 			for (auto& field: group.fields) {
-				DBLocker F(((std::shared_ptr<dbChannel>)field.valueChannel).get()->addr.precord);
+				DBLocker F(((dbChannel*)field.valueChannel)->addr.precord);
 				putField(value, field);
 			}
 		}
@@ -368,7 +369,7 @@ GroupSource::putField(const Value& value, const IOCGroupField& field) {// find t
 
 	if (leafNode.valid()) {
 		// TODO set metadata
-		IOCSource::put((std::__1::shared_ptr<dbChannel>)field.valueChannel, leafNode);
+		IOCSource::put((dbChannel*)field.valueChannel, leafNode);
 	}
 }
 
@@ -394,7 +395,7 @@ void GroupSource::subscriptionCallback(GroupSourceSubscriptionCtx* subscriptionC
 	bool forValue = subscriptionContext->pValueEventSubscription.count(pChannel) == 1;
 	auto& eventSubscriptionMap = forValue ? subscriptionContext->pValueEventSubscription
 	                                      : subscriptionContext->pPropertiesEventSubscription;
-	auto& sharedChannelPointer = eventSubscriptionMap[pChannel].first;
+	auto pFinalChannel = eventSubscriptionMap[pChannel].first.get();
 	auto returnValue = subscriptionContext->prototype.cloneEmpty();
 	auto fieldMapEntry = subscriptionContext->fieldMap.find(pChannel);
 	if (fieldMapEntry == subscriptionContext->fieldMap.end()) {
@@ -404,7 +405,7 @@ void GroupSource::subscriptionCallback(GroupSourceSubscriptionCtx* subscriptionC
 		DBManyLocker G(subscriptionContext->group.lock);
 		// Find leaf node in return value so that if we assign it then return value will be updated
 		auto leafNode = fieldMapEntry->second.findIn(returnValue);
-		IOCSource::get(sharedChannelPointer, leafNode, forValue, !forValue,
+		IOCSource::get(pFinalChannel, leafNode, forValue, !forValue,
 				[&returnValue, &leafNode, &subscriptionContext](Value& value) {
 					// Return value
 					if (value.valid()) {

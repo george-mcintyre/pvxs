@@ -53,8 +53,8 @@ void IOCGroupChannel::prepare() {
  *
  * @return the pDbChannel member
  */
-IOCGroupChannel::operator std::shared_ptr<dbChannel>() const {
-	return pDbChannel;
+IOCGroupChannel::operator dbChannel*() const {
+	return pDbChannel.get();
 }
 
 /**

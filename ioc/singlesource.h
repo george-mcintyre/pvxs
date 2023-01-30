@@ -46,7 +46,7 @@ private:
 	// Get
 	//////////////////////////////
 	// Handle the get operation
-	static void get(const std::shared_ptr<dbChannel>& channel, std::unique_ptr<server::ExecOp>& getOperation,
+	static void get(dbChannel* channel, std::unique_ptr<server::ExecOp>& getOperation,
 			const Value& valuePrototype);
 
 	//////////////////////////////

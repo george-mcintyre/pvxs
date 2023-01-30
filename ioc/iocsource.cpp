@@ -23,20 +23,20 @@ namespace ioc {
  * When the data has been retrieved the provided returnFn is called with the value, otherwise the errorFn is called
  * with the error text.
  *
- * @param channel the channel to get the data from
+ * @param pChannel the channel to get the data from
  * @param valuePrototype the value prototype to use to determine the shape of the data
  * @param forValues the flag to denote that value is to be retrieved from the database
  * @param forProperties the flag to denote that properties are to be retrieved from the database
  * @param returnFn the function to call when the data has been retrieved
  * @param errorFn the function to call on errors
  */
-void IOCSource::get(const std::shared_ptr<dbChannel>& channel,
+void IOCSource::get(dbChannel* pChannel,
 		const Value& valuePrototype, const bool forValues, const bool forProperties,
 		const std::function<void(Value&)>& returnFn, const std::function<void(const char*)>& errorFn) {
 	// value buffer to store the field we will get from the database including metadata.
-	epicsAny valueBuffer[channel->addr.no_elements * channel->addr.field_size + MAX_METADATA_SIZE];
+	epicsAny valueBuffer[pChannel->addr.no_elements * pChannel->addr.field_size + MAX_METADATA_SIZE];
 	void* pValueBuffer = &valueBuffer[0];
-	auto nElements = (long)channel->addr.no_elements;
+	auto nElements = (long)pChannel->addr.no_elements;
 
 	// Get field value and all metadata
 	// Note that metadata will precede the value in the buffer and will be laid out in the order of the
@@ -53,7 +53,7 @@ void IOCSource::get(const std::shared_ptr<dbChannel>& channel,
 		throw std::runtime_error("call to get but neither values not properties requested");
 	}
 
-	DBErrorMessage dbErrorMessage(dbGetField(&channel->addr, channel->addr.dbr_field_type,
+	DBErrorMessage dbErrorMessage(dbGetField(&pChannel->addr, pChannel->addr.dbr_field_type,
 			pValueBuffer, &options, &nElements, nullptr));
 	if (dbErrorMessage) {
 		errorFn(dbErrorMessage.c_str());
@@ -77,7 +77,7 @@ void IOCSource::get(const std::shared_ptr<dbChannel>& channel,
 	}
 
 	if (forValues) {
-		auto isEnum = channel->addr.dbr_field_type == DBR_ENUM;
+		auto isEnum = pChannel->addr.dbr_field_type == DBR_ENUM;
 		if (isEnum) {
 			valueTarget["index"] = *((uint16_t*)pValueBuffer);
 
@@ -114,18 +114,18 @@ void IOCSource::get(const std::shared_ptr<dbChannel>& channel,
 /**
  * Put a given value to the specified channel.  Throw an exception if there are any errors.
  *
- * @param channel
+ * @param pChannel
  * @param value
  */
-void IOCSource::put(const std::shared_ptr<dbChannel>& channel, const Value& value) {
+void IOCSource::put(dbChannel* pChannel, const Value& value) {
 	// value buffer to store the field we will get from the database including metadata.
-	epicsAny valueBuffer[channel->addr.no_elements * channel->addr.field_size + MAX_METADATA_SIZE];
+	epicsAny valueBuffer[pChannel->addr.no_elements * pChannel->addr.field_size + MAX_METADATA_SIZE];
 	void* pValueBuffer = &valueBuffer[0];
 	long nElements;     // number of elements - 1 for scalar or enum, more for arrays
 
 	// Calculate number of elements to save as lowest of actual number of elements and max number
 	// of elements we can store in the buffer we've allocated
-	nElements = MIN(channel->addr.no_elements, sizeof(valueBuffer) / channel->addr.field_size);
+	nElements = MIN(pChannel->addr.no_elements, sizeof(valueBuffer) / pChannel->addr.field_size);
 
 	auto isCompound = value["value"].valid();
 	Value valueTarget = value;
@@ -133,7 +133,7 @@ void IOCSource::put(const std::shared_ptr<dbChannel>& channel, const Value& valu
 		valueTarget = value["value"];
 	}
 
-	if (channel->addr.dbr_field_type == DBR_ENUM) {
+	if (pChannel->addr.dbr_field_type == DBR_ENUM) {
 		*(uint16_t*)(pValueBuffer) = (valueTarget)["index"].as<uint16_t>();
 	} else if (nElements == 1) {
 		IOCSource::setBuffer(valueTarget, pValueBuffer);
@@ -141,7 +141,7 @@ void IOCSource::put(const std::shared_ptr<dbChannel>& channel, const Value& valu
 		IOCSource::setBuffer(valueTarget, pValueBuffer, nElements);
 	}
 
-	DBErrorMessage dbErrorMessage(dbPutField(&channel->addr, channel->addr.dbr_field_type, pValueBuffer, nElements));
+	DBErrorMessage dbErrorMessage(dbPutField(&pChannel->addr, pChannel->addr.dbr_field_type, pValueBuffer, nElements));
 	if (dbErrorMessage) {
 		throw std::runtime_error(dbErrorMessage.c_str());
 	}

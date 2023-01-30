@@ -466,16 +466,16 @@ void GroupConfigProcessor::addMembersForConfiguredFields(std::vector<Member>& gr
 			auto& groupField = group[field.name];
 			auto& type = field.type;
 
-			auto pdbChannel = (std::__1::shared_ptr<dbChannel>)groupField.valueChannel;
+			auto pdbChannel = (dbChannel*)groupField.valueChannel;
 			if (type == "meta") {
 				groupField.isMeta = true;
 				addMembersForMetaData(groupMembers, groupField);
 			} else if (type == "proc") {
 				groupField.allowProc = true;
 			} else if (type.empty() || type == "scalar") {
-				addMembersForScalarType(groupMembers, groupField, pdbChannel.get());
+				addMembersForScalarType(groupMembers, groupField, pdbChannel);
 			} else if (type == "plain") {
-				addMembersForPlainType(groupMembers, groupField, pdbChannel.get());
+				addMembersForPlainType(groupMembers, groupField, pdbChannel);
 			} else if (type == "any") {
 				addMembersForAnyType(groupMembers, groupField);
 			} else if (type == "structure") {
@@ -1003,8 +1003,8 @@ bool GroupConfigProcessor::yajlParseHelper(std::istream& jsonGroupDefinitionStre
  */
 void GroupConfigProcessor::initialiseDbLocker(IOCGroup& group) {
 	for (auto& field: group.fields) {
-		auto pValueChannel = ((std::shared_ptr<dbChannel>)field.valueChannel).get();
-		auto pPropertiesChannel = ((std::shared_ptr<dbChannel>)field.valueChannel).get();
+		auto pValueChannel = (dbChannel*)field.valueChannel;
+		auto pPropertiesChannel = (dbChannel*)field.valueChannel;
 		group.valueChannels.push_back(pValueChannel->addr.precord);
 		group.propertiesChannels.push_back(pPropertiesChannel->addr.precord);
 	}

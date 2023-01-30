@@ -29,12 +29,15 @@ public:
 	~IOCGroupChannel();
 
 	// Casting and indirection
-	explicit operator std::shared_ptr<dbChannel>() const;
+	explicit operator dbChannel*() const;
 	const dbChannel* operator->() const;
 
 	// Disallowed methods.  Copy and move constructors
 	IOCGroupChannel(const IOCGroupChannel&) = delete;
 	IOCGroupChannel(IOCGroupChannel&&) noexcept;
+	const std::shared_ptr<dbChannel>& ptr() const {
+		return pDbChannel;
+	};
 };
 
 } // pvxs
