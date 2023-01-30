@@ -11,7 +11,7 @@
 namespace pvxs {
 namespace ioc {
 
-GroupSourceSubscriptionCtx::GroupSourceSubscriptionCtx(const IOCGroup& subscribedGroup)
+GroupSourceSubscriptionCtx::GroupSourceSubscriptionCtx(IOCGroup& subscribedGroup)
 		:group(subscribedGroup), fieldMap() {
 	prototype = group.valueTemplate;
 }

@@ -91,6 +91,7 @@ private:
 	static void parseTriggerConfiguration(GroupPv& groupPv, const GroupFieldConfig& fieldConfig,
 			const std::string& fieldName);
 	static bool yajlParseHelper(std::istream& jsonGroupDefinitionStream, yajl_handle handle);
+	static void initialiseDbLocker(IOCGroup& group);
 };
 
 } // ioc

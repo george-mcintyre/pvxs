@@ -23,6 +23,7 @@
 #include "iocsource.h"
 
 #include "singlesrcsubscriptionctx.h"
+#include "dblocker.h"
 
 namespace pvxs {
 namespace ioc {
@@ -216,7 +217,8 @@ void SingleSource::onOp(const std::shared_ptr<dbChannel>& pChannel, const Value&
 	channelConnectOperation
 			->onPut([pChannel, valuePrototype](std::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
 				try {
-					// TODO locking
+					DBLock L(pChannel->addr.precord);
+					DBLocker F(L);
 					IOCSource::put(pChannel, value);
 					putOperation->reply();
 				} catch (std::exception& e) {

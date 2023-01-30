@@ -20,7 +20,7 @@ class GroupSourceSubscriptionCtx : public SubscriptionCtx<std::map<dbChannel*,
                                                                    std::pair<std::shared_ptr<dbChannel>,
                                                                              std::shared_ptr<void>>>> {
 public:
-	const IOCGroup& group;
+	IOCGroup& group;
 	std::map<dbChannel*, const IOCGroupField&> fieldMap;
 
 	// Map channel to field index in group.fields
@@ -29,7 +29,7 @@ public:
 			void (* subscriptionValueCallback)(void* userArg, dbChannel* pChannel, int eventsRemaining,
 					struct db_field_log* pDbFieldLog), unsigned selectOptions, bool forValues = true);
 
-	explicit GroupSourceSubscriptionCtx(const IOCGroup& group);
+	explicit GroupSourceSubscriptionCtx(IOCGroup& group);
 };
 
 } // pvxs

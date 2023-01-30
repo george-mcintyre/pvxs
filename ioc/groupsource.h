@@ -58,7 +58,8 @@ private:
 	static void onStartSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext);
 	void onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext,
 			std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) const;
-	static void onStart(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext, bool isStarting) ;
+	static void onStart(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext, bool isStarting);
+	static void putField(const Value& value, const IOCGroupField& field);
 };
 
 } // ioc

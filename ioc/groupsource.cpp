@@ -15,6 +15,8 @@
 #include "iocshcommand.h"
 #include "groupsrcsubscriptionctx.h"
 #include "iocsource.h"
+#include "dbmanylocker.h"
+#include "dblocker.h"
 
 namespace pvxs {
 namespace ioc {
@@ -335,24 +337,39 @@ void GroupSource::onStartSubscription(const std::shared_ptr<GroupSourceSubscript
  * @param value
  */
 void GroupSource::putGroup(IOCGroup& group, std::unique_ptr<server::ExecOp>& putOperation, const Value& value) {
-	// Loop through all fields
-	// TODO putOrder
-
-	for (auto& field: group.fields) {
-		// find the leaf node in which to put the value
-		try {
-			auto leafNode = field.findIn(value);
-
-			if (leafNode.valid()) {
-				// TODO set metadata
-				IOCSource::put((std::shared_ptr<dbChannel>)field.valueChannel, leafNode);
+	// TODO locking
+	try {
+		if (group.atomicPutGet) {
+			DBManyLocker G(group.lock);
+			// Loop through all fields
+			for (auto& field: group.fields) {
+				// find the leaf node in which to put the value
+				auto leafNode = field.findIn(value);
+				putField(value, field);
 			}
-		} catch (std::exception& e) {
-			putOperation->error(e.what());
-			return;
+
+		} else {
+			// Loop through all fields
+			for (auto& field: group.fields) {
+				DBLocker F(field.lock);
+				putField(value, field);
+			}
 		}
+
+	} catch (std::exception& e) {
+		putOperation->error(e.what());
+		return;
 	}
 	putOperation->reply();
+}
+void
+GroupSource::putField(const Value& value, const IOCGroupField& field) {// find the leaf node in which to put the value
+	auto leafNode = field.findIn(value);
+
+	if (leafNode.valid()) {
+		// TODO set metadata
+		IOCSource::put((std::__1::shared_ptr<dbChannel>)field.valueChannel, leafNode);
+	}
 }
 
 /**
@@ -365,6 +382,8 @@ void GroupSource::putGroup(IOCGroup& group, std::unique_ptr<server::ExecOp>& put
  */
 void GroupSource::subscriptionCallback(GroupSourceSubscriptionCtx* subscriptionContext, dbChannel* pChannel,
 		int eventsRemaining, struct db_field_log* pDbFieldLog) {
+	// TODO use eventsRemaining amf field log
+
 	// Make sure that the initial subscription update has occurred on both channels before continuing
 	// As we make two initial updates when opening a new subscription, we need both to have completed before continuing
 	if (!subscriptionContext->hadValueEvent || !subscriptionContext->hadPropertyEvent) {
@@ -381,18 +400,21 @@ void GroupSource::subscriptionCallback(GroupSourceSubscriptionCtx* subscriptionC
 	if (fieldMapEntry == subscriptionContext->fieldMap.end()) {
 		throw std::runtime_error("Internal error: subscribed group channel, field not found");
 	}
-	// Find leaf node in return value so that if we assign it then return value will be updated
-	auto leafNode = fieldMapEntry->second.findIn(returnValue);
-	IOCSource::get(sharedChannelPointer, leafNode, forValue, !forValue,
-			[&returnValue, &leafNode, &subscriptionContext](Value& value) {
-				// Return value
-				if (value.valid()) {
-					leafNode.assign(value);
-				}
-				subscriptionContext->subscriptionControl->tryPost(returnValue);
-			}, [](const char* errorMessage) {
-				throw std::runtime_error(errorMessage);
-			});
+	{
+		DBManyLocker G(subscriptionContext->group.lock);
+		// Find leaf node in return value so that if we assign it then return value will be updated
+		auto leafNode = fieldMapEntry->second.findIn(returnValue);
+		IOCSource::get(sharedChannelPointer, leafNode, forValue, !forValue,
+				[&returnValue, &leafNode, &subscriptionContext](Value& value) {
+					// Return value
+					if (value.valid()) {
+						leafNode.assign(value);
+					}
+					subscriptionContext->subscriptionControl->tryPost(returnValue);
+				}, [](const char* errorMessage) {
+					throw std::runtime_error(errorMessage);
+				});
+	}
 }
 
 /**

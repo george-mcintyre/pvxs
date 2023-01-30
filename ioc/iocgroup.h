@@ -11,6 +11,7 @@
 #include <pvxs/data.h>
 
 #include "iocgroupfield.h"
+#include "dbmanylocker.h"
 
 namespace pvxs {
 namespace ioc {
@@ -22,6 +23,10 @@ public:
 	IOCGroupFields fields;
 	bool atomicPutGet, atomicMonitor;
 	Value valueTemplate;
+	std::vector<dbCommon*> valueChannels;
+	std::vector<dbCommon*> propertiesChannels;
+	DBManyLock lock;
+	DBManyLock propertiesLock;
 
 	IOCGroup();
 	virtual ~IOCGroup();

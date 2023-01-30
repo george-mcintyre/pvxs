@@ -14,6 +14,7 @@
 
 #include "iocgroupfieldname.h"
 #include "iocgroupchannel.h"
+#include "dblocker.h"
 
 namespace pvxs {
 namespace ioc {
@@ -32,6 +33,8 @@ public:
 	std::string id; // For future structure functionality
 	std::string fullName;
 	bool isArray;
+	DBLock lock;
+	DBLock propertiesLock;
 
 	IOCGroupField(const std::string& stringFieldName, const std::string& stringChannelName);
 	Value findIn(Value value) const;

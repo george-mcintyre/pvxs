@@ -374,12 +374,14 @@ void GroupConfigProcessor::createGroups() {
 			}
 		}
 
-		// Second Pass: assemble group PV structure definitions
+		// Second Pass: assemble group PV structure definitions and db locker
 		for (auto& groupPvMapEntry: groupPvMap) {
 			auto& groupName = groupPvMapEntry.first;
 			auto& groupPv = groupPvMapEntry.second;
 			try {
 				auto& group = groupMap[groupName];
+				// Initialise the given group's db locker
+				initialiseDbLocker(group);
 				// Initialise the given group's value type
 				initialiseGroupValueTemplates(group, groupPv);
 			} catch (std::exception& e) {
@@ -991,6 +993,26 @@ bool GroupConfigProcessor::yajlParseHelper(std::istream& jsonGroupDefinitionStre
 		}
 	}
 	return true;
+}
+
+/**
+ * Initialise the dbLocker in the group.  List all the channels in the group and add them to a list.  Then
+ * create the locker from this list.
+ *
+ * @param group the group to create the locker for
+ */
+void GroupConfigProcessor::initialiseDbLocker(IOCGroup& group) {
+	for (auto& field: group.fields) {
+		auto pValueChannel = ((std::shared_ptr<dbChannel>)field.valueChannel).get();
+		auto pPropertiesChannel = ((std::shared_ptr<dbChannel>)field.valueChannel).get();
+		group.valueChannels.push_back(pValueChannel->addr.precord);
+		group.propertiesChannels.push_back(pPropertiesChannel->addr.precord);
+
+		field.lock = DBLock(pValueChannel->addr.precord);
+		field.propertiesLock = DBLock(pPropertiesChannel->addr.precord);
+	}
+	group.lock = DBManyLock(group.valueChannels);
+	group.propertiesLock = DBManyLock(group.propertiesChannels);
 }
 
 } // ioc
