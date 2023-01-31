@@ -128,6 +128,7 @@ void GroupSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::C
 
 	// TODO optimise context by making it a FieldContext that contains field and prototype but is long lived
 	auto subscriptionContext(std::make_shared<GroupSourceSubscriptionCtx>(group));
+	// TODO evaluate lifetime of `this` pointer
 	channelControl
 			->onSubscribe([this, subscriptionContext](std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
 				onSubscribe(subscriptionContext, std::move(subscriptionOperation));
