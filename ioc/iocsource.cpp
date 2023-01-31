@@ -35,7 +35,7 @@ void IOCSource::get(dbChannel* pChannel,
 		const std::function<void(Value&)>& returnFn, const std::function<void(const char*)>& errorFn) {
 	// value buffer to store the field we will get from the database including metadata.
 	epicsAny valueBuffer[pChannel->addr.no_elements * pChannel->addr.field_size + MAX_METADATA_SIZE];
-	void* pValueBuffer = &valueBuffer[0];
+	void* pValueBuffer = &valueBuffer[0]; // TODO shared array of void, or valyeBuffer - avoid for scalars
 	auto nElements = (long)pChannel->addr.no_elements;
 
 	// Get field value and all metadata
