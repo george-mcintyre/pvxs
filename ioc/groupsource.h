@@ -7,8 +7,9 @@
 #ifndef PVXS_GROUPSOURCE_H
 #define PVXS_GROUPSOURCE_H
 
-#include "dbeventcontextdeleter.h"
 #include "iocserver.h"
+#include "iocsource.h"
+#include "dbeventcontextdeleter.h"
 #include "groupsrcsubscriptionctx.h"
 
 namespace pvxs {
@@ -55,13 +56,13 @@ private:
 	static void
 	subscriptionPropertiesCallback(void* userArg, dbChannel* pChannel, int eventsRemaining, db_field_log* pDbFieldLog);
 	static void
-	subscriptionCallback(FieldSubscriptionCtx* subscriptionContext, dbChannel* pChannel, int eventsRemaining,
-			struct db_field_log* pDbFieldLog, bool forValues);
-	static void onDisableSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext);
-	static void onStartSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext);
-	void onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext,
+	subscriptionCallback(FieldSubscriptionCtx* fieldSubscriptionCtx, dbChannel* pChannel, int eventsRemaining,
+			struct db_field_log* pDbFieldLog, bool forValues = FOR_VALUES);
+	static void onDisableSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx);
+	static void onStartSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx);
+	void onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx,
 			std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) const;
-	static void onStart(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext, bool isStarting);
+	static void onStart(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx, bool isStarting);
 	static void putField(const Value& value, const IOCGroupField& field);
 };
 

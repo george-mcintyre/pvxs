@@ -13,6 +13,9 @@
 #include "singlesrcsubscriptionctx.h"
 #include "metadata.h"
 
+#define FOR_VALUES true
+#define FOR_PROPERTIES false
+
 // Maximum amount of space that metadata can use in the buffer returned by dbGetField()
 #define MAX_METADATA_SIZE 100
 
