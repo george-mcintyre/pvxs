@@ -4,9 +4,6 @@
  * in file LICENSE that is included with this distribution.
  */
 
-// Created on 30/01/2023.
-//
-
 #include <vector>
 #include <dbCommon.h>
 #include "dbmanylocker.h"
@@ -14,10 +11,19 @@
 namespace pvxs {
 namespace ioc {
 
+/**
+ * Empty lock
+ */
 DBManyLock::DBManyLock()
 		:pLocker(nullptr) {
 }
 
+/**
+ * Create a many lock from a list of channels
+ *
+ * @param channels the list of channels to lock
+ * @param flags the lock flags to be passed on to dbLockerAlloc()
+ */
 DBManyLock::DBManyLock(const std::vector<dbCommon*>& channels, unsigned flags) {
 	dbCommon** recordsArray = nullptr;
 	if (!channels.empty()) {
@@ -30,6 +36,9 @@ DBManyLock::DBManyLock(const std::vector<dbCommon*>& channels, unsigned flags) {
 	}
 }
 
+/**
+ * When the lock goes out of scope, then free the lock
+ */
 DBManyLock::~DBManyLock() {
 	if (pLocker) {
 		dbLockerFree(pLocker);

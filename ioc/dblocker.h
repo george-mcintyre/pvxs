@@ -4,9 +4,6 @@
  * in file LICENSE that is included with this distribution.
  */
 
-// Created on 30/01/2023.
-//
-
 #ifndef PVXS_DBLOCKER_H
 #define PVXS_DBLOCKER_H
 
@@ -15,6 +12,18 @@
 namespace pvxs {
 namespace ioc {
 
+/**
+ * To lock access to a single DB record.
+ * Use by creating a new object.  It will lock the record referenced by the constructor parameter while the object is
+ * in scope.
+ *
+ * e.g.
+ * 		{
+ *			DBLocker F(pChannel->addr.precord); // Lock
+ *			IOCSource::put(pChannel, ...);
+ *			...
+ * 		}  // Unlocked
+ */
 class DBLocker {
 public:
 	dbCommon* const lock;
