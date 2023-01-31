@@ -18,13 +18,16 @@ namespace ioc {
 /**
  * A subscription context
  */
-class SingleSourceSubscriptionCtx : public SubscriptionCtx<std::shared_ptr<void> > {
+class SingleSourceSubscriptionCtx : public SubscriptionCtx {
 
 public:
 	explicit SingleSourceSubscriptionCtx(const std::shared_ptr<dbChannel>& sharedPtr);
 // For locking access to subscription context
 	std::shared_ptr<dbChannel> pValueChannel;
 	std::shared_ptr<dbChannel> pPropertiesChannel;
+	Value prototype{};
+	epicsMutex eventLock{};
+	std::unique_ptr<server::MonitorControlOp> subscriptionControl{};
 };
 
 } // ioc

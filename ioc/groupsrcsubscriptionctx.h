@@ -13,21 +13,18 @@
 #include "subscriptionctx.h"
 #include "dbeventcontextdeleter.h"
 
+#include <vector>
+#include "fieldsubscriptionctx.h"
+
 namespace pvxs {
 namespace ioc {
 
-class GroupSourceSubscriptionCtx : public SubscriptionCtx<std::map<dbChannel*,
-                                                                   std::pair<std::shared_ptr<dbChannel>,
-                                                                             std::shared_ptr<void>>>> {
+class GroupSourceSubscriptionCtx {
 public:
 	IOCGroup& group;
-	std::map<dbChannel*, const IOCGroupField&> fieldMap;
-
-	// Map channel to field index in group.fields
-	void subscribeField(dbEventCtx eventContext,
-			const IOCGroupField& field,
-			void (* subscriptionValueCallback)(void* userArg, dbChannel* pChannel, int eventsRemaining,
-					struct db_field_log* pDbFieldLog), unsigned selectOptions, bool forValues = true);
+	epicsMutex eventLock{};
+	std::unique_ptr<server::MonitorControlOp> subscriptionControl{};
+	std::vector<FieldSubscriptionCtx> fieldSubscriptionContexts{};
 
 	explicit GroupSourceSubscriptionCtx(IOCGroup& group);
 };

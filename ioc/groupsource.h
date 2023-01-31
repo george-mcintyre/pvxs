@@ -50,10 +50,13 @@ private:
 	// Subscriptions
 	//////////////////////////////
 	// Called when values are requested by a subscription
-	static void subscriptionValueCallback(void* userArg, dbChannel* pChannel, int eventsRemaining, db_field_log* pDbFieldLog);
-	static void subscriptionPropertiesCallback(void* userArg, dbChannel* pChannel, int eventsRemaining, db_field_log* pDbFieldLog);
-	static void subscriptionCallback(pvxs::ioc::GroupSourceSubscriptionCtx* subscriptionContext, dbChannel* pChannel,
-			int eventsRemaining, db_field_log* pDbFieldLog);
+	static void
+	subscriptionValueCallback(void* userArg, dbChannel* pChannel, int eventsRemaining, db_field_log* pDbFieldLog);
+	static void
+	subscriptionPropertiesCallback(void* userArg, dbChannel* pChannel, int eventsRemaining, db_field_log* pDbFieldLog);
+	static void
+	subscriptionCallback(FieldSubscriptionCtx* subscriptionContext, dbChannel* pChannel, int eventsRemaining,
+			struct db_field_log* pDbFieldLog, bool forValues);
 	static void onDisableSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext);
 	static void onStartSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext);
 	void onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext,

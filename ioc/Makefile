@@ -28,6 +28,7 @@ pvxsIoc_SRCS += dberrormessage.cpp
 pvxsIoc_SRCS += dbmanylocker.cpp
 pvxsIoc_SRCS += dbeventcontextdeleter.cpp
 pvxsIoc_SRCS += groupconfigprocessor.cpp
+pvxsIoc_SRCS += fieldsubscriptionctx.cpp
 pvxsIoc_SRCS += groupprocessorcontext.cpp
 pvxsIoc_SRCS += grouppv.cpp
 pvxsIoc_SRCS += grouppvfield.cpp

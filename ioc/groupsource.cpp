@@ -13,6 +13,7 @@
 
 #include "groupsource.h"
 #include "iocshcommand.h"
+#include "fieldsubscriptionctx.h"
 #include "groupsrcsubscriptionctx.h"
 #include "iocsource.h"
 #include "dbmanylocker.h"
@@ -126,7 +127,6 @@ void GroupSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::C
 		onOp(group, std::move(channelConnectOperation));
 	});
 
-	// TODO optimise context by making it a FieldContext that contains field and prototype but is long lived
 	auto subscriptionContext(std::make_shared<GroupSourceSubscriptionCtx>(group));
 	// TODO evaluate lifetime of `this` pointer
 	channelControl
@@ -236,14 +236,11 @@ void GroupSource::groupGet(IOCGroup& group, const std::function<void(Value&)>& r
  * @param pChannel the pointer to the database channel subscribed to
  */
 void GroupSource::onDisableSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext) {
-	for (auto& pEventSubscriptionEntry: subscriptionContext->pValueEventSubscription) {
-		auto& pEventSubscription = pEventSubscriptionEntry.second;
-		db_event_disable(pEventSubscription.second.get());
-	}
-
-	for (auto& pEventSubscriptionEntry: subscriptionContext->pPropertiesEventSubscription) {
-		auto& pEventSubscription = pEventSubscriptionEntry.second;
-		db_event_disable(pEventSubscription.second.get());
+	for (auto& pEventSubscriptionEntry: subscriptionContext->fieldSubscriptionContexts) {
+		auto pVEventSubscription = pEventSubscriptionEntry.pValueEventSubscription.get();
+		auto pPEventSubscription = pEventSubscriptionEntry.pPropertiesEventSubscription.get();
+		db_event_disable(pVEventSubscription);
+		db_event_disable(pPEventSubscription);
 	}
 }
 
@@ -282,18 +279,22 @@ void GroupSource::onOp(IOCGroup& group,
 void GroupSource::onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext,
 		std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) const {
 	// inform peer of data type and acquire control of the subscription queue
-	subscriptionContext->subscriptionControl = subscriptionOperation->connect(subscriptionContext->prototype);
+	subscriptionContext->subscriptionControl = subscriptionOperation->connect(subscriptionContext->group.valueTemplate);
+	subscriptionContext->fieldSubscriptionContexts.reserve(subscriptionContext->group.fields.size());
 
 	for (auto& field: subscriptionContext->group.fields) {
+		subscriptionContext->fieldSubscriptionContexts.emplace_back(field, subscriptionContext.get());
+		auto& fieldSubscriptionContext = subscriptionContext->fieldSubscriptionContexts.back();
+
 		// Two subscription are made for each group channel for pvxs
-		subscriptionContext
-				->subscribeField(eventContext.get(), field, subscriptionValueCallback, DBE_VALUE | DBE_ALARM);
-		subscriptionContext
-				->subscribeField(eventContext.get(), field, subscriptionPropertiesCallback, DBE_PROPERTY, false);
+		fieldSubscriptionContext
+				.subscribeField(eventContext.get(), subscriptionValueCallback, DBE_VALUE | DBE_ALARM);
+		fieldSubscriptionContext
+				.subscribeField(eventContext.get(), subscriptionPropertiesCallback, DBE_PROPERTY, false);
 	}
 
 	// If all goes well, Set up handlers for start and stop monitoring events
-	subscriptionContext->subscriptionControl->onStart([&subscriptionContext](bool isStarting) {
+	subscriptionContext->subscriptionControl->onStart([subscriptionContext](bool isStarting) {
 		onStart(subscriptionContext, isStarting);
 	});
 }
@@ -318,16 +319,13 @@ void GroupSource::onStart(const std::shared_ptr<GroupSourceSubscriptionCtx>& sub
  * @param pChannel the pointer to the database channel subscribed to
  */
 void GroupSource::onStartSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& subscriptionContext) {
-	for (auto& pEventSubscriptionEntry: subscriptionContext->pValueEventSubscription) {
-		auto& pEventSubscription = pEventSubscriptionEntry.second;
-		db_event_enable(pEventSubscription.second.get());
-		db_post_single_event(pEventSubscription.second.get());
-	}
-
-	for (auto& pEventSubscriptionEntry: subscriptionContext->pPropertiesEventSubscription) {
-		auto& pEventSubscription = pEventSubscriptionEntry.second;
-		db_event_enable(pEventSubscription.second.get());
-		db_post_single_event(pEventSubscription.second.get());
+	for (auto& pEventSubscriptionEntry: subscriptionContext->fieldSubscriptionContexts) {
+		auto pVEventSubscription = pEventSubscriptionEntry.pValueEventSubscription.get();
+		auto pPEventSubscription = pEventSubscriptionEntry.pPropertiesEventSubscription.get();
+		db_event_enable(pVEventSubscription);
+		db_post_single_event(pVEventSubscription);
+		db_event_enable(pPEventSubscription);
+		db_post_single_event(pPEventSubscription);
 	}
 }
 
@@ -382,8 +380,9 @@ GroupSource::putField(const Value& value, const IOCGroupField& field) {// find t
  * @param eventsRemaining the number of events remaining
  * @param pDbFieldLog the database field log
  */
-void GroupSource::subscriptionCallback(GroupSourceSubscriptionCtx* subscriptionContext, dbChannel* pChannel,
-		int eventsRemaining, struct db_field_log* pDbFieldLog) {
+void
+GroupSource::subscriptionCallback(FieldSubscriptionCtx* subscriptionContext, dbChannel* pChannel, int eventsRemaining,
+		struct db_field_log* pDbFieldLog, bool forValues) {
 	// TODO use eventsRemaining amf field log
 
 	// Make sure that the initial subscription update has occurred on both channels before continuing
@@ -393,26 +392,24 @@ void GroupSource::subscriptionCallback(GroupSourceSubscriptionCtx* subscriptionC
 	}
 
 	// Get and return the value to the monitor
-	bool forValue = subscriptionContext->pValueEventSubscription.count(pChannel) == 1;
-	auto& eventSubscriptionMap = forValue ? subscriptionContext->pValueEventSubscription
-	                                      : subscriptionContext->pPropertiesEventSubscription;
-	auto pFinalChannel = eventSubscriptionMap[pChannel].first.get();
-	auto returnValue = subscriptionContext->prototype.cloneEmpty();
-	auto fieldMapEntry = subscriptionContext->fieldMap.find(pChannel);
-	if (fieldMapEntry == subscriptionContext->fieldMap.end()) {
-		throw std::runtime_error("Internal error: subscribed group channel, field not found");
-	}
+	auto& group = subscriptionContext->pGroupCtx->group;
+	auto field = subscriptionContext->field;
+	auto& eventSubscriptionMap = forValues ? subscriptionContext->pValueEventSubscription
+	                                       : subscriptionContext->pPropertiesEventSubscription;
+	auto pFinalChannel = (dbChannel*)(forValues ? field->valueChannel : field->propertiesChannel);
+	auto returnValue = group.valueTemplate.cloneEmpty();
 	{
-		DBManyLocker G(subscriptionContext->group.lock);
+		DBManyLocker G(group.lock);
+
 		// Find leaf node in return value so that if we assign it then return value will be updated
-		auto leafNode = fieldMapEntry->second.findIn(returnValue);
-		IOCSource::get(pFinalChannel, leafNode, forValue, !forValue,
+		auto leafNode = field->findIn(returnValue);
+		IOCSource::get(pFinalChannel, leafNode, forValues, !forValues,
 				[&returnValue, &leafNode, &subscriptionContext](Value& value) {
 					// Return value
 					if (value.valid()) {
 						leafNode.assign(value);
 					}
-					subscriptionContext->subscriptionControl->tryPost(returnValue);
+					subscriptionContext->pGroupCtx->subscriptionControl->tryPost(returnValue);
 				}, [](const char* errorMessage) {
 					throw std::runtime_error(errorMessage);
 				});
@@ -430,12 +427,12 @@ void GroupSource::subscriptionCallback(GroupSourceSubscriptionCtx* subscriptionC
  */
 void GroupSource::subscriptionPropertiesCallback(void* userArg, dbChannel* pChannel, int eventsRemaining,
 		struct db_field_log* pDbFieldLog) {
-	auto subscriptionContext = (GroupSourceSubscriptionCtx*)userArg;
+	auto subscriptionContext = (FieldSubscriptionCtx*)userArg;
 	{
-		epicsGuard<epicsMutex> G((subscriptionContext)->eventLock);
+		epicsGuard<epicsMutex> G((subscriptionContext->pGroupCtx)->eventLock);
 		subscriptionContext->hadPropertyEvent = true;
 	}
-	subscriptionCallback(subscriptionContext, pChannel, eventsRemaining, pDbFieldLog);
+	subscriptionCallback(subscriptionContext, pChannel, eventsRemaining, pDbFieldLog, false);
 }
 
 /**
@@ -449,12 +446,12 @@ void GroupSource::subscriptionPropertiesCallback(void* userArg, dbChannel* pChan
  */
 void GroupSource::subscriptionValueCallback(void* userArg, dbChannel* pChannel, int eventsRemaining,
 		struct db_field_log* pDbFieldLog) {
-	auto subscriptionContext = (GroupSourceSubscriptionCtx*)userArg;
+	auto subscriptionContext = (FieldSubscriptionCtx*)userArg;
 	{
-		epicsGuard<epicsMutex> G((subscriptionContext)->eventLock);
+		epicsGuard<epicsMutex> G((subscriptionContext->pGroupCtx)->eventLock);
 		subscriptionContext->hadValueEvent = true;
 	}
-	subscriptionCallback(subscriptionContext, pChannel, eventsRemaining, pDbFieldLog);
+	subscriptionCallback(subscriptionContext, pChannel, eventsRemaining, pDbFieldLog, true);
 }
 
 } // ioc
