@@ -9,10 +9,30 @@
 namespace pvxs {
 namespace ioc {
 
+/**
+ * Constructor for a field subscription context takes a field and a group subscription context
+ *
+ * @param field the field this subscription context will be used to monitor
+ * @param groupSourceSubscriptionCtx the group subscription context this is a part of
+ */
+FieldSubscriptionCtx::FieldSubscriptionCtx(IOCGroupField& field, GroupSourceSubscriptionCtx* groupSourceSubscriptionCtx)
+		:pGroupCtx(groupSourceSubscriptionCtx), field(&field) {
+};
+
+/**
+ * Called when a client wishes to subscribe to a group.  The onSubscribe method calls this method for each
+ * field within the group.  This method will create a new event subscription and attach it to this field
+ * subscription context.
+ *
+ * @param eventContext the global event context which references the db event propagation framework
+ * @param subscriptionValueCallback reference to a callback function to be called when the field is updated.
+ * @param selectOptions the selection options to determine events to be monitored. DBE_VALUE | DBE_ALARM | DBE_PROPERTY
+ * @param forValues true if this should monitor value changes, false for property changes.
+ */
 void FieldSubscriptionCtx::subscribeField(dbEventCtx eventContext, EVENTFUNC (* subscriptionValueCallback),
 		unsigned int selectOptions, bool forValues) {
 
-	auto& pChannel = (forValues ? field->valueChannel : field->propertiesChannel).ptr();
+	auto& pChannel = (forValues ? field->valueChannel : field->propertiesChannel).shared_ptr();
 	auto& pEventSubscription = forValues ? pValueEventSubscription : pPropertiesEventSubscription;
 	pEventSubscription.reset(
 			db_add_event(
@@ -30,11 +50,6 @@ void FieldSubscriptionCtx::subscribeField(dbEventCtx eventContext, EVENTFUNC (* 
 		throw std::runtime_error("Failed to create db subscription");
 	}
 }
-
-FieldSubscriptionCtx::FieldSubscriptionCtx(IOCGroupField& field, GroupSourceSubscriptionCtx* groupSourceSubscriptionCtx)
-		:pGroupCtx(groupSourceSubscriptionCtx), field(&field) {
-
-};
 
 } // pvcs
 } // ioc

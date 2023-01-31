@@ -19,6 +19,12 @@ namespace ioc {
 
 class GroupSourceSubscriptionCtx;
 
+/**
+ * Field subscription context.  This object is the user object that is supplied when one of a group subscription's
+ * fields are updated, and their subscription event is triggered.
+ *
+ * It contains a pointer to the group subscription of which it forms a part, as well as the field it is monitoring.
+ */
 class FieldSubscriptionCtx : public SubscriptionCtx {
 public:
 	GroupSourceSubscriptionCtx* pGroupCtx;

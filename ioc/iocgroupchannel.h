@@ -35,7 +35,7 @@ public:
 	// Disallowed methods.  Copy and move constructors
 	IOCGroupChannel(const IOCGroupChannel&) = delete;
 	IOCGroupChannel(IOCGroupChannel&&) noexcept;
-	const std::shared_ptr<dbChannel>& ptr() const {
+	const std::shared_ptr<dbChannel>& shared_ptr() const {
 		return pDbChannel;
 	};
 };
