@@ -138,7 +138,6 @@ void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::
 	// Shared ptr for one of captured vars below
 	subscriptionContext->prototype = valuePrototype.cloneEmpty();
 	channelControl
-			// TODO evaluate lifetime of `this` pointer
 			->onSubscribe([this, subscriptionContext](std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
 				onSubscribe(subscriptionContext, std::move(subscriptionOperation));
 			});
