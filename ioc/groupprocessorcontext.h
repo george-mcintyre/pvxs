@@ -16,6 +16,9 @@
 namespace pvxs {
 namespace ioc {
 
+/**
+ * Object to store contextual information while parsing the group configuration
+ */
 class GroupProcessorContext {
 	const std::string channelPrefix;
 	GroupConfigProcessor* groupConfigProcessor;

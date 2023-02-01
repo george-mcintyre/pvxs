@@ -11,7 +11,7 @@ namespace ioc {
 
 /**
  * Total number of channels referenced by this group.  This function counts all the channels referenced
- * by all the fields in this group.
+ * by all the fields in this group.  This is a second stage group configuration processing object
  *
  * @return the total number of channels referenced by this group
  */

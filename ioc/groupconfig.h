@@ -15,10 +15,10 @@ namespace ioc {
 
 /**
  * Class to store the group configuration as it is read in.  It is subsequently
- * read into the GroupPv class for runtime use
+ * read into the GroupPv class, for intermediate use, before finally IOCGroup for runtime use
+ *  Initialise:   GroupConfig ==> GroupPv ==> IOCGroup   :Running
  */
 class GroupConfig {
-
 public:
 	bool atomic, atomic_set;
 	std::string structureId;

@@ -9,6 +9,13 @@
 namespace pvxs {
 namespace ioc {
 
+/**
+ * Part of the second pass group configuration processing. This is the constructor for a group field configuration
+ * object.
+ *
+ * @param fieldConfig the first stage field configuration object it will be based on
+ * @param fieldName the name of the field
+ */
 GroupPvField::GroupPvField(const GroupFieldConfig& fieldConfig, const std::string& fieldName)
 		:putOrder(0) {
 	channel = fieldConfig.channel;

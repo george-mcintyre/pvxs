@@ -19,6 +19,10 @@ namespace ioc {
 
 typedef std::set<std::string> Triggers;
 
+/**
+ * Class to store group configuration fields while they are being processed after being read from files into GroupConfig.
+ * Processing this
+ */
 class GroupPvField {
 public:
 	std::string name;                       // Field's name

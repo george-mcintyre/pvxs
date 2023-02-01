@@ -32,7 +32,7 @@ DEFINE_LOGGER(_logname, "pvxs.ioc.group.processor");
 /**
  * Parse group configuration that has been defined in db configuration files.
  * This involves extracting info fields named "Q:Group" from the database configuration
- * and converting them to GroupPv configuration information.
+ * and converting them to IOCGroups.
  */
 void GroupConfigProcessor::parseDbConfig() {
 	// process info blocks named Q:Group to get group configuration
@@ -216,8 +216,8 @@ void GroupConfigProcessor::configureAtomicity(const GroupConfig& groupConfig, Gr
 /**
  * Load field triggers for a group field.
  *
- * @param fieldConfig the field configuration to read trigger configuration from
  * @param groupPv the group to update
+ * @param fieldConfig the field configuration to read trigger configuration from
  * @param fieldName the field name in the group
  */
 void GroupConfigProcessor::parseTriggerConfiguration(GroupPv& groupPv, const GroupFieldConfig& fieldConfig,
@@ -301,8 +301,8 @@ void GroupConfigProcessor::configureGroupTriggers(GroupPv& groupPv, const std::s
 /**
  * Configure trigger for a given field to reference the given targets.
  *
- * @param groupPv the group to configure
  * @param groupPvField the field who's trigger will be configured
+ * @param groupPv the group to configure
  * @param targets the field's trigger targets
  * @param groupName the name of the group
  */
@@ -455,9 +455,9 @@ void GroupConfigProcessor::initialiseGroupValueTemplates(IOCGroup& group, const 
 /**
  * Add members to the given vector of members, for any fields in the given group.
  *
+ * @param groupMembers the vector to add members to
  * @param group the given group
  * @param groupPv the source configuration group
- * @param groupMembers the vector to add members to
  */
 void GroupConfigProcessor::addMembersForConfiguredFields(std::vector<Member>& groupMembers, IOCGroup& group,
 		const GroupPv& groupPv) {
@@ -491,8 +491,8 @@ void GroupConfigProcessor::addMembersForConfiguredFields(std::vector<Member>& gr
  * Parse the given json string as a group definition part for the given dbRecord
  * name and extract group pv definition into the given iocServer
  *
- * @param dbRecordName the name of the dbRecord
  * @param jsonGroupDefinition the given json string representing a group definition
+ * @param dbRecordName the name of the dbRecord
  */
 void GroupConfigProcessor::parseConfigString(const char* jsonGroupDefinition, const char* dbRecordName) {
 #ifndef EPICS_YAJL_VERSION

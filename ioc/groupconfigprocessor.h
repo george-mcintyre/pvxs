@@ -19,8 +19,14 @@ namespace ioc {
 // Pre-declare context class
 class GroupProcessorContext;
 
+/**
+ * Class to parse group configuration that has been defined in db configuration files.
+ * This involves extracting info fields named "Q:Group" from the database configuration
+ * and converting them to IOCGroups.
+ */
 class GroupConfigProcessor {
 	GroupPvMap groupPvMap;
+
 	/**
 	 * These are the callbacks designated by yajl for its parser functions
 	 * They must be defined in this order.
