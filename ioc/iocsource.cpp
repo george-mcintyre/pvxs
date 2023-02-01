@@ -50,7 +50,7 @@ void IOCSource::get(dbChannel* pChannel,
 	}
 
 	if (!options) {
-		throw std::runtime_error("call to get but neither values not properties requested");
+		throw std::runtime_error("call to `get` but neither values not properties requested");
 	}
 
 	DBErrorMessage dbErrorMessage(dbGetField(&pChannel->addr, pChannel->addr.dbr_field_type,
@@ -68,43 +68,47 @@ void IOCSource::get(dbChannel* pChannel,
 	// Create a placeholder for the return value
 	auto value(valuePrototype);
 
-	// If we're setting values then,
-	// based on whether it is an enum, scalar or array then call the appropriate setter
 	auto isCompound = value["value"].valid();
 	Value valueTarget = value;
 	if (isCompound) {
 		valueTarget = value["value"];
 	}
 
-	if (forValues) {
-		auto isEnum = pChannel->addr.dbr_field_type == DBR_ENUM;
-		if (isEnum) {
-			valueTarget["index"] = *((uint16_t*)pValueBuffer);
-
-			// TODO Don't output choices for subscriptions unless changed
-			shared_array<std::string> choices(metadata.enumStrings->no_str);
-			for (epicsUInt32 i = 0; i < metadata.enumStrings->no_str; i++) {
-				choices[i] = metadata.enumStrings->strs[i];
-			}
-			valueTarget["choices"] = choices.freeze().castTo<const void>();
-		} else if (nElements == 1) {
-			getValue(valueTarget, pValueBuffer);
-		} else {
-			getValue(valueTarget, pValueBuffer, nElements);
-		}
-	}
-
-	if (isCompound) {
-		// Add metadata to response
-		getTimestampMetadata(value, metadata);
+	try {
 		if (forValues) {
-			getAlarmMetadata(value, metadata);
+			// based on whether it is an enum, scalar or array then call the appropriate getter
+			auto isEnum = pChannel->addr.dbr_field_type == DBR_ENUM;
+			if (isEnum) {
+				valueTarget["index"] = *((uint16_t*)pValueBuffer);
+
+				// TODO Don't output choices for subscriptions unless changed
+				shared_array<std::string> choices(metadata.enumStrings->no_str);
+				for (epicsUInt32 i = 0; i < metadata.enumStrings->no_str; i++) {
+					choices[i] = metadata.enumStrings->strs[i];
+				}
+				valueTarget["choices"] = choices.freeze().castTo<const void>();
+			} else if (nElements == 1) {
+				getValue(valueTarget, pValueBuffer);
+			} else {
+				getValue(valueTarget, pValueBuffer, nElements);
+			}
 		}
-		if (forProperties) {
-			getDisplayMetadata(value, metadata);
-			getControlMetadata(value, metadata);
-			getAlarmLimitMetadata(value, metadata);
+
+		if (isCompound) {
+			// Add metadata to response
+			getTimestampMetadata(value, metadata);
+			if (forValues) {
+				getAlarmMetadata(value, metadata);
+			}
+			if (forProperties) {
+				getDisplayMetadata(value, metadata);
+				getControlMetadata(value, metadata);
+				getAlarmLimitMetadata(value, metadata);
+			}
 		}
+	} catch (const std::exception& getException) {
+		errorFn(getException.what());
+		return;
 	}
 
 	// Send reply
@@ -235,6 +239,7 @@ void IOCSource::getMetadata(void*& pValueBuffer, Metadata& metadata, bool forVal
  */
 void IOCSource::getValue(Value& valueTarget, const void* pValueBuffer) {
 	auto valueType(valueTarget.type());
+
 	if (valueType.code == TypeCode::String) {
 		valueTarget = ((const char*)pValueBuffer);
 	} else {

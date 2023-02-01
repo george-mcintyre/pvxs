@@ -98,6 +98,7 @@ private:
 			const std::string& fieldName);
 	static bool yajlParseHelper(std::istream& jsonGroupDefinitionStream, yajl_handle handle);
 	static void initialiseDbLocker(IOCGroup& group);
+	static void initialiseTriggers(IOCGroup& group, const GroupPv& groupPv);
 };
 
 } // ioc

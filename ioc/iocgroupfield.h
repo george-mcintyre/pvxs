@@ -15,24 +15,31 @@
 #include "iocgroupfieldname.h"
 #include "iocgroupchannel.h"
 #include "dblocker.h"
+#include "dbmanylocker.h"
 
 namespace pvxs {
 namespace ioc {
 
-typedef std::vector<size_t> IOCGroupTriggers;
+class IOCGroupField;
+typedef std::vector<IOCGroupField*> IOCGroupTriggers;
 
 class IOCGroupField {
 private:
 public:
-	IOCGroupTriggers triggers;          // index in IOCGroup::fields
+	std::string id; // For future structure functionality
+	std::string name;
+	IOCGroupFieldName fieldName;
+	std::string fullName;
 	bool isMeta, allowProc;
+	bool isArray;
 	IOCGroupChannel valueChannel;
 	IOCGroupChannel propertiesChannel;  // Used only in subscriptions
-	IOCGroupFieldName fieldName;
-	std::string name;
-	std::string id; // For future structure functionality
-	std::string fullName;
-	bool isArray;
+
+	IOCGroupTriggers triggers;          // index in IOCGroup::fields
+	std::vector<dbCommon*> referencedValueChannels;
+	std::vector<dbCommon*> referencedPropertiesChannels;
+	DBManyLock lock;                    // Lock to use when field subscription value change event triggers
+	DBManyLock propertiesLock;          // Lock to use when field subscription property change event triggers
 
 	IOCGroupField(const std::string& stringFieldName, const std::string& stringChannelName);
 	Value findIn(Value value) const;

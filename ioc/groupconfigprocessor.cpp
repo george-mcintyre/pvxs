@@ -170,14 +170,12 @@ void GroupConfigProcessor::configureGroupFields(GroupPv& groupPv, const GroupCon
 				fieldName.c_str(),
 				currentField.channel.c_str());
 
-		if (!fieldConfig.trigger.empty()) {
-			parseTriggerConfiguration(groupPv, fieldConfig, fieldName);
-		}
+		parseTriggerConfiguration(groupPv, fieldConfig, fieldName);
 	}
 }
 
 /*
- * Sort Group fields to ensure the shorter names appear first
+ * Sort Group fields to ensure putOrder
  */
 void GroupConfigProcessor::sortGroupFields() {
 	for (auto&& mapEntry: groupPvMap) {
@@ -222,14 +220,17 @@ void GroupConfigProcessor::configureAtomicity(const GroupConfig& groupConfig, Gr
  */
 void GroupConfigProcessor::parseTriggerConfiguration(GroupPv& groupPv, const GroupFieldConfig& fieldConfig,
 		const std::string& fieldName) {
-	assert(!fieldConfig.trigger.empty());
 	Triggers triggers;
-	std::string trigger;
-	std::stringstream splitter(fieldConfig.trigger);
-	groupPv.hasTriggers = true;
+	if (!fieldConfig.trigger.empty()) {
+		std::string trigger;
+		std::stringstream splitter(fieldConfig.trigger);
+		groupPv.hasTriggers = true;
 
-	while (std::getline(splitter, trigger, ',')) {
-		triggers.insert(trigger);
+		while (std::getline(splitter, trigger, ',')) {
+			triggers.insert(trigger);
+		}
+	} else {
+		triggers.insert(fieldName);
 	}
 	groupPv.triggerMap[fieldName] = triggers;
 }
@@ -279,7 +280,7 @@ void GroupConfigProcessor::configureSelfTriggers(GroupPv& groupPv) {
 void GroupConfigProcessor::configureGroupTriggers(GroupPv& groupPv, const std::string& groupName) {
 	for (auto&& triggerMapEntry: groupPv.triggerMap) {
 		const std::string& field = triggerMapEntry.first;
-		Triggers& targets = triggerMapEntry.second;
+		const auto& targets = triggerMapEntry.second;
 
 		if (groupPv.fieldMap.count(field) == 0) {
 			fprintf(stderr, "Error: Group \"%s\" defines triggers from nonexistent field \"%s\" \n",
@@ -380,8 +381,10 @@ void GroupConfigProcessor::createGroups() {
 			auto& groupPv = groupPvMapEntry.second;
 			try {
 				auto& group = groupMap[groupName];
-				// Initialise the given group's db locker
+				// Initialise the given group's db locks
 				initialiseDbLocker(group);
+				// Initialize the given group's triggers and associated db locks
+				initialiseTriggers(group, groupPv);
 				// Initialise the given group's value type
 				initialiseGroupValueTemplates(group, groupPv);
 			} catch (std::exception& e) {
@@ -450,6 +453,44 @@ void GroupConfigProcessor::initialiseGroupValueTemplates(IOCGroup& group, const 
 	// create the group's valueTemplate from the group type
 	auto groupValueTemplate = groupType.create();
 	group.valueTemplate = std::move(groupValueTemplate);
+}
+
+/**
+ * Initialise triggers.  This function will initialize the triggers so that each field contains the list of fields
+ * that subscription updates will also trigger to be fetched.  It will also create lockers in each field that will
+ * be prepared to lock those fields during the subscription update.  The configuration information for the
+ * triggers has already been loaded into the provided groupPv.
+ * Note that this function must be called after the fields have been created in group as the triggers are
+ * initialized with a set of pointers to other fields.
+ *
+ * @param group the group of fields who's triggers are to be configured
+ * @param groupPv the trigger configuration information
+ */
+void GroupConfigProcessor::initialiseTriggers(IOCGroup& group, const GroupPv& groupPv) {
+	// For all fields in the group
+	for (auto& field: groupPv.fields) {
+		// As long as it has a channel specified
+		if (!field.channel.empty()) {
+			auto& groupField = group[field.name];
+			// Look at the fields that it triggers
+			for (auto& referencedFieldName: field.triggers) {
+				auto referencedFieldIt = groupPv.fieldMap.find(referencedFieldName);
+				if (referencedFieldIt != groupPv.fieldMap.end()) {
+					auto& referencedFieldIndex = referencedFieldIt->second;
+					auto& referencedField = group.fields[referencedFieldIndex];
+					// Add new trigger reference
+					groupField.triggers.push_back(&referencedField);
+					// Add new lock record
+					groupField.referencedValueChannels.push_back(referencedField.valueChannel->addr.precord);
+					groupField.referencedPropertiesChannels.push_back(referencedField.propertiesChannel->addr.precord);
+				}
+			}
+
+			// Make the locks
+			groupField.lock = DBManyLock(groupField.referencedValueChannels);
+			groupField.propertiesLock = DBManyLock(groupField.referencedPropertiesChannels);
+		}
+	}
 }
 
 /**
@@ -631,7 +672,8 @@ int GroupConfigProcessor::parserCallbackDouble(void* parserContext, double doubl
  * @param stringLen the string length
  * @return non-zero if successful
  */
-int GroupConfigProcessor::parserCallbackString(void* parserContext, const unsigned char* stringVal, const size_t stringLen) {
+int GroupConfigProcessor::parserCallbackString(void* parserContext, const unsigned char* stringVal,
+		const size_t stringLen) {
 	return GroupConfigProcessor::yajlProcess(parserContext, [&stringVal, &stringLen](GroupProcessorContext* self) {
 		std::string val((const char*)stringVal, stringLen);
 		auto value = pvxs::TypeDef(TypeCode::String).create();

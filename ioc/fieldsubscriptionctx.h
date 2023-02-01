@@ -31,7 +31,7 @@ public:
 	IOCGroupField* field;
 
 	// Map channel to field index in group.fields
-	void subscribeField(dbEventCtx eventContext, EVENTFUNC (* subscriptionValueCallback),
+	void subscribeField(dbEventCtx pEventCtx, EVENTFUNC (* subscriptionCallback),
 			unsigned int selectOptions, bool forValues = true);
 
 	explicit FieldSubscriptionCtx(IOCGroupField& field, GroupSourceSubscriptionCtx* groupSourceSubscriptionCtx);

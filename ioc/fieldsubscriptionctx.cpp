@@ -4,6 +4,7 @@
  * in file LICENSE that is included with this distribution.
  */
 
+#include <iostream>
 #include "fieldsubscriptionctx.h"
 
 namespace pvxs {
@@ -24,25 +25,24 @@ FieldSubscriptionCtx::FieldSubscriptionCtx(IOCGroupField& field, GroupSourceSubs
  * field within the group.  This method will create a new event subscription and attach it to this field
  * subscription context.
  *
- * @param eventContext the global event context which references the db event propagation framework
- * @param subscriptionValueCallback reference to a callback function to be called when the field is updated.
+ * @param pEventCtx the global event context which references the db event propagation framework
+ * @param subscriptionCallback reference to a callback function to be called when the field is updated.
  * @param selectOptions the selection options to determine events to be monitored. DBE_VALUE | DBE_ALARM | DBE_PROPERTY
  * @param forValues true if this should monitor value changes, false for property changes.
  */
-void FieldSubscriptionCtx::subscribeField(dbEventCtx eventContext, EVENTFUNC (* subscriptionValueCallback),
+void FieldSubscriptionCtx::subscribeField(dbEventCtx pEventCtx, EVENTFUNC (* subscriptionCallback),
 		unsigned int selectOptions, bool forValues) {
-
 	auto& pChannel = (forValues ? field->valueChannel : field->propertiesChannel).shared_ptr();
 	auto& pEventSubscription = forValues ? pValueEventSubscription : pPropertiesEventSubscription;
 	pEventSubscription.reset(
 			db_add_event(
-					eventContext,
+					pEventCtx,
 					pChannel.get(),
-					subscriptionValueCallback,
+					subscriptionCallback,
 					this, selectOptions),
-			[](dbEventSubscription pEventSubscription) {
-				if (pEventSubscription) {
-					db_cancel_event(pEventSubscription);
+			[](dbEventSubscription pEventSub) {
+				if (pEventSub) {
+					db_cancel_event(pEventSub);
 				}
 			});
 

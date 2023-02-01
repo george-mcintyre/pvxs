@@ -23,9 +23,10 @@ class GroupSourceSubscriptionCtx {
 public:
 	IOCGroup& group;
 	epicsMutex eventLock{};
+	bool eventsPrimed = false, firstEvent = true;
 	std::unique_ptr<server::MonitorControlOp> subscriptionControl{};
-	std::vector<FieldSubscriptionCtx> fieldSubscriptionContexts{};
 
+	std::vector<FieldSubscriptionCtx> fieldSubscriptionContexts{};
 	explicit GroupSourceSubscriptionCtx(IOCGroup& group);
 };
 

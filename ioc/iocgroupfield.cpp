@@ -18,8 +18,8 @@ namespace ioc {
  * @param stringChannelName the channel name
  */
 IOCGroupField::IOCGroupField(const std::string& stringFieldName, const std::string& stringChannelName)
-		:isMeta(false), allowProc(false), valueChannel(stringChannelName), propertiesChannel(stringChannelName),
-		 fieldName(stringFieldName), isArray(false) {
+		:fieldName(stringFieldName), isMeta(false), allowProc(false), isArray(false), valueChannel(stringChannelName),
+		 propertiesChannel(stringChannelName) {
 	if (!fieldName.fieldNameComponents.empty()) {
 		name = fieldName.fieldNameComponents[0].name;
 		fullName = std::string(fieldName.to_string());
@@ -50,7 +50,7 @@ Value IOCGroupField::findIn(Value value) const {
 
 				// Put new data into array
 				auto newElement = valueArray[index];
-				if ( !newElement) {
+				if (!newElement) {
 					// Only allocate new member if it is not already allocated
 					valueArray[index] = newElement = value.allocMember();
 				}

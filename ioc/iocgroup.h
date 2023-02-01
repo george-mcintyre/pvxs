@@ -26,6 +26,7 @@ public:
 	std::vector<dbCommon*> valueChannels;
 	std::vector<dbCommon*> propertiesChannels;
 	DBManyLock lock;
+	// TODO when is properties lock used?
 	DBManyLock propertiesLock;
 
 	IOCGroup();
