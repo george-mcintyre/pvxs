@@ -129,7 +129,6 @@ void GroupSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::C
 	});
 
 	auto subscriptionContext(std::make_shared<GroupSourceSubscriptionCtx>(group));
-	// TODO evaluate lifetime of `this` pointer
 	channelControl
 			->onSubscribe([this, subscriptionContext](std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
 				onSubscribe(subscriptionContext, std::move(subscriptionOperation));
