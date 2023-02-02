@@ -89,7 +89,7 @@ struct CommonMetadata {
 /**
  * structure to store metadata
  */
-typedef struct metadata {
+struct Metadata {
 	CommonMetadata metadata{};
 	const char* pUnits{};
 	const dbr_precision* pPrecision{};
@@ -97,7 +97,7 @@ typedef struct metadata {
 	const struct dbr_grDouble* graphicsDouble{};
 	const struct dbr_ctrlDouble* controlDouble{};
 	const struct dbr_alDouble* alarmDouble{};
-} Metadata;
+};
 
 } // ioc
 } // pvxs
