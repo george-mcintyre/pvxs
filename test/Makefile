@@ -117,6 +117,8 @@ TESTPROD_HOST += testioc
 testioc_SRCS += testioc.cpp
 testioc_SRCS += testioc_registerRecordDeviceDriver.cpp
 testioc_LIBS = pvxsIoc pvxs $(EPICS_BASE_IOC_LIBS)
+TESTFILES += testioc.db testiocg.db
+TESTFILES += testioc.json
 TESTS += testioc
 
 PROD_SRCS_RTEMS += rtemsTestData.c

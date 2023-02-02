@@ -4,72 +4,72 @@
  */
 
 /*
- * Group george:tableExample2
+ * Group tst:tableExample2
  * Use +id mapping: to present as a epics NTTable
  * with two columns of doubles taken from $(user):vectorExampleD1 and $(user):vectorExampleD2
  * Get metadata (alarms, etc) from $(user):vectorExampleD1
  */
 {
-  "george:tableExample2": {
+  "tst:tableExample2": {
     "+id": "epics:nt/NTTable:1.0",
     "": {
       "+type": "meta",
-      "+channel": "george:vectorExampleD1.VAL"
+      "+channel": "tst:vectorExampleD1.VAL"
     },
     "labels": {
-      "+channel": "george:groupExampleAS.VAL",
+      "+channel": "tst:groupExampleAS.VAL",
       "+type": "plain"
     },
     "value.jA": {
-      "+channel": "george:vectorExampleD1.VAL",
+      "+channel": "tst:vectorExampleD1.VAL",
       "+type": "plain",
       "+putorder": 1
     },
     "value.jB": {
-      "+channel": "george:vectorExampleD2.VAL",
+      "+channel": "tst:vectorExampleD2.VAL",
       "+type": "plain",
       "+putorder": 1
     },
     "_save": {
-      "+channel": "george:groupExampleSave.VAL",
+      "+channel": "tst:groupExampleSave.VAL",
       "+type": "proc",
       "+putorder": 2,
       "+trigger": "*"
     }
   },
   /*
-   * Group george:structExample2
+   * Group tst:structExample2
    * This is an example of a structure that does not correspond to an EPICS normative type
    */
-  "george:structExample2": {
+  "tst:structExample2": {
     "jai": {
-      "+channel": "george:aiExample.VAL",
+      "+channel": "tst:aiExample.VAL",
       "+putorder": 0
     },
     "jcalc": {
-      "+channel": "george:calcExample.VAL",
+      "+channel": "tst:calcExample.VAL",
       "+type": "plain",
       "+putorder": 1
     },
     "jstring": {
-      "+channel": "george:stringExample.VAL",
+      "+channel": "tst:stringExample.VAL",
       "+putorder": 0
     },
     "jarray": {
-      "+channel": "george:arrayExample.VAL",
+      "+channel": "tst:arrayExample.VAL",
       "+putorder": 0
     },
     "jsa[0].any": {
-      "+channel": "george:longExample.VAL",
+      "+channel": "tst:longExample.VAL",
       "+type": "any",
       "+putorder": 1
     },
     "jsa[1].enum": {
-      "+channel": "george:enumExample.VAL",
+      "+channel": "tst:enumExample.VAL",
       "+putorder": 0
     },
     "_save": {
-      "+channel": "george:structExampleSave.VAL",
+      "+channel": "tst:structExampleSave.VAL",
       "+type": "proc",
       "+putorder": 2,
       "+trigger": "*"
