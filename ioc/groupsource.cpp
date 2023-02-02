@@ -5,6 +5,7 @@
  */
 
 #include <iostream>
+#include <string>
 #include <pvxs/source.h>
 #include <pvxs/log.h>
 

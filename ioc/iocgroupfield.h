@@ -7,6 +7,7 @@
 #ifndef PVXS_IOCGROUPFIELD_H
 #define PVXS_IOCGROUPFIELD_H
 
+#include <string>
 #include <map>
 #include <vector>
 #include <set>

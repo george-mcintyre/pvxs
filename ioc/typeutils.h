@@ -7,6 +7,7 @@
 #ifndef PVXS_TYPEUTILS_H
 #define PVXS_TYPEUTILS_H
 
+#include <string>
 #include <sstream>
 #include <pvxs/source.h>
 #include <dbStaticLib.h>

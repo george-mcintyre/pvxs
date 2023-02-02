@@ -7,6 +7,7 @@
 #ifndef PVXS_IOCSERVER_H
 #define PVXS_IOCSERVER_H
 
+#include <string>
 #include "pvxs/server.h"
 #include "iocgroup.h"
 

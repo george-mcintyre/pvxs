@@ -7,6 +7,7 @@
 #ifndef PVXS_GROUPPV_H
 #define PVXS_GROUPPV_H
 
+#include <string>
 #include <map>
 #include <vector>
 #include <set>

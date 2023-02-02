@@ -7,6 +7,7 @@
 #ifndef PVXS_GROUPCONFIGPROCESSOR_H
 #define PVXS_GROUPCONFIGPROCESSOR_H
 
+#include <string>
 #include <yajl_parse.h>
 #include "iocserver.h"
 #include "dbentry.h"

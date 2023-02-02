@@ -4,6 +4,7 @@
  * in file LICENSE that is included with this distribution.
  */
 
+#include <string>
 #include <iostream>
 #include <vector>
 

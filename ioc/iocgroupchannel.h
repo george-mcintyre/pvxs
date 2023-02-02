@@ -8,6 +8,8 @@
 #ifndef PVXS_IOCGROUPCHANNEL_H
 #define PVXS_IOCGROUPCHANNEL_H
 
+#include <string>
+#include <memory>
 #include <dbChannel.h>
 
 namespace pvxs {

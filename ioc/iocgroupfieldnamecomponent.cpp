@@ -6,6 +6,7 @@
 
 #include "iocgroupfieldnamecomponent.h"
 
+#include <string>
 #include <utility>
 
 namespace pvxs {
