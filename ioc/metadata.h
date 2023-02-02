@@ -7,6 +7,7 @@
 #ifndef PVXS_METADATA_H
 #define PVXS_METADATA_H
 
+#include <string.h>
 #include <cmath>
 #include <dbCommon.h>
 #include <dbAccess.h>
