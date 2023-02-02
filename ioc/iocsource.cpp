@@ -5,6 +5,7 @@
  */
 
 #include <string>
+#include <algorithm>
 #include <iostream>
 
 #include "iocsource.h"
@@ -130,7 +131,7 @@ void IOCSource::put(dbChannel* pChannel, const Value& value) {
 
 	// Calculate number of elements to save as lowest of actual number of elements and max number
 	// of elements we can store in the buffer we've allocated
-	nElements = MIN(pChannel->addr.no_elements, sizeof(valueBuffer) / pChannel->addr.field_size);
+	nElements = std::min(pChannel->addr.no_elements, (long)sizeof(valueBuffer) / pChannel->addr.field_size);
 
 	auto isCompound = value["value"].valid();
 	Value valueTarget = value;
@@ -387,7 +388,7 @@ void IOCSource::setBuffer(const Value& valueTarget, void* pValueBuffer) {
 	auto valueType(valueTarget.type());
 	if (valueType.code == TypeCode::String) {
 		auto strValue = valueTarget.as<std::string>();
-		auto len = MIN(strValue.length(), MAX_STRING_SIZE - 1);
+		auto len = std::min(strValue.length(), (size_t)MAX_STRING_SIZE - 1);
 
 		valueTarget.as<std::string>().copy((char*)pValueBuffer, len);
 		((char*)pValueBuffer)[len] = '\0';
@@ -403,7 +404,7 @@ void IOCSource::setBuffer(const Value& valueTarget, void* pValueBuffer, long nEl
 		for (auto i = 0; i < nElements; i++) {
 			snprintf(valueRef, 20, "[%d]", i);
 			auto strValue = valueTarget[valueRef].as<std::string>();
-			auto len = MIN(strValue.length(), MAX_STRING_SIZE - 1);
+			auto len = std::min(strValue.length(), (size_t)MAX_STRING_SIZE - 1);
 			strValue.copy((char*)pValueBuffer + MAX_STRING_SIZE * i, len);
 			((char*)pValueBuffer + MAX_STRING_SIZE * i)[len] = '\0';
 		}
