@@ -250,13 +250,13 @@ void GroupSource::onOp(IOCGroup& group,
 	channelConnectOperation->connect(group.valueTemplate);
 
 	// register handler for pvxs group get
-	channelConnectOperation->onGet([&](std::__1::unique_ptr<server::ExecOp>&& getOperation) {
+	channelConnectOperation->onGet([&](std::unique_ptr<server::ExecOp>&& getOperation) {
 		get(group, getOperation);
 	});
 
 	// register handler for pvxs group put
 	channelConnectOperation
-			->onPut([&](std::__1::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
+			->onPut([&](std::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
 				putGroup(group, putOperation, value);
 			});
 }
