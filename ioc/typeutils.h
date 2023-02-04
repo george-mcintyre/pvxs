@@ -16,7 +16,7 @@
  * To switch the given `TypeCode` for a statically typed call to the given function with the appropriate template type
  * e.g.
  *   `SwitchTypeCodeForTemplate(typeCode, getValue,(value, pBuffer))`
- * will convert a typeCode of TypeCode::Int8 into a call to
+ *   will convert a typeCode of TypeCode::Int8 into a call to
  *   `getValue<char>(value, pBuffer)`
  *
  * @param _typeCode the typecode to be used in the switch statement - should be of type TypeCode or short
