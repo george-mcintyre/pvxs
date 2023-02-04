@@ -11,7 +11,6 @@
 #include <sstream>
 #include <pvxs/source.h>
 #include <dbStaticLib.h>
-#include "typeutils.h"
 
 /**
  * To switch the given `TypeCode` for a statically typed call to the given function with the appropriate template type

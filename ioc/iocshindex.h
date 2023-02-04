@@ -7,6 +7,8 @@
 #ifndef PVXS_IOCSHINDEX_H
 #define PVXS_IOCSHINDEX_H
 
+#include <cstdlib>
+
 // index_sequence from:
 //http://stackoverflow.com/questions/17424477/implementation-c14-make-integer-sequence
 

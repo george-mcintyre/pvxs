@@ -7,6 +7,7 @@
 #ifndef PVXS_SUBSCRIPTIONCTX_H
 #define PVXS_SUBSCRIPTIONCTX_H
 
+#include <memory>
 
 /**
  * Add a subscription event by calling db_add_event using the given subscriptionCtx

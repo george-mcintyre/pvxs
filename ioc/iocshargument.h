@@ -11,6 +11,7 @@
 #include <memory>
 #include <stdexcept>
 #include <sstream>
+#include <iocsh.h>
 
 namespace pvxs {
 namespace ioc {

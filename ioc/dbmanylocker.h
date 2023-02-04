@@ -7,6 +7,7 @@
 #ifndef PVXS_DBMANYLOCKER_H
 #define PVXS_DBMANYLOCKER_H
 
+#include <vector>
 #include <dbLock.h>
 
 namespace pvxs {
