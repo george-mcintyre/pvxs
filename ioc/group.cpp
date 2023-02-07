@@ -20,7 +20,10 @@ namespace ioc {
  * Show details for this group.
  * This displays information to the terminal and is to be used by the IOC command shell
  *
- * @param level the level of detail to show.  0 group names only, 1 group names and top level information, 2 everything
+ * @param level the level of detail to show.
+ *   0 group names only,
+ *   1 group names and top level information,
+ *   2 everything
  */
 void Group::show(int level) const {
 	// no locking as we only print things which are const after initialization

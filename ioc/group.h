@@ -20,6 +20,13 @@
 namespace pvxs {
 namespace ioc {
 
+class ChannelLocks {
+public:
+	std::vector<dbCommon*> channels;
+	DBManyLock lock;
+	ChannelLocks() = default;
+};
+
 class Group {
 private:
 public:
@@ -27,10 +34,8 @@ public:
 	Fields fields;
 	bool atomicPutGet, atomicMonitor;
 	Value valueTemplate;
-	std::vector<dbCommon*> valueChannels;
-	std::vector<dbCommon*> propertiesChannels;
-	DBManyLock lock;
-	DBManyLock propertiesLock;
+	ChannelLocks value;
+	ChannelLocks properties;
 
 	Group();
 	virtual ~Group();
@@ -38,8 +43,8 @@ public:
 	Field& operator[](const std::string& fieldName);
 };
 
-// A map of group name to IOCGroup
-typedef std::map<std::string, Group> IOCGroupMap;
+// A map of group name to Group
+typedef std::map<std::string, Group> GroupMap;
 
 } // pvxs
 } // ioc

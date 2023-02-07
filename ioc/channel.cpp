@@ -36,7 +36,7 @@ Channel::Channel(const std::string& name)
 /**
  * Move constructor
  *
- * @param other other IOCGroupChannel
+ * @param other other Channel
  */
 Channel::Channel(Channel&& other) noexcept
 		:pDbChannel(std::move(other.pDbChannel)) {

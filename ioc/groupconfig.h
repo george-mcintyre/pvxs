@@ -18,8 +18,8 @@ namespace pvxs {
 namespace ioc {
 /**
  * Class to store the group configuration as it is read in.  It is subsequently
- * read into the GroupPv class, for intermediate use, before finally IOCGroup for runtime use
- *  Initialise:   GroupConfig ==> GroupPv ==> IOCGroup   :Running
+ * read into the Group Definition class, for intermediate use, before finally Group for runtime use
+ *  Initialise:   GroupConfig ==> GroupDefinition ==> Group   :Running
  */
 class GroupConfig {
 public:

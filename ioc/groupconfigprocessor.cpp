@@ -36,7 +36,7 @@ DEFINE_LOGGER(_logname, "pvxs.ioc.group.processor");
 /**
  * Parse group configuration that has been defined in db configuration files.
  * This involves extracting info fields named "Q:Group" from the database configuration
- * and converting them to IOCGroups.
+ * and converting them to Group Configuration objects.
  */
 void GroupConfigProcessor::loadConfigFromDb() {
 	// process info blocks named Q:Group to get group configuration
@@ -65,7 +65,7 @@ void GroupConfigProcessor::loadConfigFromDb() {
 /**
  * Parse group definitions from the collected list of group definition files.
  *
- * Get the list of group files configured on the iocServer and convert them to Group Configs.
+ * Get the list of group files configured on the iocServer and convert them to Group Configuration objects.
  */
 void GroupConfigProcessor::loadConfigFiles() {
 	runOnPvxsServer([this](IOCServer* pPvxsServer) {
@@ -145,7 +145,7 @@ void GroupConfigProcessor::defineGroups() {
 }
 
 /**
- * Configure the group fields.
+ * Define the group fields.  Use the given group config to define group's fields
  *
  * @param groupDefinition the group whose fields will be configured
  * @param groupConfig the group configuration to read from
@@ -195,8 +195,9 @@ void GroupConfigProcessor::defineFieldSortOrder() {
 
 /**
  * Configure group atomicity.
+ *
+ * @param groupDefinition The group definition to update
  * @param groupConfig the source group configuration
- * @param groupDefinition The group to configure
  * @param groupName the group's name
  */
 void GroupConfigProcessor::defineAtomicity(GroupDefinition& groupDefinition, const GroupConfig& groupConfig,
@@ -218,7 +219,7 @@ void GroupConfigProcessor::defineAtomicity(GroupDefinition& groupDefinition, con
 /**
  * Load field triggers for a group field.
  *
- * @param groupDefinition the group to update
+ * @param groupDefinition The group definition to update
  * @param fieldConfig the field configuration to read trigger configuration from
  * @param fieldName the field name in the group
  */
@@ -240,7 +241,9 @@ void GroupConfigProcessor::defineTriggers(GroupDefinition& groupDefinition, cons
 }
 
 /**
- * Resolve all trigger references to the specified fields
+ * Resolve all trigger references to the fields that they point to. Walk the group definition map,
+ * and for each group that has triggers resolve the references, and if it does not have
+ * any triggers then set all fields to self reference.
  */
 void GroupConfigProcessor::resolveTriggerReferences() {
 	// For all groups
@@ -278,7 +281,7 @@ void GroupConfigProcessor::resolveSelfTriggerReferences(GroupDefinition& groupDe
  * Configure a group's triggers.  This involves looping over the map of all triggers and configuring
  * the field triggers that are defined there.
  *
- * @param groupDefinition the group to configure
+ * @param groupDefinition The group definition to update
  * @param groupName the group name
  */
 void
@@ -307,9 +310,9 @@ GroupConfigProcessor::resolveGroupTriggerReferences(GroupDefinition& groupDefini
 /**
  * Define trigger for a given field to reference the given targets.
  *
- * @param fieldDefinition the field who's trigger will be configured
- * @param groupDefinition the group to configure
- * @param triggerNames the field's trigger targets
+ * @param fieldDefinition the field definition who's trigger definition will be updated
+ * @param groupDefinition the group definition to reference
+ * @param triggerNames the field's trigger target names
  * @param groupName the name of the group
  */
 void GroupConfigProcessor::defineGroupTriggers(FieldDefinition& fieldDefinition, const GroupDefinition& groupDefinition,
@@ -345,12 +348,12 @@ void GroupConfigProcessor::defineGroupTriggers(FieldDefinition& fieldDefinition,
 }
 
 /**
- * Process the configured groups to create the final IOCGroups containing PVStructure templates and all the
+ * Process the defined groups to create the final Group objects containing PVStructure templates and all the
  * infrastructure needed to respond to PVAccess requests linked to the underlying IOC database
  *
- * 1. Collects builds IOCGroups and IOCGroupFields from GroupPvs
- * 2. Build PVStructures for each IOCGroup and discard those w/o a dbChannel
- * 3. Build the lockers for each group field based on their triggers
+ * 1. Builds Groups and Fields from Group Definitions
+ * 2. Build PVStructures for each Group and discard those w/o a dbChannel
+ * 3. Build the lockers for each group and field based on their triggers
  */
 void GroupConfigProcessor::createGroups() {
 	runOnPvxsServer([this](IOCServer* pPvxsServer) {
@@ -511,16 +514,16 @@ void GroupConfigProcessor::addTemplatesForDefinedFields(std::vector<Member>& gro
 			auto& field = group[fieldDefinition.name];
 			auto& type = fieldDefinition.type;
 
-			auto pdbChannel = (dbChannel*)field.value.channel;
+			auto pDbChannel = (dbChannel*)field.value.channel;
 			if (type == "meta") {
 				field.isMeta = true;
 				addMembersForMetaData(groupMembers, field);
 			} else if (type == "proc") {
 				field.allowProc = true;
 			} else if (type.empty() || type == "scalar") {
-				addMembersForScalarType(groupMembers, field, pdbChannel);
+				addMembersForScalarType(groupMembers, field, pDbChannel);
 			} else if (type == "plain") {
-				addMembersForPlainType(groupMembers, field, pdbChannel);
+				addMembersForPlainType(groupMembers, field, pDbChannel);
 			} else if (type == "any") {
 				addMembersForAnyType(groupMembers, field);
 			} else if (type == "structure") {
@@ -533,10 +536,10 @@ void GroupConfigProcessor::addTemplatesForDefinedFields(std::vector<Member>& gro
 }
 
 /**
- * Parse the given json string as a group definition part for the given dbRecord
- * name and extract group definition into the given iocServer
+ * Parse the given json string as a group configuration part for the given dbRecord
+ * name and extract group definition into our groupDefinitionMap
  *
- * @param jsonGroupDefinition the given json string representing a group definition
+ * @param jsonGroupDefinition the given json string representing a group configuration
  * @param dbRecordName the name of the dbRecord
  */
 void GroupConfigProcessor::parseConfigString(const char* jsonGroupDefinition, const char* dbRecordName) {
@@ -769,20 +772,20 @@ void GroupConfigProcessor::checkForTrailingCommentsAtEnd(const std::string& line
  *    effect: group members += {Struct{a: Struct{b: NTScalar{}}}} - adds NTScalar at a.b
  *
  * @param groupMembers the given group members to update
- * @param groupField the group field used to determine the members to add and how to create them
- * @param pdbChannel the db channel to get information on what scalar type to create
+ * @param field the field used to determine the members to add and how to create them
+ * @param pDbChannel the db channel to get information on what scalar type to create
  */
-void GroupConfigProcessor::addMembersForScalarType(std::vector<Member>& groupMembers, const Field& groupField,
-		const dbChannel* pdbChannel) {
+void GroupConfigProcessor::addMembersForScalarType(std::vector<Member>& groupMembers, const Field& field,
+		const dbChannel* pDbChannel) {
 	using namespace pvxs::members;
-	assert(!groupField.fieldName.empty()); // Must not call with empty field name
+	assert(!field.fieldName.empty()); // Must not call with empty field name
 
 	// Get the type for the leaf
-	auto leafCode(IOCSource::getChannelValueType(pdbChannel, true));
+	auto leafCode(IOCSource::getChannelValueType(pDbChannel, true));
 	TypeDef leaf;
 
 	// Create the leaf
-	auto dbfType = dbChannelFinalFieldType(pdbChannel);
+	auto dbfType = dbChannelFinalFieldType(pDbChannel);
 	if (dbfType == DBF_ENUM || dbfType == DBF_MENU) {
 		leaf = nt::NTEnum{}.build();
 	} else {
@@ -791,8 +794,8 @@ void GroupConfigProcessor::addMembersForScalarType(std::vector<Member>& groupMem
 		bool valueAlarm = (dbfType != DBF_STRING);
 		leaf = nt::NTScalar{ leafCode, display, control, valueAlarm }.build();
 	}
-	std::vector<Member> newScalarMembers({ leaf.as(groupField.fieldName.leafFieldName()) });
-	setFieldTypeDefinition(groupMembers, groupField.fieldName, newScalarMembers);
+	std::vector<Member> newScalarMembers({ leaf.as(field.fieldName.leafFieldName()) });
+	setFieldTypeDefinition(groupMembers, field.fieldName, newScalarMembers);
 }
 
 /**
@@ -801,14 +804,14 @@ void GroupConfigProcessor::addMembersForScalarType(std::vector<Member>& groupMem
  *
  * @param groupMembers the vector of members to add to
  * @param groupField the given group field
- * @param pdbChannel the channel used to get the type of the leaf member
+ * @param pDbChannel the channel used to get the type of the leaf member
  */
 void GroupConfigProcessor::addMembersForPlainType(std::vector<Member>& groupMembers, const Field& groupField,
-		const dbChannel* pdbChannel) {
+		const dbChannel* pDbChannel) {
 	assert(!groupField.fieldName.empty()); // Must not call with empty field name
 
 	// Get the type for the leaf
-	auto leafCode(IOCSource::getChannelValueType(pdbChannel, true));
+	auto leafCode(IOCSource::getChannelValueType(pDbChannel, true));
 	TypeDef leaf(leafCode);
 	std::vector<Member> newScalarMembers({ leaf.as(groupField.fieldName.leafFieldName()) });
 	setFieldTypeDefinition(groupMembers, groupField.fieldName, newScalarMembers);
@@ -1051,11 +1054,11 @@ void GroupConfigProcessor::initialiseDbLocker(Group& group) {
 	for (auto& field: group.fields) {
 		auto pValueChannel = (dbChannel*)field.value.channel;
 		auto pPropertiesChannel = (dbChannel*)field.properties.channel;
-		group.valueChannels.push_back(pValueChannel->addr.precord);
-		group.propertiesChannels.push_back(pPropertiesChannel->addr.precord);
+		group.value.channels.push_back(pValueChannel->addr.precord);
+		group.properties.channels.push_back(pPropertiesChannel->addr.precord);
 	}
-	group.lock = DBManyLock(group.valueChannels);
-	group.propertiesLock = DBManyLock(group.propertiesChannels);
+	group.value.lock = DBManyLock(group.value.channels);
+	group.properties.lock = DBManyLock(group.properties.channels);
 }
 
 } // ioc

@@ -351,7 +351,7 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
 			}
 
 			// Lock all the fields
-			DBManyLocker G(group.lock);
+			DBManyLocker G(group.value.lock);
 			// Loop through all fields
 			for (auto& field: group.fields) {
 				// Put the field
@@ -421,9 +421,6 @@ void GroupSource::putField(const Value& value, const Field& field) {
  */
 void GroupSource::subscriptionCallback(FieldSubscriptionCtx* fieldSubscriptionCtx,
 		dbChannel* pDbChannel, int eventsRemaining, struct db_field_log* pDbFieldLog, bool forValues) {
-	// TODO use eventsRemaining
-	// TODO use pDbFieldLog
-
 	// Make sure that the initial subscription update has occurred on all channels before continuing
 	// As we make two initial updates when opening a new subscription, for each field,
 	// we need both fields to have completed before continuing
@@ -473,8 +470,11 @@ void GroupSource::subscriptionCallback(FieldSubscriptionCtx* fieldSubscriptionCt
 		}
 	}
 
-	// Post a reply to the group subscription monitor if everything is OK
-	fieldSubscriptionCtx->pGroupCtx->subscriptionControl->tryPost(returnValue);
+	// If there are no other events remaining ...
+	if (!eventsRemaining) {
+		// Post a reply to the group subscription monitor if everything is OK
+		fieldSubscriptionCtx->pGroupCtx->subscriptionControl->tryPost(returnValue);
+	}
 
 	// Unlock fields in group when locker goes out of scope
 }

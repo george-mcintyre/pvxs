@@ -23,7 +23,7 @@ class IOCServer : public server::Server {
 
 public:
 	explicit IOCServer(const server::Config& config);
-	IOCGroupMap groupMap;
+	GroupMap groupMap;
 	std::list<std::string> groupConfigFiles;
 
 	// For locking access to groupMap

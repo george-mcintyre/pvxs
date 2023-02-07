@@ -297,13 +297,13 @@ void SingleSource::onSubscribe(const std::shared_ptr<SingleSourceSubscriptionCtx
  * Used by both value and property subscriptions, this function will get and return the database value to the monitor.
  *
  * @param subscriptionContext the subscription context
- * @param pDbChannel the channel to get the database value
+ * @param pTriggeringDbChannel the channel that triggered this subscription update
  * @param eventsRemaining the number of events remaining
  * @param pDbFieldLog the database field log
  */
-void SingleSource::subscriptionCallback(SingleSourceSubscriptionCtx* subscriptionContext, struct dbChannel* pDbChannel,
+void SingleSource::subscriptionCallback(SingleSourceSubscriptionCtx* subscriptionContext,
+		struct dbChannel* pTriggeringDbChannel,
 		int eventsRemaining, struct db_field_log* pDbFieldLog) {
-	// TODO use eventsRemaining
 	// Make sure that the initial subscription update has occurred on both channels before continuing
 	// As we make two initial updates when opening a new subscription, we need both to have completed before continuing
 	if (!subscriptionContext->hadValueEvent || !subscriptionContext->hadPropertyEvent) {
@@ -311,12 +311,14 @@ void SingleSource::subscriptionCallback(SingleSourceSubscriptionCtx* subscriptio
 	}
 
 	// Get and return the value to the monitor
-	bool forValue = (subscriptionContext->pValueChannel.get() == pDbChannel);
-	auto& pdbChannel = forValue ? subscriptionContext->pValueChannel : subscriptionContext->pPropertiesChannel;
-	IOCSource::get(pdbChannel.get(), subscriptionContext->prototype.cloneEmpty(), forValue, !forValue,
-			[subscriptionContext](Value& value) {
-				// Return value
-				subscriptionContext->subscriptionControl->tryPost(value);
+	bool forValue = (subscriptionContext->pValueChannel.get() == pTriggeringDbChannel);
+	auto& pDbChannel = forValue ? subscriptionContext->pValueChannel : subscriptionContext->pPropertiesChannel;
+	IOCSource::get(pDbChannel.get(), subscriptionContext->prototype.cloneEmpty(), forValue, !forValue,
+			[subscriptionContext, &eventsRemaining](Value& value) {
+				if (!eventsRemaining) {
+					// Return value
+					subscriptionContext->subscriptionControl->tryPost(value);
+				}
 			}, pDbFieldLog);
 }
 

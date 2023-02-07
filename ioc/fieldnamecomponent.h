@@ -31,8 +31,11 @@ class FieldNameComponent {
 public:
 	explicit FieldNameComponent(std::string name, uint32_t index = (uint32_t)-1);
 	bool isArray() const;
-// the name of this field component
+
+	// the name of this field component
 	std::string name;
+	// If this is a structure array then this is the index that is referred to by this field name component.
+	// -1 means that it is not a structure array
 	uint32_t index;
 };
 

@@ -15,12 +15,12 @@
 namespace pvxs {
 namespace ioc {
 
-ReferencesAndLock::ReferencesAndLock(const std::string& stringChannelName)
+ChannelAndLock::ChannelAndLock(const std::string& stringChannelName)
 		:channel(stringChannelName) {
 }
 
 /**
- * Construct an IOCGroupField from a field name and channel name
+ * Construct a Field from a field name and channel name
  *
  * @param stringFieldName the field name
  * @param stringChannelName the channel name
@@ -35,7 +35,7 @@ Field::Field(const std::string& stringFieldName, const std::string& stringChanne
 }
 
 /**
- * Using the field components configured in this IOCGroupField, walk down from the given value,
+ * Using the field components configured in this Field, walk down from the given value,
  * to arrive at the part of the value referenced by this field.
  *
  * @param top the given value

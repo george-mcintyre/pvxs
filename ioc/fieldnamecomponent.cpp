@@ -16,7 +16,7 @@ namespace pvxs {
 namespace ioc {
 
 /**
- * Construct an simple Field name component holder
+ * Construct an simple Field name component holder.  -1 means not a structure array
  */
 FieldNameComponent::FieldNameComponent()
 		:index((uint32_t)-1) {

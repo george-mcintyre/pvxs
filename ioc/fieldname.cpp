@@ -75,6 +75,8 @@ FieldName::FieldName(const std::string& fieldName) {
 
 /**
  * Convert this group field name to a string.
+ *
+ * @param padLength the amount of padding to add, defaults to none
  */
 std::string FieldName::to_string(size_t padLength) const {
 	std::string fieldName;
@@ -100,6 +102,8 @@ std::string FieldName::to_string(size_t padLength) const {
 
 /**
  * Show this field name.  All components are shown as they were configured.
+ *
+ * @param suffix the suffix to add to the field name, defaults to none
  */
 void FieldName::show(const std::string& suffix) const {
 	printf("%s%s", to_string(PADDING_WIDTH - suffix.size()).c_str(), suffix.c_str());
@@ -150,6 +154,12 @@ const FieldNameComponent& FieldName::back() const {
 const FieldNameComponent& FieldName::operator[](size_t i) const {
 	return fieldNameComponents[i];
 }
+
+/**
+ * Get the leaf field name of this field
+ *
+ * @return the leaf field name
+ */
 const std::string& FieldName::leafFieldName() const {
 	return fieldNameComponents[fieldNameComponents.size() - 1].name;
 }
@@ -157,7 +167,8 @@ const std::string& FieldName::leafFieldName() const {
 /**
  * Utility function to pad given string with spaces
  *
- * @param stringToPad
+ * @param stringToPad the string to be padded
+ * @param padLength the amount of spaces to pad with
  */
 static void pad(std::string& stringToPad, const size_t padLength) {
 	if (padLength > stringToPad.size()) {

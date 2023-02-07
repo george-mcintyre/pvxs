@@ -7,7 +7,6 @@
  *
  */
 
-// TODO Rename to ConfigProcessor
 #ifndef PVXS_GROUPCONFIGPROCESSOR_H
 #define PVXS_GROUPCONFIGPROCESSOR_H
 
@@ -29,7 +28,7 @@ class GroupProcessorContext;
 /**
  * Class to parse group configuration that has been defined in db configuration files.
  * This involves extracting info fields named "Q:Group" from the database configuration
- * and converting them to IOCGroups.
+ * and converting them to Groups.
  */
 class GroupConfigProcessor {
 	GroupDefinitionMap groupDefinitionMap;
@@ -81,9 +80,9 @@ private:
 	static void addMembersForAnyType(std::vector<Member>& groupMembers, const Field& groupField);
 	static void addMembersForMetaData(std::vector<Member>& groupMembers, const Field& groupField);
 	static void addMembersForPlainType(std::vector<Member>& groupMembers, const Field& groupField,
-			const dbChannel* pdbChannel);
-	static void addMembersForScalarType(std::vector<Member>& groupMembers, const Field& groupField,
-			const dbChannel* pdbChannel);
+			const dbChannel* pDbChannel);
+	static void addMembersForScalarType(std::vector<Member>& groupMembers, const Field& field,
+			const dbChannel* pDbChannel);
 	static void addMembersForStructureType(std::vector<Member>& groupMembers, const Field& groupField);
 	static void defineGroupTriggers(FieldDefinition& fieldDefinition, const GroupDefinition& groupDefinition,
 			const TriggerNames& triggerNames, const std::string& groupName);
