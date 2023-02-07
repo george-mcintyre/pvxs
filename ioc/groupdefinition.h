@@ -2,24 +2,28 @@
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * pvxs is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
+ *
+ * Author George S. McIntyre <george@level-n.com>, 2023
+ *
  */
 
-#ifndef PVXS_GROUPPV_H
-#define PVXS_GROUPPV_H
+#ifndef PVXS_GROUPDEFINITION_H
+#define PVXS_GROUPDEFINITION_H
 
-#include <string>
 #include <map>
-#include <vector>
 #include <set>
-#include "grouppvfield.h"
+#include <string>
+#include <vector>
+
+#include "fielddefinition.h"
 
 namespace pvxs {
 namespace ioc {
 
 /**
- * Group pv channel trigger map, maps field name to set of related field it is triggered by
+ * channel trigger map, maps field name to set of related field it is triggered by
  */
-typedef std::map<std::string, Triggers> TriggersMap;
+typedef std::map<std::string, TriggerNames> FieldTriggerMap;
 
 /**
  * Tristate value for status flags
@@ -36,29 +40,25 @@ typedef enum {
  * `GroupPvChannels` that link the group to regular db channels.  Each of these channels
  * define fields that are scalar, array or processing placeholders
  */
-class GroupPv {
+class GroupDefinition {
 public:
-	GroupPv() = default;
-	virtual ~GroupPv() = default;
+	GroupDefinition() = default;
+	virtual ~GroupDefinition() = default;
 
 	bool atomicPutGet{ false }, atomicMonitor{ false }, hasTriggers{ false };
 	std::string structureId;            // The Normative Type structure ID or any other arbitrary string if not a normative type
-	GroupPvFields fields;               // The group's fields
-	GroupPvFieldsMap fieldMap;          // The field map, mapping field order
+	FieldDefinitions fields;            // The group's fields
+	FieldDefinitionMap fieldMap;        // The field map, mapping field order
 	TriState atomic{ Unset };
-	TriggersMap triggerMap;             // The trigger map, mapping fields to related triggering fields
+	FieldTriggerMap fieldTriggerMap;    // The trigger map, mapping fields to related triggering fields
 
-	/**
-	 * Show details for this group
-	 * @param level the level of detail to show.  0 fields only
-	 */
 	size_t channelCount() const;
 };
 
 // A map of group name to GroupPv
-typedef std::map<std::string, GroupPv> GroupPvMap;
+typedef std::map<std::string, GroupDefinition> GroupDefinitionMap;
 
 } // pvxs
 } // ioc
 
-#endif //PVXS_GROUPPV_H
+#endif //PVXS_GROUPDEFINITION_H

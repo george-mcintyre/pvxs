@@ -54,7 +54,7 @@ static void pvxsTestIocShutdownOk()
 }
 
 MAIN(testioc) {
-	testPlan(21);
+	testPlan(22);
 	testSetup();
 
 	testdbPrepare();
@@ -94,7 +94,6 @@ MAIN(testioc) {
 
 	// Test (12-15) value of fields correct
 	testdbGetFieldEqual("test:aiExample", DBR_DOUBLE, 42.2);
-//	testdbGetFieldEqual("test:calcExample", DBR_DOUBLE, 0);
 	testdbGetFieldEqual("test:compressExample", DBR_DOUBLE, 42.2);
 	testdbGetFieldEqual("test:stringExample", DBR_STRING, "Some random value");
 	double expected = 0.0;
@@ -114,23 +113,30 @@ MAIN(testioc) {
 	testEq(0.0, calcExample);
 
 	// Set test (18) values into array
-	shared_array<double> testArray({ 1.0, 2.0, 3.0, 4.0, 5.0 });
-	testdbPutArrFieldOk("test:arrayExample", DBR_DOUBLE, testArray.size(), testArray.data());
+	shared_array<double> expectedArray({ 1.0, 2.0, 3.0 });
 	val = cli.get("test:arrayExample").exec()->wait(5.0);
-	auto array = val["value"].as<shared_array<const double>>();
+	auto actualArray = val["value"].as<shared_array<const double>>();
+	testArrEq(expectedArray, actualArray);
+
+	shared_array<double> expectedArray2({ 1.0, 2.0, 3.0, 4.0, 5.0 });
 	// (19)
-	testArrEq(testArray, array);
+	testdbPutArrFieldOk("test:arrayExample", DBR_DOUBLE, expectedArray2.size(), expectedArray2.data());
+	val = cli.get("test:arrayExample").exec()->wait(5.0);
+	actualArray = val["value"].as<shared_array<const double>>();
+	// (20)
+	testArrEq(expectedArray2, actualArray);
+
 
 //	val = cli.get("test:compressExample").exec()->wait(5.0);
 //	auto compressExample = val["value"].as<double>();
 //	testEq(42.2, compressExample);
 
-	// (20)
+	// (21)
 	val = cli.get("test:longExample").exec()->wait(5.0);
 	auto longValue = val["value"].as<long>();
 	testEq(102042, longValue);
 
-	// (21)
+	// (22)
 	val = cli.get("test:stringExample").exec()->wait(5.0);
 	auto testString = val["value"];
 	testStrEq(std::string(SB() << testString), "string = \"Some random value\"\n");

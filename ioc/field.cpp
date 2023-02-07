@@ -2,11 +2,15 @@
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * pvxs is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
+ *
+ * Author George S. McIntyre <george@level-n.com>, 2023
+ *
  */
 
 #include <sstream>
 #include <utility>
-#include "iocgroupfield.h"
+
+#include "field.h"
 
 namespace pvxs {
 namespace ioc {
@@ -17,7 +21,7 @@ namespace ioc {
  * @param stringFieldName the field name
  * @param stringChannelName the channel name
  */
-IOCGroupField::IOCGroupField(const std::string& stringFieldName, const std::string& stringChannelName)
+Field::Field(const std::string& stringFieldName, const std::string& stringChannelName)
 		:fieldName(stringFieldName), isMeta(false), allowProc(false), isArray(false), valueChannel(stringChannelName),
 		 propertiesChannel(stringChannelName) {
 	if (!fieldName.fieldNameComponents.empty()) {
@@ -33,7 +37,7 @@ IOCGroupField::IOCGroupField(const std::string& stringFieldName, const std::stri
  * @param top the given value
  * @return the Value referenced by this field within the given value
  */
-Value IOCGroupField::findIn(Value value) const {
+Value Field::findIn(Value value) const {
 	if (!fieldName.empty()) {
 		for (const auto& component: fieldName.fieldNameComponents) {
 			value = value[component.name];

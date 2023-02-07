@@ -2,10 +2,15 @@
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * pvxs is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
+ *
+ * Author George S. McIntyre <george@level-n.com>, 2023
+ *
  */
 
+#include <iostream>
 #include <string>
-#include "iocgroupchannel.h"
+
+#include "channel.h"
 #include "utilpvt.h"
 
 namespace pvxs {
@@ -15,9 +20,13 @@ namespace ioc {
  *
  * @param name the db channel name
  */
-IOCGroupChannel::IOCGroupChannel(const std::string& name)
-		:pDbChannel(
-		std::shared_ptr<dbChannel>(dbChannelCreate(name.c_str()), [](dbChannel* ch) { dbChannelDelete(ch); })) {
+Channel::Channel(const std::string& name)
+		:pDbChannel(std::shared_ptr<dbChannel>(dbChannelCreate(name.c_str()),
+		[](dbChannel* ch) {
+			if (ch) {
+				dbChannelDelete(ch);
+			}
+		})) {
 	if (!pDbChannel) {
 		throw std::invalid_argument(SB() << "invalid group channel name: " << name);
 	}
@@ -29,19 +38,19 @@ IOCGroupChannel::IOCGroupChannel(const std::string& name)
  *
  * @param other other IOCGroupChannel
  */
-IOCGroupChannel::IOCGroupChannel(IOCGroupChannel&& other) noexcept
+Channel::Channel(Channel&& other) noexcept
 		:pDbChannel(std::move(other.pDbChannel)) {
 }
 
 /**
  * Destructor is default because pDbChannel cleans up after itself.
  */
-IOCGroupChannel::~IOCGroupChannel() = default;
+Channel::~Channel() = default;
 
 /**
  * Internal function to prepare the dbChannel for operation by opening it
  */
-void IOCGroupChannel::prepare() {
+void Channel::prepare() {
 	if (!pDbChannel) {
 		throw std::invalid_argument(SB() << "NULL channel while opening group channel");
 	}
@@ -49,12 +58,13 @@ void IOCGroupChannel::prepare() {
 		throw std::invalid_argument(SB() << "Failed to open group channel " << dbChannelName(pDbChannel));
 	}
 }
+
 /**
  * Cast as a shared pointer to a dbChannel.  This returns the pDbChannel member
  *
  * @return the pDbChannel member
  */
-IOCGroupChannel::operator dbChannel*() const {
+Channel::operator dbChannel*() const {
 	return pDbChannel.get();
 }
 
@@ -62,7 +72,7 @@ IOCGroupChannel::operator dbChannel*() const {
  * Const pointer indirection operator
  * @return pointer to the dbChannel associated with this group channel
  */
-const dbChannel* IOCGroupChannel::operator->() const {
+const dbChannel* Channel::operator->() const {
 	return pDbChannel.get();
 }
 

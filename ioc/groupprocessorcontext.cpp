@@ -2,6 +2,9 @@
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * pvxs is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
+ *
+ * Author George S. McIntyre <george@level-n.com>, 2023
+ *
  */
 #include <string>
 
@@ -45,7 +48,7 @@ void GroupProcessorContext::assign(const Value& value) {
 		field.clear();
 
 	} else if (depth == 3) {
-		auto& groupField = groupPvConfig.groupFields[field];
+		auto& groupField = groupPvConfig.fieldConfigMap[field];
 
 		if (key == "+type") {
 			groupField.type = value.as<std::string>();

@@ -2,43 +2,46 @@
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * pvxs is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
+ *
+ * Author George S. McIntyre <george@level-n.com>, 2023
+ *
  */
 
-#ifndef PVXS_IOCGROUP_H
-#define PVXS_IOCGROUP_H
+#ifndef PVXS_GROUP_H
+#define PVXS_GROUP_H
 
 #include <map>
+
 #include <pvxs/data.h>
 
-#include "iocgroupfield.h"
 #include "dbmanylocker.h"
+#include "field.h"
 
 namespace pvxs {
 namespace ioc {
 
-class IOCGroup {
+class Group {
 private:
 public:
 	std::string name;
-	IOCGroupFields fields;
+	Fields fields;
 	bool atomicPutGet, atomicMonitor;
 	Value valueTemplate;
 	std::vector<dbCommon*> valueChannels;
 	std::vector<dbCommon*> propertiesChannels;
 	DBManyLock lock;
-	// TODO when is properties lock used?
 	DBManyLock propertiesLock;
 
-	IOCGroup();
-	virtual ~IOCGroup();
+	Group();
+	virtual ~Group();
 	virtual void show(int level) const;
-	IOCGroupField& operator[](const std::string& fieldName);
+	Field& operator[](const std::string& fieldName);
 };
 
 // A map of group name to IOCGroup
-typedef std::map<std::string, IOCGroup> IOCGroupMap;
+typedef std::map<std::string, Group> IOCGroupMap;
 
 } // pvxs
 } // ioc
 
-#endif //PVXS_IOCGROUP_H
+#endif //PVXS_GROUP_H

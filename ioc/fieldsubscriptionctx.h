@@ -2,6 +2,9 @@
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * pvxs is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
+ *
+ * Author George S. McIntyre <george@level-n.com>, 2023
+ *
  */
 
 
@@ -9,10 +12,12 @@
 #define PVXS_FIELDSUBSCRIPTIONCTX_H
 
 #include <map>
+
 #include <pvxs/source.h>
-#include "iocgroup.h"
-#include "subscriptionctx.h"
+
 #include "dbeventcontextdeleter.h"
+#include "group.h"
+#include "subscriptionctx.h"
 
 namespace pvxs {
 namespace ioc {
@@ -28,13 +33,13 @@ class GroupSourceSubscriptionCtx;
 class FieldSubscriptionCtx : public SubscriptionCtx {
 public:
 	GroupSourceSubscriptionCtx* pGroupCtx;
-	IOCGroupField* field;
+	Field* field;
 
 	// Map channel to field index in group.fields
 	void subscribeField(dbEventCtx pEventCtx, EVENTFUNC (* subscriptionCallback),
 			unsigned int selectOptions, bool forValues = true);
 
-	explicit FieldSubscriptionCtx(IOCGroupField& field, GroupSourceSubscriptionCtx* groupSourceSubscriptionCtx);
+	explicit FieldSubscriptionCtx(Field& field, GroupSourceSubscriptionCtx* groupSourceSubscriptionCtx);
 	FieldSubscriptionCtx(FieldSubscriptionCtx&&) = default;
 
 	FieldSubscriptionCtx(const FieldSubscriptionCtx&) = delete;

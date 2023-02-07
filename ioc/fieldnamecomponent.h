@@ -2,10 +2,13 @@
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * pvxs is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
+ *
+ * Author George S. McIntyre <george@level-n.com>, 2023
+ *
  */
 
-#ifndef PVXS_IOCGROUPFIELDNAMECOMPONENT_H
-#define PVXS_IOCGROUPFIELDNAMECOMPONENT_H
+#ifndef PVXS_FIELDNAMECOMPONENT_H
+#define PVXS_FIELDNAMECOMPONENT_H
 
 #include <string>
 #include <vector>
@@ -22,20 +25,20 @@ namespace ioc {
  *
  * An array of structures is an array whose elements are themselves structures.
  */
-class IOCGroupFieldNameComponent {
+class FieldNameComponent {
 	// If this component is an array this is the index into the array
-	IOCGroupFieldNameComponent();
+	FieldNameComponent();
 public:
-	explicit IOCGroupFieldNameComponent(std::string name, uint32_t index = (uint32_t)-1);
+	explicit FieldNameComponent(std::string name, uint32_t index = (uint32_t)-1);
 	bool isArray() const;
 // the name of this field component
 	std::string name;
 	uint32_t index;
 };
 
-typedef std::vector<IOCGroupFieldNameComponent> IOCGroupFieldNameComponents;
+typedef std::vector<FieldNameComponent> FieldNameComponents;
 
 } // pvxs
 } // ioc
 
-#endif //PVXS_IOCGROUPFIELDNAMECOMPONENT_H
+#endif //PVXS_FIELDNAMECOMPONENT_H

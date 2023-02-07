@@ -2,9 +2,13 @@
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * pvxs is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
+ *
+ * Author George S. McIntyre <george@level-n.com>, 2023
+ *
  */
 
 #include <iostream>
+
 #include "fieldsubscriptionctx.h"
 
 namespace pvxs {
@@ -16,7 +20,7 @@ namespace ioc {
  * @param field the field this subscription context will be used to monitor
  * @param groupSourceSubscriptionCtx the group subscription context this is a part of
  */
-FieldSubscriptionCtx::FieldSubscriptionCtx(IOCGroupField& field, GroupSourceSubscriptionCtx* groupSourceSubscriptionCtx)
+FieldSubscriptionCtx::FieldSubscriptionCtx(Field& field, GroupSourceSubscriptionCtx* groupSourceSubscriptionCtx)
 		:pGroupCtx(groupSourceSubscriptionCtx), field(&field) {
 };
 
@@ -32,12 +36,12 @@ FieldSubscriptionCtx::FieldSubscriptionCtx(IOCGroupField& field, GroupSourceSubs
  */
 void FieldSubscriptionCtx::subscribeField(dbEventCtx pEventCtx, EVENTFUNC (* subscriptionCallback),
 		unsigned int selectOptions, bool forValues) {
-	auto& pChannel = (forValues ? field->valueChannel : field->propertiesChannel).shared_ptr();
+	auto& pDbChannel = (forValues ? field->valueChannel : field->propertiesChannel).shared_ptr();
 	auto& pEventSubscription = forValues ? pValueEventSubscription : pPropertiesEventSubscription;
 	pEventSubscription.reset(
 			db_add_event(
 					pEventCtx,
-					pChannel.get(),
+					pDbChannel.get(),
 					subscriptionCallback,
 					this, selectOptions),
 			[](dbEventSubscription pEventSub) {

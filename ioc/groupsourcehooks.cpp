@@ -2,19 +2,23 @@
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * pvxs is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
+ *
+ * Author George S. McIntyre <george@level-n.com>, 2023
+ *
  */
 
 #include <vector>
 
 #include <pvxs/source.h>
-#include <initHooks.h>
+#include <pvxs/iochooks.h>
+
 #include <epicsExport.h>
 #include <epicsString.h>
 
-#include "iocshcommand.h"
+#include <initHooks.h>
 #include "groupsource.h"
 #include "groupconfigprocessor.h"
-#include "pvxs/iochooks.h"
+#include "iocshcommand.h"
 
 namespace pvxs {
 namespace ioc {
@@ -90,13 +94,13 @@ long dbLoadGroup(const char* jsonFilename) {
 			if (jsonFilename[0] == '-') {
 				jsonFilename++;
 				if (jsonFilename[0] == '*' && jsonFilename[1] == '\0') {
-					pPvxsServer->groupDefinitionFiles.clear();
+					pPvxsServer->groupConfigFiles.clear();
 				} else {
-					pPvxsServer->groupDefinitionFiles.remove(jsonFilename);
+					pPvxsServer->groupConfigFiles.remove(jsonFilename);
 				}
 			} else {
-				pPvxsServer->groupDefinitionFiles.remove(jsonFilename);
-				pPvxsServer->groupDefinitionFiles.emplace_back(jsonFilename);
+				pPvxsServer->groupConfigFiles.remove(jsonFilename);
+				pPvxsServer->groupConfigFiles.emplace_back(jsonFilename);
 			}
 		});
 		return 0;
@@ -123,18 +127,18 @@ void qsrvGroupSourceInit(initHookState theInitHookState) {
 	if (theInitHookState == initHookAfterInitDatabase) {
 		GroupConfigProcessor processor;
 		// Parse all info(Q:Group... records to configure groups
-		processor.parseDbConfig();
+		processor.loadConfigFromDb();
 
 		// Load group configuration files
-		processor.parseConfigFiles();
+		processor.loadConfigFiles();
 
 		// Configure groups
-		processor.configureGroups();
+		processor.defineGroups();
 
 		// Resolve triggers
-		processor.resolveTriggers();
+		processor.resolveTriggerReferences();
 
-		// Create IOC Server Groups
+		// Create Server Groups
 		processor.createGroups();
 	} else if (theInitHookState == initHookAfterIocBuilt) {
 		// Load group configuration from parsed groups in iocServer

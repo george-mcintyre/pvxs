@@ -2,6 +2,9 @@
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * pvxs is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
+ *
+ * Author George S. McIntyre <george@level-n.com>, 2023
+ *
  */
 
 #ifndef PVXS_DBLOCKER_H
@@ -19,8 +22,8 @@ namespace ioc {
  *
  * e.g.
  * 		{
- *			DBLocker F(pChannel->addr.precord); // Lock
- *			IOCSource::put(pChannel, ...);
+ *			DBLocker F(pDbChannel->addr.precord); // Lock
+ *			IOCSource::put(pDbChannel, ...);
  *			...
  * 		}  // Unlocked
  */

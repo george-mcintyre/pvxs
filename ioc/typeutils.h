@@ -2,14 +2,19 @@
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * pvxs is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
+ *
+ * Author George S. McIntyre <george@level-n.com>, 2023
+ *
  */
 
 #ifndef PVXS_TYPEUTILS_H
 #define PVXS_TYPEUTILS_H
 
-#include <string>
 #include <sstream>
+#include <string>
+
 #include <pvxs/source.h>
+
 #include <dbStaticLib.h>
 
 /**
@@ -47,7 +52,9 @@ switch (_typeCode) {                               \
 
 namespace pvxs {
 
-TypeCode::code_t toTypeCode(dbfType databaseTypeCode);
+TypeCode::code_t fromDbfType(dbfType dbfType);
+TypeCode::code_t fromDbrType(short dbrType);
+
 }
 
 #endif //PVXS_TYPEUTILS_H

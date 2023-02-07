@@ -2,27 +2,31 @@
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * pvxs is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
+ *
+ * Author George S. McIntyre <george@level-n.com>, 2023
+ *
  */
 
-#include <iostream>
 #include <fstream>
-#include <string>
+#include <iostream>
 #include <map>
+#include <string>
 
-#include <dbChannel.h>
 #include <pvxs/log.h>
 #include <pvxs/nt.h>
+
+#include <dbChannel.h>
 
 #include <yajl_alloc.h>
 #include <yajl_parse.h>
 
-#include "groupconfigprocessor.h"
-#include "iocshcommand.h"
 #include "dbentry.h"
-#include "grouppv.h"
+#include "groupconfigprocessor.h"
+#include "groupdefinition.h"
 #include "groupprocessorcontext.h"
-#include "yajlcallbackhandler.h"
+#include "iocshcommand.h"
 #include "iocsource.h"
+#include "yajlcallbackhandler.h"
 
 namespace pvxs {
 namespace ioc {
@@ -34,7 +38,7 @@ DEFINE_LOGGER(_logname, "pvxs.ioc.group.processor");
  * This involves extracting info fields named "Q:Group" from the database configuration
  * and converting them to IOCGroups.
  */
-void GroupConfigProcessor::parseDbConfig() {
+void GroupConfigProcessor::loadConfigFromDb() {
 	// process info blocks named Q:Group to get group configuration
 	DBEntry dbEntry;
 	for (long status = dbFirstRecordType(dbEntry); !status; status = dbNextRecordType(dbEntry)) {
@@ -61,52 +65,52 @@ void GroupConfigProcessor::parseDbConfig() {
 /**
  * Parse group definitions from the collected list of group definition files.
  *
- * Get the list of group files configured on the iocServer and convert them to GroupPv configurations.
+ * Get the list of group files configured on the iocServer and convert them to Group Configs.
  */
-void GroupConfigProcessor::parseConfigFiles() {
+void GroupConfigProcessor::loadConfigFiles() {
 	runOnPvxsServer([this](IOCServer* pPvxsServer) {
 		// get list of group files to load
-		auto& groupDefinitionFiles = pPvxsServer->groupDefinitionFiles;
+		auto& groupConfigFiles = pPvxsServer->groupConfigFiles;
 
 		// For each file load the configuration file
 		std::list<std::string>::iterator it;
-		for (it = groupDefinitionFiles.begin(); it != groupDefinitionFiles.end(); ++it) {
-			auto groupDefinitionFileName = it->c_str();
+		for (it = groupConfigFiles.begin(); it != groupConfigFiles.end(); ++it) {
+			auto groupConfigFileName = it->c_str();
 
 			// Get contents of group definition file
-			std::ifstream jsonGroupDefinitionStream(groupDefinitionFileName, std::ifstream::in);
-			if (!jsonGroupDefinitionStream.is_open()) {
-				fprintf(stderr, "Error opening \"%s\"\n", groupDefinitionFileName);
+			std::ifstream jsonGroupConfigStream(groupConfigFileName, std::ifstream::in);
+			if (!jsonGroupConfigStream.is_open()) {
+				fprintf(stderr, "Error opening \"%s\"\n", groupConfigFileName);
 				continue;
 			}
 			std::stringstream buffer;
-			buffer << jsonGroupDefinitionStream.rdbuf();
-			auto jsonGroupDefinition = buffer.str();
+			buffer << jsonGroupConfigStream.rdbuf();
+			auto jsonGroupConfig = buffer.str();
 
-			log_debug_printf(_logname, "Process dbGroup file \"%s\"\n", groupDefinitionFileName);
+			log_debug_printf(_logname, "Process dbGroup file \"%s\"\n", groupConfigFileName);
 
 			try {
-				parseConfigString(jsonGroupDefinition.c_str());
+				parseConfigString(jsonGroupConfig.c_str());
 				if (!groupProcessingWarnings.empty()) {
 					fprintf(stderr, "warning(s) from group definition file \"%s\"\n%s\n",
-							groupDefinitionFileName, groupProcessingWarnings.c_str());
+							groupConfigFileName, groupProcessingWarnings.c_str());
 				}
 			} catch (std::exception& e) {
 				fprintf(stderr, "Error reading group definition file \"%s\"\n%s\n",
-						groupDefinitionFileName, e.what());
+						groupConfigFileName, e.what());
 			}
 		}
 	});
 }
 
 /**
- * After the group configuration has been read into pvxs::ioc::IOCServer::groupConfig
- * this function is called to evaluate it and create groups in pvxs::ioc::IOCServer::groupConfig
+ * After the group configuration has been read in
+ * this function is called to evaluate it and create group definitions
  */
-void GroupConfigProcessor::configureGroups() {
-	for (auto& groupIterator: groupConfigMap) {
-		const std::string& groupName = groupIterator.first;
-		const GroupConfig& groupConfig = groupIterator.second;
+void GroupConfigProcessor::defineGroups() {
+	for (auto& groupConfigIterator: groupConfigMap) {
+		const std::string& groupName = groupConfigIterator.first;
+		const GroupConfig& groupConfig = groupConfigIterator.second;
 
 		try {
 			// If the configured group name is the same as a record name then ignore it
@@ -117,18 +121,18 @@ void GroupConfigProcessor::configureGroups() {
 			}
 
 			// Create group when it is first referenced
-			auto&& currentGroup = groupPvMap[groupName];
+			auto&& groupDefinition = groupDefinitionMap[groupName];
 
 			// If the structure ID is not already set then set it
 			if (!groupConfig.structureId.empty()) {
-				groupPvMap[groupName].structureId = groupConfig.structureId;
+				groupDefinitionMap[groupName].structureId = groupConfig.structureId;
 			}
 
 			// configure the group fields
-			configureGroupFields(currentGroup, groupConfig, groupName);
+			defineFields(groupDefinition, groupConfig, groupName);
 
 			if (groupConfig.atomic_set) {
-				configureAtomicity(groupConfig, currentGroup, groupName);
+				defineAtomicity(groupDefinition, groupConfig, groupName);
 			}
 
 		} catch (std::exception& e) {
@@ -137,54 +141,54 @@ void GroupConfigProcessor::configureGroups() {
 	}
 
 	// re-sort fields to ensure the shorter names appear first
-	sortGroupFields();
+	defineFieldSortOrder();
 }
 
 /**
  * Configure the group fields.
  *
- * @param groupPv the group whose fields will be configured
+ * @param groupDefinition the group whose fields will be configured
  * @param groupConfig the group configuration to read from
  * @param groupName the name of the group being configured
  * @return reference to the current group
  */
-void GroupConfigProcessor::configureGroupFields(GroupPv& groupPv, const GroupConfig& groupConfig,
+void GroupConfigProcessor::defineFields(GroupDefinition& groupDefinition, const GroupConfig& groupConfig,
 		const std::string& groupName) {
-	for (auto&& fieldEntry: groupConfig.groupFields) {
-		const std::string& fieldName = fieldEntry.first;
-		const GroupFieldConfig& fieldConfig = fieldEntry.second;
+	for (auto&& fieldConfigMapEntry: groupConfig.fieldConfigMap) {
+		const std::string& fieldName = fieldConfigMapEntry.first;
+		const FieldConfig& fieldConfig = fieldConfigMapEntry.second;
 
-		if (groupPv.fieldMap.count(fieldName)) {
+		if (groupDefinition.fieldMap.count(fieldName)) {
 			fprintf(stderr, "%s.%s Warning: ignoring duplicate mapping %s\n",
 					groupName.c_str(), fieldName.c_str(), fieldConfig.channel.c_str());
 			continue;
 		}
 
-		groupPv.fields.emplace_back(fieldConfig, fieldName);
-		auto& currentField = groupPv.fields.back();
+		groupDefinition.fields.emplace_back(fieldConfig, fieldName);
+		auto& currentField = groupDefinition.fields.back();
 
-		groupPv.fieldMap[fieldName] = (size_t)-1;      // placeholder
+		groupDefinition.fieldMap[fieldName] = (size_t)-1;      // placeholder
 
 		log_debug_printf(_logname, "  pvxs map '%s.%s' <-> '%s'\n",
 				groupName.c_str(),
 				fieldName.c_str(),
 				currentField.channel.c_str());
 
-		parseTriggerConfiguration(groupPv, fieldConfig, fieldName);
+		defineTriggers(groupDefinition, fieldConfig, fieldName);
 	}
 }
 
 /*
  * Sort Group fields to ensure putOrder
  */
-void GroupConfigProcessor::sortGroupFields() {
-	for (auto&& mapEntry: groupPvMap) {
-		auto& currentGroup = mapEntry.second;
-		std::sort(currentGroup.fields.begin(), currentGroup.fields.end());
-		currentGroup.fieldMap.clear();
+void GroupConfigProcessor::defineFieldSortOrder() {
+	for (auto&& groupDefinitionMapEntry: groupDefinitionMap) {
+		auto& groupDefinition = groupDefinitionMapEntry.second;
+		std::sort(groupDefinition.fields.begin(), groupDefinition.fields.end());
+		groupDefinition.fieldMap.clear();
 
-		for (size_t i = 0, N = currentGroup.fields.size(); i < N; i++) {
-			currentGroup.fieldMap[currentGroup.fields[i].name] = i;
+		for (size_t i = 0, N = groupDefinition.fields.size(); i < N; i++) {
+			groupDefinition.fieldMap[groupDefinition.fields[i].name] = i;
 		}
 	}
 }
@@ -192,39 +196,39 @@ void GroupConfigProcessor::sortGroupFields() {
 /**
  * Configure group atomicity.
  * @param groupConfig the source group configuration
- * @param groupPv The group to configure
+ * @param groupDefinition The group to configure
  * @param groupName the group's name
  */
-void GroupConfigProcessor::configureAtomicity(const GroupConfig& groupConfig, GroupPv& groupPv,
+void GroupConfigProcessor::defineAtomicity(GroupDefinition& groupDefinition, const GroupConfig& groupConfig,
 		const std::string& groupName) {
 	assert(groupConfig.atomic_set);
 	TriState atomicity = groupConfig.atomic ? True : False;
 
-	if (groupPv.atomic != Unset && groupPv.atomic != atomicity) {
+	if (groupDefinition.atomic != Unset && groupDefinition.atomic != atomicity) {
 		fprintf(stderr, "%s  Warning: pvxs atomic setting inconsistent\n", groupName.c_str());
 	}
 
-	groupPv.atomic = atomicity;
+	groupDefinition.atomic = atomicity;
 
 	log_debug_printf(_logname, "  pvxs atomic '%s' %s\n",
 			groupName.c_str(),
-			groupPv.atomic ? "YES" : "NO");
+			groupDefinition.atomic ? "YES" : "NO");
 }
 
 /**
  * Load field triggers for a group field.
  *
- * @param groupPv the group to update
+ * @param groupDefinition the group to update
  * @param fieldConfig the field configuration to read trigger configuration from
  * @param fieldName the field name in the group
  */
-void GroupConfigProcessor::parseTriggerConfiguration(GroupPv& groupPv, const GroupFieldConfig& fieldConfig,
+void GroupConfigProcessor::defineTriggers(GroupDefinition& groupDefinition, const FieldConfig& fieldConfig,
 		const std::string& fieldName) {
-	Triggers triggers;
+	TriggerNames triggers;
 	if (!fieldConfig.trigger.empty()) {
 		std::string trigger;
 		std::stringstream splitter(fieldConfig.trigger);
-		groupPv.hasTriggers = true;
+		groupDefinition.hasTriggers = true;
 
 		while (std::getline(splitter, trigger, ',')) {
 			triggers.insert(trigger);
@@ -232,26 +236,26 @@ void GroupConfigProcessor::parseTriggerConfiguration(GroupPv& groupPv, const Gro
 	} else {
 		triggers.insert(fieldName);
 	}
-	groupPv.triggerMap[fieldName] = triggers;
+	groupDefinition.fieldTriggerMap[fieldName] = triggers;
 }
 
 /**
  * Resolve all trigger references to the specified fields
  */
-void GroupConfigProcessor::resolveTriggers() {
+void GroupConfigProcessor::resolveTriggerReferences() {
 	// For all groups
-	for (auto&& pvMapEntry: groupPvMap) {
-		auto& groupName = pvMapEntry.first;
-		auto& currentPvGroup = pvMapEntry.second;
+	for (auto&& groupDefinitionMapEntry: groupDefinitionMap) {
+		auto& groupName = groupDefinitionMapEntry.first;
+		auto& groupDefinition = groupDefinitionMapEntry.second;
 
 		// If it has triggers
-		if (currentPvGroup.hasTriggers) {
+		if (groupDefinition.hasTriggers) {
 			// Configure its triggers
-			configureGroupTriggers(currentPvGroup, groupName);
+			resolveGroupTriggerReferences(groupDefinition, groupName);
 		} else {
 			// If no trigger specified for this group then set all fields to trigger themselves
 			log_debug_printf(_logname, "  pvxs default triggers for '%s'\n", groupName.c_str());
-			configureSelfTriggers(currentPvGroup);
+			resolveSelfTriggerReferences(groupDefinition);
 		}
 	}
 }
@@ -260,12 +264,12 @@ void GroupConfigProcessor::resolveTriggers() {
  * When triggers are unspecified for a group, call this function to configure all its fields to
  * trigger themselves
  *
- * @param groupPv the group to configure
+ * @param groupDefinition the group to define triggers for
  */
-void GroupConfigProcessor::configureSelfTriggers(GroupPv& groupPv) {
-	for (auto&& field: groupPv.fields) {
+void GroupConfigProcessor::resolveSelfTriggerReferences(GroupDefinition& groupDefinition) {
+	for (auto&& field: groupDefinition.fields) {
 		if (!field.channel.empty()) {
-			field.triggers.insert(field.name);  // default is self trigger
+			field.triggerNames.insert(field.name);  // default is self trigger
 		}
 	}
 }
@@ -274,66 +278,67 @@ void GroupConfigProcessor::configureSelfTriggers(GroupPv& groupPv) {
  * Configure a group's triggers.  This involves looping over the map of all triggers and configuring
  * the field triggers that are defined there.
  *
- * @param groupPv the group to configure
+ * @param groupDefinition the group to configure
  * @param groupName the group name
  */
-void GroupConfigProcessor::configureGroupTriggers(GroupPv& groupPv, const std::string& groupName) {
-	for (auto&& triggerMapEntry: groupPv.triggerMap) {
-		const std::string& field = triggerMapEntry.first;
+void
+GroupConfigProcessor::resolveGroupTriggerReferences(GroupDefinition& groupDefinition, const std::string& groupName) {
+	for (auto&& triggerMapEntry: groupDefinition.fieldTriggerMap) {
+		const std::string& fieldName = triggerMapEntry.first;
 		const auto& targets = triggerMapEntry.second;
 
-		if (groupPv.fieldMap.count(field) == 0) {
+		if (groupDefinition.fieldMap.count(fieldName) == 0) {
 			fprintf(stderr, "Error: Group \"%s\" defines triggers from nonexistent field \"%s\" \n",
-					groupName.c_str(), field.c_str());
+					groupName.c_str(), fieldName.c_str());
 			continue;
 		}
 
-		auto& currentFieldIndex = groupPv.fieldMap[field];
-		auto& currentField = groupPv.fields[currentFieldIndex];
+		auto& index = groupDefinition.fieldMap[fieldName];
+		auto& fieldDefinition = groupDefinition.fields[index];
 
-		log_debug_printf(_logname, "  pvxs trigger '%s.%s'  -> ", groupName.c_str(), field.c_str());
+		log_debug_printf(_logname, "  pvxs trigger '%s.%s'  -> ", groupName.c_str(), fieldName.c_str());
 
 		// For all of this trigger's targets
-		configureFieldTriggers(currentField, groupPv, targets, groupName);
+		defineGroupTriggers(fieldDefinition, groupDefinition, targets, groupName);
 		log_debug_printf(_logname, "%s\n", "");
 	}
 }
 
 /**
- * Configure trigger for a given field to reference the given targets.
+ * Define trigger for a given field to reference the given targets.
  *
- * @param groupPvField the field who's trigger will be configured
- * @param groupPv the group to configure
- * @param targets the field's trigger targets
+ * @param fieldDefinition the field who's trigger will be configured
+ * @param groupDefinition the group to configure
+ * @param triggerNames the field's trigger targets
  * @param groupName the name of the group
  */
-void GroupConfigProcessor::configureFieldTriggers(GroupPvField& groupPvField, const GroupPv& groupPv,
-		const Triggers& targets, const std::string& groupName) {
-	for (auto&& target: targets) {
+void GroupConfigProcessor::defineGroupTriggers(FieldDefinition& fieldDefinition, const GroupDefinition& groupDefinition,
+		const TriggerNames& triggerNames, const std::string& groupName) {
+	for (auto&& triggerName: triggerNames) {
 		// If the target is star then map to all fields
-		if (target == "*") {
-			for (auto& targetedField: groupPv.fields) {
-				if (!targetedField.channel.empty()) {
-					groupPvField.triggers.insert(targetedField.name);
-					log_debug_printf(_logname, "%s, ", targetedField.name.c_str());
+		if (triggerName == "*") {
+			for (auto& targetedFieldDefinition: groupDefinition.fields) {
+				if (!targetedFieldDefinition.channel.empty()) {
+					fieldDefinition.triggerNames.insert(targetedFieldDefinition.name);
+					log_debug_printf(_logname, "%s, ", targetedFieldDefinition.name.c_str());
 				}
 			}
 		} else {
 			// otherwise map to the specific target if it exists
-			if (groupPv.fieldMap.count(target) == 0) {
+			if (groupDefinition.fieldMap.count(triggerName) == 0) {
 				fprintf(stderr, "Error: Group \"%s\" defines triggers to nonexistent field \"%s\" \n",
-						groupName.c_str(), target.c_str());
+						groupName.c_str(), triggerName.c_str());
 				continue;
 			}
-			auto& targetMemberIndex = ((GroupPvFieldsMap&)groupPv.fieldMap)[target];
-			auto& targetMember = groupPv.fields[targetMemberIndex];
+			auto& index = ((FieldDefinitionMap&)groupDefinition.fieldMap)[triggerName];
+			auto& targetedField = groupDefinition.fields[index];
 
 			// And if it references a PV
-			if (targetMember.channel.empty()) {
-				log_debug_printf(_logname, "<ignore: %s>, ", targetMember.name.c_str());
+			if (targetedField.channel.empty()) {
+				log_debug_printf(_logname, "<ignore: %s>, ", targetedField.name.c_str());
 			} else {
-				groupPvField.triggers.insert(targetMember.name);
-				log_debug_printf(_logname, "%s, ", targetMember.name.c_str());
+				fieldDefinition.triggerNames.insert(targetedField.name);
+				log_debug_printf(_logname, "%s, ", targetedField.name.c_str());
 			}
 		}
 	}
@@ -353,40 +358,40 @@ void GroupConfigProcessor::createGroups() {
 
 
 		// First pass: Create groups and get array capacities
-		for (auto& groupPvMapEntry: groupPvMap) {
-			auto& groupName = groupPvMapEntry.first;
-			auto& groupPv = groupPvMapEntry.second;
+		for (auto& groupDefinitionMapEntry: groupDefinitionMap) {
+			auto& groupName = groupDefinitionMapEntry.first;
+			auto& groupDefinition = groupDefinitionMapEntry.second;
 			try {
 				if (groupMap.count(groupName) != 0) {
 					throw std::runtime_error("Group name already in use");
 				}
-				// Create group or access existing group
+				// Create group
 				auto& group = groupMap[groupName];
 
 				// Set basic group information
 				group.name = groupName;
-				group.atomicPutGet = groupPv.atomic != False;
-				group.atomicMonitor = groupPv.hasTriggers;
+				group.atomicPutGet = groupDefinition.atomic != False;
+				group.atomicMonitor = groupDefinition.hasTriggers;
 
-				// Initialise the given group's fields from the given group PV configuration
-				initialiseGroupFields(group, groupPv);
+				// Initialise the given group's fields from the given group definition
+				initialiseGroupFields(group, groupDefinition);
 			} catch (std::exception& e) {
 				fprintf(stderr, "%s: Error Group not created: %s\n", groupName.c_str(), e.what());
 			}
 		}
 
-		// Second Pass: assemble group PV structure definitions and db locker
-		for (auto& groupPvMapEntry: groupPvMap) {
-			auto& groupName = groupPvMapEntry.first;
-			auto& groupPv = groupPvMapEntry.second;
+		// Second Pass: assemble group's PV structure definitions and db locker
+		for (auto& groupDefinitionMapEntry: groupDefinitionMap) {
+			auto& groupName = groupDefinitionMapEntry.first;
+			auto& groupDefinition = groupDefinitionMapEntry.second;
 			try {
 				auto& group = groupMap[groupName];
 				// Initialise the given group's db locks
 				initialiseDbLocker(group);
 				// Initialize the given group's triggers and associated db locks
-				initialiseTriggers(group, groupPv);
+				initialiseTriggers(group, groupDefinition);
 				// Initialise the given group's value type
-				initialiseGroupValueTemplates(group, groupPv);
+				initialiseValueTemplate(group, groupDefinition);
 			} catch (std::exception& e) {
 				fprintf(stderr, "%s: Error Group not created: %s\n", groupName.c_str(), e.what());
 			}
@@ -404,31 +409,30 @@ void GroupConfigProcessor::createGroups() {
  * to link to the specified database records.  This means that one group field is created for each
  * referenced database record.
  *
- * @param group the IOC group to store fields->channel mappings
- * @param groupPv the groupPv configuration we're reading group information from
+ * @param group the group to store fields->channel mappings
+ * @param groupDefinition the group definition we're reading group information from
  */
-void GroupConfigProcessor::initialiseGroupFields(IOCGroup& group, const GroupPv& groupPv) {
+void GroupConfigProcessor::initialiseGroupFields(Group& group, const GroupDefinition& groupDefinition) {
 	// Reserve enough space for fields with channels
-	group.fields.reserve(groupPv.channelCount());
+	group.fields.reserve(groupDefinition.channelCount());
 
 	// for each field with channels
-	for (auto& field: groupPv.fields) {
-		if (!field.channel.empty()) {
+	for (auto& fieldDefinition: groupDefinition.fields) {
+		if (!fieldDefinition.channel.empty()) {
 			// Create field in group
-			group.fields.emplace_back(field.name, field.channel);
+			group.fields.emplace_back(fieldDefinition.name, fieldDefinition.channel);
 		}
 	}
 }
 
 /**
- * Initialise the given group's fields and value type from the given group PV configuration.
- * The group's field names and channels are set - this calls dbChannelCreate to create the dbChannel for each field.
- * It also creates the top level PVStructure for the group and stores it in valueType.
+ * Initialise the given group's value template from the given group definition.
+ * Creates the top level PVStructure for the group and stores it in valueTemplate.
  *
- * @param group the IOC group we're setting
- * @param groupPv the groupPv configuration we're reading from
+ * @param group the group we're setting
+ * @param groupDefinition the group definition we're reading from
  */
-void GroupConfigProcessor::initialiseGroupValueTemplates(IOCGroup& group, const GroupPv& groupPv) {
+void GroupConfigProcessor::initialiseValueTemplate(Group& group, const GroupDefinition& groupDefinition) {
 	using namespace pvxs::members;
 	// We will go add members to this list, and then add them to the group's valueTemplate before returning
 	std::vector<Member> groupMembersToAdd;
@@ -444,10 +448,10 @@ void GroupConfigProcessor::initialiseGroupValueTemplates(IOCGroup& group, const 
 	});
 
 	// for each field add any required members to the list
-	addMembersForConfiguredFields(groupMembersToAdd, group, groupPv);
+	addTemplatesForDefinedFields(groupMembersToAdd, group, groupDefinition);
 
 	// Add all the collected group members to the group type
-	TypeDef groupType(TypeCode::Struct, groupPv.structureId, {});
+	TypeDef groupType(TypeCode::Struct, groupDefinition.structureId, {});
 	groupType += groupMembersToAdd;
 
 	// create the group's valueTemplate from the group type
@@ -459,36 +463,36 @@ void GroupConfigProcessor::initialiseGroupValueTemplates(IOCGroup& group, const 
  * Initialise triggers.  This function will initialize the triggers so that each field contains the list of fields
  * that subscription updates will also trigger to be fetched.  It will also create lockers in each field that will
  * be prepared to lock those fields during the subscription update.  The configuration information for the
- * triggers has already been loaded into the provided groupPv.
+ * triggers has already been loaded into the provided group definition.
  * Note that this function must be called after the fields have been created in group as the triggers are
  * initialized with a set of pointers to other fields.
  *
  * @param group the group of fields who's triggers are to be configured
- * @param groupPv the trigger configuration information
+ * @param groupDefinition the group definition
  */
-void GroupConfigProcessor::initialiseTriggers(IOCGroup& group, const GroupPv& groupPv) {
+void GroupConfigProcessor::initialiseTriggers(Group& group, const GroupDefinition& groupDefinition) {
 	// For all fields in the group
-	for (auto& field: groupPv.fields) {
+	for (auto& fieldDefinition: groupDefinition.fields) {
 		// As long as it has a channel specified
-		if (!field.channel.empty()) {
-			auto& groupField = group[field.name];
+		if (!fieldDefinition.channel.empty()) {
+			auto& field = group[fieldDefinition.name];
 			// Look at the fields that it triggers
-			for (auto& referencedFieldName: field.triggers) {
-				auto referencedFieldIt = groupPv.fieldMap.find(referencedFieldName);
-				if (referencedFieldIt != groupPv.fieldMap.end()) {
+			for (auto& referencedFieldName: fieldDefinition.triggerNames) {
+				auto referencedFieldIt = groupDefinition.fieldMap.find(referencedFieldName);
+				if (referencedFieldIt != groupDefinition.fieldMap.end()) {
 					auto& referencedFieldIndex = referencedFieldIt->second;
 					auto& referencedField = group.fields[referencedFieldIndex];
 					// Add new trigger reference
-					groupField.triggers.push_back(&referencedField);
+					field.triggers.push_back(&referencedField);
 					// Add new lock record
-					groupField.referencedValueChannels.push_back(referencedField.valueChannel->addr.precord);
-					groupField.referencedPropertiesChannels.push_back(referencedField.propertiesChannel->addr.precord);
+					field.referencedValueChannels.push_back(referencedField.valueChannel->addr.precord);
+					field.referencedPropertiesChannels.push_back(referencedField.propertiesChannel->addr.precord);
 				}
 			}
 
 			// Make the locks
-			groupField.lock = DBManyLock(groupField.referencedValueChannels);
-			groupField.propertiesLock = DBManyLock(groupField.referencedPropertiesChannels);
+			field.lock = DBManyLock(field.referencedValueChannels);
+			field.propertiesLock = DBManyLock(field.referencedPropertiesChannels);
 		}
 	}
 }
@@ -498,29 +502,29 @@ void GroupConfigProcessor::initialiseTriggers(IOCGroup& group, const GroupPv& gr
  *
  * @param groupMembers the vector to add members to
  * @param group the given group
- * @param groupPv the source configuration group
+ * @param groupDefinition the source group definition
  */
-void GroupConfigProcessor::addMembersForConfiguredFields(std::vector<Member>& groupMembers, IOCGroup& group,
-		const GroupPv& groupPv) {
-	for (auto& field: groupPv.fields) {
-		if (!field.channel.empty()) {
-			auto& groupField = group[field.name];
-			auto& type = field.type;
+void GroupConfigProcessor::addTemplatesForDefinedFields(std::vector<Member>& groupMembers, Group& group,
+		const GroupDefinition& groupDefinition) {
+	for (auto& fieldDefinition: groupDefinition.fields) {
+		if (!fieldDefinition.channel.empty()) {
+			auto& field = group[fieldDefinition.name];
+			auto& type = fieldDefinition.type;
 
-			auto pdbChannel = (dbChannel*)groupField.valueChannel;
+			auto pdbChannel = (dbChannel*)field.valueChannel;
 			if (type == "meta") {
-				groupField.isMeta = true;
-				addMembersForMetaData(groupMembers, groupField);
+				field.isMeta = true;
+				addMembersForMetaData(groupMembers, field);
 			} else if (type == "proc") {
-				groupField.allowProc = true;
+				field.allowProc = true;
 			} else if (type.empty() || type == "scalar") {
-				addMembersForScalarType(groupMembers, groupField, pdbChannel);
+				addMembersForScalarType(groupMembers, field, pdbChannel);
 			} else if (type == "plain") {
-				addMembersForPlainType(groupMembers, groupField, pdbChannel);
+				addMembersForPlainType(groupMembers, field, pdbChannel);
 			} else if (type == "any") {
-				addMembersForAnyType(groupMembers, groupField);
+				addMembersForAnyType(groupMembers, field);
 			} else if (type == "structure") {
-				addMembersForStructureType(groupMembers, groupField);
+				addMembersForStructureType(groupMembers, field);
 			} else {
 				throw std::runtime_error(std::string("Unknown +type=") + type);
 			}
@@ -530,7 +534,7 @@ void GroupConfigProcessor::addMembersForConfiguredFields(std::vector<Member>& gr
 
 /**
  * Parse the given json string as a group definition part for the given dbRecord
- * name and extract group pv definition into the given iocServer
+ * name and extract group definition into the given iocServer
  *
  * @param jsonGroupDefinition the given json string representing a group definition
  * @param dbRecordName the name of the dbRecord
@@ -768,7 +772,7 @@ void GroupConfigProcessor::checkForTrailingCommentsAtEnd(const std::string& line
  * @param groupField the group field used to determine the members to add and how to create them
  * @param pdbChannel the db channel to get information on what scalar type to create
  */
-void GroupConfigProcessor::addMembersForScalarType(std::vector<Member>& groupMembers, const IOCGroupField& groupField,
+void GroupConfigProcessor::addMembersForScalarType(std::vector<Member>& groupMembers, const Field& groupField,
 		const dbChannel* pdbChannel) {
 	using namespace pvxs::members;
 	assert(!groupField.fieldName.empty()); // Must not call with empty field name
@@ -779,7 +783,7 @@ void GroupConfigProcessor::addMembersForScalarType(std::vector<Member>& groupMem
 
 	// Create the leaf
 	auto dbfType = dbChannelFinalFieldType(pdbChannel);
-	if (dbfType == DBF_ENUM) {
+	if (dbfType == DBF_ENUM || dbfType == DBF_MENU) {
 		leaf = nt::NTEnum{}.build();
 	} else {
 		bool display = true;
@@ -799,7 +803,7 @@ void GroupConfigProcessor::addMembersForScalarType(std::vector<Member>& groupMem
  * @param groupField the given group field
  * @param pdbChannel the channel used to get the type of the leaf member
  */
-void GroupConfigProcessor::addMembersForPlainType(std::vector<Member>& groupMembers, const IOCGroupField& groupField,
+void GroupConfigProcessor::addMembersForPlainType(std::vector<Member>& groupMembers, const Field& groupField,
 		const dbChannel* pdbChannel) {
 	assert(!groupField.fieldName.empty()); // Must not call with empty field name
 
@@ -818,7 +822,7 @@ void GroupConfigProcessor::addMembersForPlainType(std::vector<Member>& groupMemb
 * @param groupField the given group field
  */
 void GroupConfigProcessor::addMembersForAnyType(std::vector<Member>& groupMembers,
-		const IOCGroupField& groupField) {
+		const Field& groupField) {
 	assert(!groupField.fieldName.empty()); // Must not call with empty field name
 	TypeDef leaf(TypeCode::Any);
 	std::vector<Member> newScalarMembers({ leaf.as("") });
@@ -835,7 +839,7 @@ void GroupConfigProcessor::addMembersForAnyType(std::vector<Member>& groupMember
  * @param groupField the group field used to determine the members to add and how to create them
  */
 void GroupConfigProcessor::addMembersForStructureType(std::vector<Member>& groupMembers,
-		const IOCGroupField& groupField) {
+		const Field& groupField) {
 	using namespace pvxs::members;
 
 	std::vector<Member> newIdMembers(
@@ -852,7 +856,7 @@ void GroupConfigProcessor::addMembersForStructureType(std::vector<Member>& group
  * @param groupMembers the given group members to update
  * @param groupField the group field used to determine the members to add and how to create them
  */
-void GroupConfigProcessor::addMembersForMetaData(std::vector<Member>& groupMembers, const IOCGroupField& groupField) {
+void GroupConfigProcessor::addMembersForMetaData(std::vector<Member>& groupMembers, const Field& groupField) {
 	using namespace pvxs::members;
 	std::vector<Member> newMetaMembers({
 			Struct("alarm", "alarm_t", {
@@ -893,7 +897,7 @@ void GroupConfigProcessor::addMembersForMetaData(std::vector<Member>& groupMembe
  * @param leafMembers the leaf member or members to place at the leaf of the members tree
  */
 void GroupConfigProcessor::setFieldTypeDefinition(std::vector<Member>& groupMembers,
-		const IOCGroupFieldName& fieldName,
+		const FieldName& fieldName,
 		const std::vector<Member>& leafMembers) {
 	using namespace pvxs::members;
 
@@ -1043,7 +1047,7 @@ bool GroupConfigProcessor::yajlParseHelper(std::istream& jsonGroupDefinitionStre
  *
  * @param group the group to create the locker for
  */
-void GroupConfigProcessor::initialiseDbLocker(IOCGroup& group) {
+void GroupConfigProcessor::initialiseDbLocker(Group& group) {
 	for (auto& field: group.fields) {
 		auto pValueChannel = (dbChannel*)field.valueChannel;
 		auto pPropertiesChannel = (dbChannel*)field.valueChannel;

@@ -2,6 +2,9 @@
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * pvxs is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
+ *
+ * Author George S. McIntyre <george@level-n.com>, 2023
+ *
  */
 
 #ifndef PVXS_METADATA_H
@@ -9,6 +12,7 @@
 
 #include <string.h>
 #include <cmath>
+
 #include <dbCommon.h>
 #include <dbAccess.h>
 
@@ -51,7 +55,7 @@
 
 #define getMetadataString(_buffer, _field) { \
     strcpy(_field, (const char*)(_buffer)); \
-    (_buffer) = ((void*)&((const char*)(_buffer))[sizeof(_field)]); \
+    (_buffer) = (void*)((const char*)(_buffer) + sizeof(_field)); \
 }
 
 #define checkedSetField(_lvalue, _rvalue) \
@@ -64,6 +68,11 @@ if (auto&& __field = value[#_rvalue] ) { \
     if ( !std::isnan(_lvalue)) { \
         __field = _lvalue; \
     } \
+}
+
+#define checkedSetLongField(_lvalue, _rvalue) \
+if (auto&& __field = value[#_rvalue] ) { \
+    __field = _lvalue; \
 }
 
 #define checkedSetStringField(_lvalue, _rvalue) \
@@ -96,8 +105,11 @@ struct Metadata {
 	const dbr_precision* pPrecision{};
 	const dbr_enumStrs* enumStrings{};
 	const struct dbr_grDouble* graphicsDouble{};
+	const struct dbr_grLong* graphicsLong{};
 	const struct dbr_ctrlDouble* controlDouble{};
+	const struct dbr_ctrlLong* controlLong{};
 	const struct dbr_alDouble* alarmDouble{};
+	const struct dbr_alLong* alarmLong{};
 };
 
 } // ioc

@@ -2,13 +2,16 @@
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * pvxs is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
+ *
+ * Author George S. McIntyre <george@level-n.com>, 2023
+ *
  */
 
 #include <iostream>
 #include <string>
 #include <sstream>
 
-#include "iocgroup.h"
+#include "group.h"
 
 namespace pvxs {
 namespace ioc {
@@ -19,7 +22,7 @@ namespace ioc {
  *
  * @param level the level of detail to show.  0 group names only, 1 group names and top level information, 2 everything
  */
-void IOCGroup::show(int level) const {
+void Group::show(int level) const {
 	// no locking as we only print things which are const after initialization
 
 	// Group field information
@@ -50,14 +53,14 @@ void IOCGroup::show(int level) const {
  * Constructor for IOC group.
  * Set the atomic and monitor atomic flags
  */
-IOCGroup::IOCGroup()
+Group::Group()
 		:atomicPutGet(false), atomicMonitor(false) {
 }
 
 /**
  * Destructor for IOC group
  */
-IOCGroup::~IOCGroup() = default;
+Group::~Group() = default;
 
 /**
  * De-reference the field in the current group by providing the field name.
@@ -65,8 +68,8 @@ IOCGroup::~IOCGroup() = default;
  * @param fieldName of the field to be de-referenced
  * @return the de-referenced field from the set of fields
  */
-IOCGroupField& IOCGroup::operator[](const std::string& fieldName) {
-	auto foundField = std::find_if(fields.begin(), fields.end(), [fieldName](IOCGroupField& field) {
+Field& Group::operator[](const std::string& fieldName) {
+	auto foundField = std::find_if(fields.begin(), fields.end(), [fieldName](Field& field) {
 		return fieldName == field.fullName;
 	});
 

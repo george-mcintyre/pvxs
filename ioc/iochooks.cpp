@@ -2,6 +2,9 @@
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * pvxs is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
+ *
+ * Author George S. McIntyre <george@level-n.com>, 2023
+ *
  */
 
 /**
@@ -13,17 +16,17 @@
 #include <memory>
 #include <stdexcept>
 
+#include <pvxs/iochooks.h>
 #include <pvxs/log.h>
 #include <pvxs/server.h>
 #include <pvxs/source.h>
-#include <pvxs/iochooks.h>
 
-#include <iocsh.h>
-#include <initHooks.h>
 #include <epicsExport.h>
+#include <initHooks.h>
+#include <iocsh.h>
 
-#include "iocshcommand.h"
 #include "iocserver.h"
+#include "iocshcommand.h"
 
 #if EPICS_VERSION_INT >= VERSION_INT(7, 0, 4, 0)
 #  define USE_DEINIT_HOOKS

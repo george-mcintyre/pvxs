@@ -2,14 +2,17 @@
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * pvxs is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
+ *
+ * Author George S. McIntyre <george@level-n.com>, 2023
+ *
  */
 
 #ifndef PVXS_SINGLESOURCE_H
 #define PVXS_SINGLESOURCE_H
 
 #include "dbeventcontextdeleter.h"
-#include "singlesrcsubscriptionctx.h"
 #include "metadata.h"
+#include "singlesrcsubscriptionctx.h"
 
 namespace pvxs {
 namespace ioc {
@@ -35,12 +38,12 @@ private:
 
 	// Create request and subscription handlers for single record sources
 	void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>&& channelControl,
-			const std::shared_ptr<dbChannel>& pChannel);
+			const std::shared_ptr<dbChannel>& dbChannelSharedPtr);
 	// Handles all get, put and subscribe requests
-	static void onOp(const std::shared_ptr<dbChannel>& pChannel, const Value& valuePrototype,
-			std::unique_ptr<server::ConnectOp>&& channelConnectOperation) ;
+	static void onOp(const std::shared_ptr<dbChannel>& dbChannelSharedPtr, const Value& valuePrototype,
+			std::unique_ptr<server::ConnectOp>&& channelConnectOperation);
 	// Helper function to create a value prototype for the given channel
-	static Value getValuePrototype(const std::shared_ptr<dbChannel>& pChannel) ;
+	static Value getValuePrototype(const std::shared_ptr<dbChannel>& dbChannelSharedPtr);
 
 	//////////////////////////////
 	// Get
@@ -53,13 +56,13 @@ private:
 	// Subscriptions
 	//////////////////////////////
 	// Called when values are requested by a subscription
-	static void subscriptionValueCallback(void* userArg, dbChannel* pChannel, int eventsRemaining,
+	static void subscriptionValueCallback(void* userArg, dbChannel* pDbChannel, int eventsRemaining,
 			db_field_log* pDbFieldLog);
 	// Called when properties are requested by a subscription
-	static void subscriptionPropertiesCallback(void* userArg, dbChannel* pChannel, int eventsRemaining,
+	static void subscriptionPropertiesCallback(void* userArg, dbChannel* pDbChannel, int eventsRemaining,
 			db_field_log* pDbFieldLog);
 	// General subscriptions callback
-	static void subscriptionCallback(SingleSourceSubscriptionCtx* subscriptionCtx, dbChannel* pChannel,
+	static void subscriptionCallback(SingleSourceSubscriptionCtx* subscriptionCtx, dbChannel* pDbChannel,
 			int eventsRemaining, db_field_log* pDbFieldLog);
 	// Called by onStart() when a client pauses / stops a subscription it has been subscribed to
 	static void onDisableSubscription(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext);

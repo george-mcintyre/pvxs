@@ -2,6 +2,9 @@
  * Copyright - See the COPYRIGHT that is included with this distribution.
  * pvxs is distributed subject to a Software License Agreement found
  * in file LICENSE that is included with this distribution.
+ *
+ * Author George S. McIntyre <george@level-n.com>, 2023
+ *
  */
 
 #include <string>
@@ -9,7 +12,7 @@
 #include <stdexcept>
 #include <cstdlib>
 
-#include "iocgroupfieldname.h"
+#include "fieldname.h"
 
 namespace pvxs {
 namespace ioc {
@@ -24,7 +27,7 @@ static void pad(std::string& stringToPad, size_t padLength);
  * while extracting the array reference where specified.
  * @param fieldName
  */
-IOCGroupFieldName::IOCGroupFieldName(const std::string& fieldName) {
+FieldName::FieldName(const std::string& fieldName) {
 	if (!fieldName.empty()) {
 		// Split field name on periods
 		std::stringstream splitter(fieldName);
@@ -73,7 +76,7 @@ IOCGroupFieldName::IOCGroupFieldName(const std::string& fieldName) {
 /**
  * Convert this group field name to a string.
  */
-std::string IOCGroupFieldName::to_string(size_t padLength) const {
+std::string FieldName::to_string(size_t padLength) const {
 	std::string fieldName;
 	if (fieldNameComponents.empty()) {
 		fieldName = "/";
@@ -98,7 +101,7 @@ std::string IOCGroupFieldName::to_string(size_t padLength) const {
 /**
  * Show this field name.  All components are shown as they were configured.
  */
-void IOCGroupFieldName::show(const std::string& suffix) const {
+void FieldName::show(const std::string& suffix) const {
 	printf("%s%s", to_string(PADDING_WIDTH - suffix.size()).c_str(), suffix.c_str());
 }
 
@@ -107,7 +110,7 @@ void IOCGroupFieldName::show(const std::string& suffix) const {
  *
  * @param o
  */
-void IOCGroupFieldName::swap(IOCGroupFieldName& o) {
+void FieldName::swap(FieldName& o) {
 	fieldNameComponents.swap(o.fieldNameComponents);
 }
 
@@ -116,7 +119,7 @@ void IOCGroupFieldName::swap(IOCGroupFieldName& o) {
  *
  * @return
  */
-bool IOCGroupFieldName::empty() const {
+bool FieldName::empty() const {
 	return fieldNameComponents.empty() || (fieldNameComponents.size() == 1 && fieldNameComponents[0].name.empty());
 }
 
@@ -125,7 +128,7 @@ bool IOCGroupFieldName::empty() const {
  *
  * @return
  */
-size_t IOCGroupFieldName::size() const {
+size_t FieldName::size() const {
 	return fieldNameComponents.size();
 }
 
@@ -134,7 +137,7 @@ size_t IOCGroupFieldName::size() const {
  *
  * @return
  */
-const IOCGroupFieldNameComponent& IOCGroupFieldName::back() const {
+const FieldNameComponent& FieldName::back() const {
 	return fieldNameComponents.back();
 }
 
@@ -144,10 +147,10 @@ const IOCGroupFieldNameComponent& IOCGroupFieldName::back() const {
  * @param i
  * @return
  */
-const IOCGroupFieldNameComponent& IOCGroupFieldName::operator[](size_t i) const {
+const FieldNameComponent& FieldName::operator[](size_t i) const {
 	return fieldNameComponents[i];
 }
-const std::string& IOCGroupFieldName::leafFieldName() const {
+const std::string& FieldName::leafFieldName() const {
 	return fieldNameComponents[fieldNameComponents.size() - 1].name;
 }
 
