@@ -34,9 +34,6 @@
     DBR_CTRL_DOUBLE | \
     DBR_AL_DOUBLE)
 
-// Options when retrieving all metadata
-#define IOC_OPTIONS (IOC_VALUE_OPTIONS | IOC_PROPERTIES_OPTIONS)
-
 #define getMetadataField(_buffer, _type, _field1) getMetadataFieldsEnclosure(_buffer, _type, metadataFieldGetter(_field1) )
 #define get2MetadataFields(_buffer, _type, _field1, _field2) getMetadataFieldsEnclosure(_buffer, _type, metadataFieldGetter(_field1) metadataFieldGetter(_field2) )
 #define get4MetadataFields(_buffer, _type, _field1, _field2, _field3, _field4) getMetadataFieldsEnclosure(_buffer, _type, metadataFieldGetter(_field1) metadataFieldGetter(_field2) metadataFieldGetter(_field3) metadataFieldGetter(_field4))
