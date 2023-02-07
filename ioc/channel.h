@@ -20,8 +20,8 @@ namespace pvxs {
 namespace ioc {
 
 /**
- * This class encapsulates a dbChannel bt provides constructors from string and dbChannel to
- * make its use simpler.  It can be used wherever a dbChannel is used.
+ * This class encapsulates a shared pointer to a dbChannel but provides constructors
+ * from string and dbChannel to make its use simpler.  It can be used wherever a dbChannel is used.
  * As a bonus when constructed with parameters it provides an already open dbChannel.
  */
 class Channel {

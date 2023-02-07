@@ -36,7 +36,7 @@ FieldSubscriptionCtx::FieldSubscriptionCtx(Field& field, GroupSourceSubscription
  */
 void FieldSubscriptionCtx::subscribeField(dbEventCtx pEventCtx, EVENTFUNC (* subscriptionCallback),
 		unsigned int selectOptions, bool forValues) {
-	auto& pDbChannel = (forValues ? field->valueChannel : field->propertiesChannel).shared_ptr();
+	auto& pDbChannel = (forValues ? field->value.channel : field->properties.channel).shared_ptr();
 	auto& pEventSubscription = forValues ? pValueEventSubscription : pPropertiesEventSubscription;
 	pEventSubscription.reset(
 			db_add_event(

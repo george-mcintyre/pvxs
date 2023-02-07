@@ -485,14 +485,14 @@ void GroupConfigProcessor::initialiseTriggers(Group& group, const GroupDefinitio
 					// Add new trigger reference
 					field.triggers.push_back(&referencedField);
 					// Add new lock record
-					field.referencedValueChannels.push_back(referencedField.valueChannel->addr.precord);
-					field.referencedPropertiesChannels.push_back(referencedField.propertiesChannel->addr.precord);
+					field.value.references.push_back(referencedField.value.channel->addr.precord);
+					field.properties.references.push_back(referencedField.properties.channel->addr.precord);
 				}
 			}
 
 			// Make the locks
-			field.lock = DBManyLock(field.referencedValueChannels);
-			field.propertiesLock = DBManyLock(field.referencedPropertiesChannels);
+			field.value.lock = DBManyLock(field.value.references);
+			field.properties.lock = DBManyLock(field.properties.references);
 		}
 	}
 }
@@ -511,7 +511,7 @@ void GroupConfigProcessor::addTemplatesForDefinedFields(std::vector<Member>& gro
 			auto& field = group[fieldDefinition.name];
 			auto& type = fieldDefinition.type;
 
-			auto pdbChannel = (dbChannel*)field.valueChannel;
+			auto pdbChannel = (dbChannel*)field.value.channel;
 			if (type == "meta") {
 				field.isMeta = true;
 				addMembersForMetaData(groupMembers, field);
@@ -1049,8 +1049,8 @@ bool GroupConfigProcessor::yajlParseHelper(std::istream& jsonGroupDefinitionStre
  */
 void GroupConfigProcessor::initialiseDbLocker(Group& group) {
 	for (auto& field: group.fields) {
-		auto pValueChannel = (dbChannel*)field.valueChannel;
-		auto pPropertiesChannel = (dbChannel*)field.valueChannel;
+		auto pValueChannel = (dbChannel*)field.value.channel;
+		auto pPropertiesChannel = (dbChannel*)field.properties.channel;
 		group.valueChannels.push_back(pValueChannel->addr.precord);
 		group.propertiesChannels.push_back(pPropertiesChannel->addr.precord);
 	}

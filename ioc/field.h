@@ -28,6 +28,15 @@ namespace ioc {
 class Field;
 typedef std::vector<Field*> Triggers;
 
+class ReferencesAndLock {
+public:
+	Channel channel;
+	std::vector<dbCommon*> references;
+	DBManyLock lock;
+
+	explicit ReferencesAndLock(const std::string& stringChannelName);
+};
+
 class Field {
 private:
 public:
@@ -37,14 +46,9 @@ public:
 	std::string fullName;
 	bool isMeta, allowProc;
 	bool isArray;
-	Channel valueChannel;
-	Channel propertiesChannel;  // Used only in subscriptions
-
-	Triggers triggers;          // index in Group::fields
-	std::vector<dbCommon*> referencedValueChannels;
-	std::vector<dbCommon*> referencedPropertiesChannels;
-	DBManyLock lock;                    // Lock to use when field subscription value change event triggers
-	DBManyLock propertiesLock;          // Lock to use when field subscription property change event triggers
+	ReferencesAndLock value;
+	ReferencesAndLock properties;
+	Triggers triggers;          // reference to the fields that are triggered by this field during subscriptions
 
 	Field(const std::string& stringFieldName, const std::string& stringChannelName);
 	Value findIn(Value value) const;

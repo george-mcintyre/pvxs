@@ -177,7 +177,7 @@ void GroupSource::groupGet(Group& group, const std::function<void(Value&)>& retu
 		if (leafNode.valid()) {
 			try {
 				if (field.isMeta) {
-					IOCSource::get((dbChannel*)field.valueChannel,
+					IOCSource::get((dbChannel*)field.value.channel,
 							leafNode, false, true,
 							[&leafNode](Value& value) {
 								auto alarm = value["alarm"];
@@ -202,7 +202,7 @@ void GroupSource::groupGet(Group& group, const std::function<void(Value&)>& retu
 								}
 							});
 				} else if (!field.fieldName.empty()) {
-					IOCSource::get((dbChannel*)field.valueChannel,
+					IOCSource::get((dbChannel*)field.value.channel,
 							leafNode, true, false,
 							[&leafNode](Value& value) {
 								leafNode.assign(value);
@@ -347,7 +347,7 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
 
 			// Prepare group put operation
 			for (auto& field: group.fields) {
-				IOCSource::doPreProcessing((dbChannel*)field.valueChannel);
+				IOCSource::doPreProcessing((dbChannel*)field.value.channel);
 			}
 
 			// Lock all the fields
@@ -360,7 +360,7 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
 
 			// Do processing if required
 			for (auto& field: group.fields) {
-				IOCSource::doPostProcessing((dbChannel*)field.valueChannel);
+				IOCSource::doPostProcessing((dbChannel*)field.value.channel);
 			}
 
 			// Unlock the all group fields when the locker goes out of scope
@@ -372,7 +372,7 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
 			// Loop through all fields
 			for (auto& field: group.fields) {
 				// Lock this field
-				DBLocker F(((dbChannel*)field.valueChannel)->addr.precord);
+				DBLocker F(((dbChannel*)field.value.channel)->addr.precord);
 				// Put the field
 				putField(value, field);
 				// Unlock this field when locker goes out of scope
@@ -406,7 +406,7 @@ void GroupSource::putField(const Value& value, const Field& field) {
 
 	// If the field references a valid part of the given value then we can send it to the database
 	if (leafNode.valid()) {
-		IOCSource::put((dbChannel*)field.valueChannel, leafNode);
+		IOCSource::put((dbChannel*)field.value.channel, leafNode);
 	}
 }
 
@@ -454,12 +454,12 @@ void GroupSource::subscriptionCallback(FieldSubscriptionCtx* fieldSubscriptionCt
 	}
 
 	// Lock only fields triggered by this field
-	DBManyLocker G(forValues ? field->lock : field->propertiesLock);
+	DBManyLocker G(forValues ? field->value.lock : field->properties.lock);
 
 	// for all triggered fields get the values.  Assumes that self has been added to triggered list
 	for (auto& pTriggeredField: field->triggers) {
-		auto pFinalChannel = (dbChannel*)(forValues ? pTriggeredField->valueChannel : pTriggeredField
-				->propertiesChannel);
+		auto pFinalChannel =
+				(dbChannel*)(forValues ? pTriggeredField->value.channel : pTriggeredField->properties.channel);
 		// Find leaf node within the return value.  This will be a reference into the returnValue.
 		// So that if we assign the leafNode with the value we `get()` back, then returnValue will be updated
 		auto leafNode = pTriggeredField->findIn(returnValue);

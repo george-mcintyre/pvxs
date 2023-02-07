@@ -15,6 +15,10 @@
 namespace pvxs {
 namespace ioc {
 
+ReferencesAndLock::ReferencesAndLock(const std::string& stringChannelName)
+		:channel(stringChannelName) {
+}
+
 /**
  * Construct an IOCGroupField from a field name and channel name
  *
@@ -22,8 +26,8 @@ namespace ioc {
  * @param stringChannelName the channel name
  */
 Field::Field(const std::string& stringFieldName, const std::string& stringChannelName)
-		:fieldName(stringFieldName), isMeta(false), allowProc(false), isArray(false), valueChannel(stringChannelName),
-		 propertiesChannel(stringChannelName) {
+		:fieldName(stringFieldName), isMeta(false), allowProc(false), isArray(false), value(stringChannelName),
+		 properties(stringChannelName) {
 	if (!fieldName.fieldNameComponents.empty()) {
 		name = fieldName.fieldNameComponents[0].name;
 		fullName = std::string(fieldName.to_string());

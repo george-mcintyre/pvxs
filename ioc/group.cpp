@@ -43,7 +43,7 @@ void Group::show(int level) const {
 					suffix = "<proc>";
 				}
 				field.fieldName.show(suffix);
-				printf(" <-> %s\n", dbChannelName(field.valueChannel));
+				printf(" <-> %s\n", dbChannelName(field.value.channel));
 			}
 		}
 	}
