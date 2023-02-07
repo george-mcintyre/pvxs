@@ -38,18 +38,18 @@ Field::Field(const std::string& stringFieldName, const std::string& stringChanne
  * Using the field components configured in this Field, walk down from the given value,
  * to arrive at the part of the value referenced by this field.
  *
- * @param top the given value
+ * @param valueTarget the given value to search in
  * @return the Value referenced by this field within the given value
  */
-Value Field::findIn(Value value) const {
+Value Field::findIn(Value valueTarget) const {
 	if (!fieldName.empty()) {
 		for (const auto& component: fieldName.fieldNameComponents) {
-			value = value[component.name];
+			valueTarget = valueTarget[component.name];
 			if (component.isArray()) {
 				// Get required array capacity
 				auto index = component.index;
-				shared_array<const Value> constValueArray = value.as<shared_array<const Value>>();
-				value = shared_array<const Value>();
+				shared_array<const Value> constValueArray = valueTarget.as<shared_array<const Value>>();
+				valueTarget = shared_array<const Value>();
 				shared_array<Value> valueArray(constValueArray.thaw());
 				auto size = valueArray.size();
 				if ((index + 1) > size) {
@@ -60,14 +60,14 @@ Value Field::findIn(Value value) const {
 				auto newElement = valueArray[index];
 				if (!newElement) {
 					// Only allocate new member if it is not already allocated
-					valueArray[index] = newElement = value.allocMember();
+					valueArray[index] = newElement = valueTarget.allocMember();
 				}
-				value = valueArray.freeze();
-				value = newElement;
+				valueTarget = valueArray.freeze();
+				valueTarget = newElement;
 			}
 		}
 	}
-	return value;
+	return valueTarget;
 }
 
 } // pvxs

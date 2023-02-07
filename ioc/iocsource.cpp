@@ -209,7 +209,7 @@ void IOCSource::putArray(dbChannel* pDbChannel, const Value& value) {
 		std::vector<double> valueBuffer;
 		valueBuffer.resize(nElements * pDbChannel->addr.field_size, '\0');
 		pValueBuffer = &valueBuffer[0];
-		setValueInBuffer(value, (char*)pValueBuffer, pDbChannel, nElements);
+		setValueInBuffer(value, (char*)pValueBuffer, nElements);
 	}
 
 	DBErrorMessage dbErrorMessage(dbChannelPut(pDbChannel, pDbChannel->final_type, pValueBuffer, nElements));
@@ -315,12 +315,12 @@ void IOCSource::setValueInBuffer(const Value& valueSource, char* pValueBuffer, d
 /**
  * Set an array value in the given buffer
  *
- * @param valueSource
- * @param pBuffer
- * @param pDbChannel
- * @param nElements
+ * @param valueSource the value to put into the buffer
+ * @param pValueBuffer the database buffer to put it in
+ * @param pDbChannel the db channel
+ * @param nElements the number of elements to put into the buffer
  */
-void IOCSource::setValueInBuffer(const Value& valueSource, char* pValueBuffer, dbChannel* pDbChannel, long nElements) {
+void IOCSource::setValueInBuffer(const Value& valueSource, char* pValueBuffer, long nElements) {
 	auto valueType(valueSource.type());
 	if (valueType.code == TypeCode::StringA) {
 		auto sharedValueArray = valueSource.as<shared_array<const Value>>();

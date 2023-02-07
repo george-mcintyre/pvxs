@@ -21,7 +21,7 @@
 #define FOR_PROPERTIES false
 
 // Maximum amount of space that metadata can use in the buffer returned by dbGetField()
-#define MAX_METADATA_SIZE \
+#define MAX_METADATA_SIZE (\
     dbr_status_size + \
     dbr_units_size + \
     dbr_precision_size + \
@@ -32,7 +32,7 @@
     dbr_ctrlLong_size + \
     dbr_ctrlDouble_size + \
     dbr_alLong_size + \
-    dbr_alDouble_size
+    dbr_alDouble_size )
 
 namespace pvxs {
 namespace ioc {
@@ -52,7 +52,7 @@ typedef struct {
 
 class IOCSource {
 public:
-	static void get(dbChannel* pDbChannel, const Value& valuePrototype, const bool forValues, const bool forProperties,
+	static void get(dbChannel* pDbChannel, const Value& valuePrototype, bool forValues, bool forProperties,
 			const std::function<void(Value&)>& returnFn, db_field_log* pDbFieldLog = nullptr);
 	static void put(dbChannel* pDbChannel, const Value& value);
 	static void putScalar(dbChannel* pDbChannel, const Value& value);
@@ -80,7 +80,7 @@ public:
 	// Set the value into the given database value buffer
 	static void setValueInBuffer(const Value& valueSource, char* pValueBuffer, dbChannel* pDbChannel);
 	// Set the value into the given database value buffer
-	static void setValueInBuffer(const Value& valueSource, char* pValueBuffer, dbChannel* pDbChannel, long nElements);
+	static void setValueInBuffer(const Value& valueSource, char* pValueBuffer, long nElements);
 	// Set string value in the given buffer
 	static void setStringValueInBuffer(const Value& valueSource, char* pValueBuffer);
 // Set the value into the given database value buffer (templated)

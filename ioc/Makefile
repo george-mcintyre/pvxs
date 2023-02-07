@@ -39,7 +39,6 @@ pvxsIoc_SRCS += groupprocessorcontext.cpp
 pvxsIoc_SRCS += groupsource.cpp
 pvxsIoc_SRCS += groupsourcehooks.cpp
 pvxsIoc_SRCS += groupsrcsubscriptionctx.cpp
-pvxsIoc_SRCS += groupsubscriptionfield.cpp
 pvxsIoc_SRCS += iochooks.cpp
 pvxsIoc_SRCS += iocserver.cpp
 pvxsIoc_SRCS += iocsource.cpp

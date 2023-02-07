@@ -44,7 +44,7 @@ class GroupDefinition {
 public:
 	GroupDefinition() = default;
 	virtual ~GroupDefinition() = default;
-
+	// TODO verify why these fields are not used
 	bool atomicPutGet{ false }, atomicMonitor{ false }, hasTriggers{ false };
 	std::string structureId;            // The Normative Type structure ID or any other arbitrary string if not a normative type
 	FieldDefinitions fields;            // The group's fields
