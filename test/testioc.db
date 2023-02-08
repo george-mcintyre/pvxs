@@ -23,7 +23,8 @@ record(ai, "$(user):aiExample")
 record(calc, "$(user):calcExample")
 {
 	field(DESC, "Counter")
-	field(SCAN,"1 second")
+# TODO remove SCAN field when done with interactive testing
+	field(SCAN,"10 second")
 	field(FLNK, "$(user):aiExample")
 	field(CALC, "(A<B)?(A+C):D")
 	field(INPA, "$(user):calcExample.VAL  NPP NMS")

@@ -330,7 +330,6 @@ void SingleSource::subscriptionCallback(SingleSourceSubscriptionCtx* subscriptio
  *
  * @param userArg the user argument passed to the callback function from the framework: the subscriptionContext
  * @param pDbChannel pointer to the channel whose properties have been updated
- * @param eventsRemaining the remaining number of events to process
  * @param pDbFieldLog the database field log containing the changes to notify
  */
 void SingleSource::subscriptionPropertiesCallback(void* userArg, struct dbChannel* pDbChannel, int,
@@ -349,7 +348,6 @@ void SingleSource::subscriptionPropertiesCallback(void* userArg, struct dbChanne
  *
  * @param userArg the user argument passed to the callback function from the framework: the subscriptionContext
  * @param pDbChannel pointer to the channel whose value has been updated
- * @param eventsRemaining the remaining number of events to process
  * @param pDbFieldLog the database field log containing the changes to notify
  */
 void SingleSource::subscriptionValueCallback(void* userArg, struct dbChannel* pDbChannel, int,
