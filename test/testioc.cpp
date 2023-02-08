@@ -44,7 +44,7 @@ static void pvxsTestIocInitOk();
 static void pvxsTestIocShutdownOk();
 static void boxLeft();
 
-static pvxs::client::Context cli;
+static pvxs::client::Context clientContext;
 
 // List of all tests to be run in order
 static std::initializer_list<void (*)()> tests = {
@@ -96,29 +96,29 @@ static std::initializer_list<void (*)()> tests = {
 			testdbGetArrFieldEqualB("test:vectorExampleD2", DBR_DOUBLE, 5, expected.size(), expected.data());
 		},
 		[]() {
-			cli = ioc::server().clientConfig().build();
+			clientContext = ioc::server().clientConfig().build();
 			testOkB(true, "cli = ioc::server().clientConfig().build()");
 		},
 		[]() {
-			auto val = cli.get("test:aiExample").exec()->wait(5.0);
+			auto val = clientContext.get("test:aiExample").exec()->wait(5.0);
 			auto aiExample = val["value"].as<double>();
 			auto expected = 42.2;
 			testEqB(aiExample, expected);
 		},
 		[]() {
-			auto val = cli.get("test:compressExample").exec()->wait(5.0);
+			auto val = clientContext.get("test:compressExample").exec()->wait(5.0);
 			shared_array<double> expected({ 42.2 });
 			auto compressExample = val["value"].as<shared_array<const double>>();
 			testArrEqB(compressExample, expected);
 		},
 		[]() {
-			auto val = cli.get("test:stringExample").exec()->wait(5.0);
+			auto val = clientContext.get("test:stringExample").exec()->wait(5.0);
 			auto stringExample = val["value"].as<std::string>();
 			auto expected = "Some random value";
 			testStrEqB(stringExample, expected);
 		},
 		[]() {
-			auto val = cli.get("test:arrayExample").exec()->wait(5.0);
+			auto val = clientContext.get("test:arrayExample").exec()->wait(5.0);
 			shared_array<double> expected({ 1.0, 2.0, 3.0 });
 			auto arrayExample = val["value"].as<shared_array<const double>>();
 			testArrEqB(arrayExample, expected);
@@ -128,77 +128,92 @@ static std::initializer_list<void (*)()> tests = {
 			testdbPutArrFieldOkB("test:arrayExample", DBR_DOUBLE, array.size(), array.data());
 		},
 		[]() {
-			auto val = cli.get("test:arrayExample").exec()->wait(5.0);
+			auto val = clientContext.get("test:arrayExample").exec()->wait(5.0);
 			shared_array<double> expected({ 1.0, 2.0, 3.0, 4.0, 5.0 });
 			auto arrayExample = val["value"].as<shared_array<const double>>();
 			testArrEqB(arrayExample, expected);
 		},
 		[]() {
-			auto val = cli.get("test:longExample").exec()->wait(5.0);
+			auto val = clientContext.get("test:longExample").exec()->wait(5.0);
 			auto longValue = val["value"].as<long>();
 			auto expected = 102042;
 			testEqB(longValue, expected);
 		},
 		[]() {
-			auto val = cli.get("test:enumExample").exec()->wait(5.0);
+			auto val = clientContext.get("test:enumExample").exec()->wait(5.0);
 			auto enumExample = val["value.index"].as<short>();
 			auto expected = 2;
 			testEqB(enumExample, expected);
 		},
 		[]() {
-			auto val = cli.get("test:enumExample").exec()->wait(5.0);
+			auto val = clientContext.get("test:enumExample").exec()->wait(5.0);
 			shared_array<const std::string> expected({ "zero", "one", "two" });
 			auto enumExampleChoices = val["value.choices"].as<shared_array<const std::string>>();
 			testArrEqB(enumExampleChoices, expected);
 		},
 		[]() {
-			auto val = cli.get("test:tableExample").exec()->wait(5.0);
+			auto val = clientContext.get("test:tableExample").exec()->wait(5.0);
 			shared_array<const std::string> expected({ "Column A", "Column B" });
 			auto tableExampleLabels = val["labels"].as<shared_array<const std::string>>();
 			testArrEqB(tableExampleLabels, expected);
 		},
 		[]() {
-			auto val = cli.get("test:tableExample").exec()->wait(5.0);
+			auto val = clientContext.get("test:tableExample").exec()->wait(5.0);
 			shared_array<const double> expected({ 10, 20, 30, 40, 50 });
 			auto tableExampleValueA = val["value.A"].as<shared_array<const double>>();
 			testArrEqB(tableExampleValueA, expected);
 		},
 		[]() {
-			auto val = cli.get("test:structExample").exec()->wait(5.0);
+			auto val = clientContext.get("test:structExample").exec()->wait(5.0);
 			auto structExampleStringValue = val["string.value"].as<std::string>();
 			auto expected = "Some random value";
 			testStrEqB(structExampleStringValue, expected);
 		},
 		[]() {
-			auto val = cli.get("test:structExample").exec()->wait(5.0);
+			auto val = clientContext.get("test:structExample").exec()->wait(5.0);
 			auto structExampleAiValue = val["ai.value"].as<double>();
 			auto expected = 42.2;
 			testEqB(structExampleAiValue, expected);
 		},
 		[]() {
-			auto val = cli.get("test:structExample").exec()->wait(5.0);
+			auto val = clientContext.get("test:structExample").exec()->wait(5.0);
 			shared_array<const double> expected({ 1, 2, 3, 4, 5 });
 			auto structExampleArrayValue = val["array.value"].as<shared_array<const double>>();
 			testArrEqB(structExampleArrayValue, expected);
 		},
 		[]() {
-			auto val = cli.get("test:structExample").exec()->wait(5.0);
+			auto val = clientContext.get("test:structExample").exec()->wait(5.0);
 			auto structExampleSa_0_LongValue = val["sa[0].long.value"].as<long>();
 			auto expected = 102042;
 			testEqB(structExampleSa_0_LongValue, expected);
 		},
 		[]() {
-			auto val = cli.get("test:structExample").exec()->wait(5.0);
+			auto val = clientContext.get("test:structExample").exec()->wait(5.0);
 			auto structExampleSa_0_EnumValueIndex = val["sa[0].enum.value.index"].as<short>();
 			auto expected = 2;
 			testEqB(structExampleSa_0_EnumValueIndex, expected);
 		},
 		[]() {
-			auto val = cli.get("test:structExample").exec()->wait(5.0);
+			auto val = clientContext.get("test:structExample").exec()->wait(5.0);
 			auto structExampleSa_0_EnumValueChoices = val["sa[0].enum.value.choices"]
 					.as<shared_array<const std::string>>();
 			shared_array<const std::string> expected({ "zero", "one", "two" });
 			testArrEqB(structExampleSa_0_EnumValueChoices, expected);
+		},
+		[]() {
+			clientContext.put("test:calcExample.FLNK").set("value", "").exec()->wait(5.0);
+			testdbGetFieldEqualB("test:calcExample.FLNK", DBR_STRING, "");
+		},
+		[]() {
+			clientContext.put("test:calcExample.FLNK").set("value", "test:stringExample").exec()->wait(5.0);
+			testdbGetFieldEqualB("test:calcExample.FLNK", DBR_STRING, "test:stringExample");
+		},
+		[]() {
+			// TODO check whether long strings need to be null terminated
+			shared_array<const int8_t> arrayLinkVal(
+					{ 't', 'e', 's', 't', ':', 'a', 'i', 'E', 'x', 'a', 'm', 'p', 'l', 'e', '\0' });
+			clientContext.put("test:calcExample.FLNK$").set("value", arrayLinkVal).exec()->wait(5.0);
+			testdbGetFieldEqualB("test:calcExample.FLNK", DBR_STRING, "test:aiExample");
 		},
 };
 
