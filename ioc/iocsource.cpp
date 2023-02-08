@@ -175,7 +175,13 @@ void IOCSource::putScalar(dbChannel* pDbChannel, const Value& value) {
 		setValueInBuffer(value, pValueBuffer, pDbChannel);
 	}
 
-	DBErrorMessage dbErrorMessage(dbChannelPut(pDbChannel, pDbChannel->final_type, pValueBuffer, 1));
+	long status;
+	if (dbChannelFieldType(pDbChannel) >= DBF_INLINK && dbChannelFieldType(pDbChannel) <= DBF_FWDLINK) {
+		status = dbChannelPutField(pDbChannel, pDbChannel->final_type, pValueBuffer, 1);
+	} else {
+		status = dbChannelPut(pDbChannel, pDbChannel->final_type, pValueBuffer, 1);
+	}
+	DBErrorMessage dbErrorMessage(status);
 	if (dbErrorMessage) {
 		throw std::runtime_error(dbErrorMessage.c_str());
 	}
@@ -209,7 +215,13 @@ void IOCSource::putArray(dbChannel* pDbChannel, const Value& value) {
 		setValueInBuffer(value, (char*)pValueBuffer, nElements);
 	}
 
-	DBErrorMessage dbErrorMessage(dbChannelPut(pDbChannel, pDbChannel->final_type, pValueBuffer, nElements));
+	long status;
+	if (dbChannelFieldType(pDbChannel) >= DBF_INLINK && dbChannelFieldType(pDbChannel) <= DBF_FWDLINK) {
+		status = dbChannelPutField(pDbChannel, pDbChannel->final_type, pValueBuffer, nElements);
+	} else {
+		status = dbChannelPut(pDbChannel, pDbChannel->final_type, pValueBuffer, nElements);
+	}
+	DBErrorMessage dbErrorMessage(status);
 	if (dbErrorMessage) {
 		throw std::runtime_error(dbErrorMessage.c_str());
 	}
@@ -228,8 +240,6 @@ void IOCSource::doPreProcessing(dbChannel* pDbChannel) {
 // TODO add access control checks
 //	 } else if (!pDbChannel->aspvt.canWrite()) {
 //		throw std::runtime_error("Put not permitted");
-	} else if (pDbChannel->addr.field_type >= DBF_INLINK && pDbChannel->addr.field_type <= DBF_FWDLINK) {
-		throw std::runtime_error("Links not supported for put");
 	}
 }
 

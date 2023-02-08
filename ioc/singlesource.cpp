@@ -226,10 +226,15 @@ void SingleSource::onOp(const std::shared_ptr<dbChannel>& dbChannelSharedPtr, co
 			->onPut([dbChannelSharedPtr, valuePrototype](std::unique_ptr<server::ExecOp>&& putOperation,
 					Value&& value) {
 				try {
-					IOCSource::doPreProcessing(dbChannelSharedPtr.get()); // pre-process
-					DBLocker F(dbChannelSharedPtr->addr.precord); // lock
-					IOCSource::put(dbChannelSharedPtr.get(), value); // put
-					IOCSource::doPostProcessing(dbChannelSharedPtr.get()); // post-process
+					auto pDbChannel = dbChannelSharedPtr.get();
+					IOCSource::doPreProcessing(pDbChannel); // pre-process
+					if (dbChannelFieldType(pDbChannel) >= DBF_INLINK && dbChannelFieldType(pDbChannel) <= DBF_FWDLINK) {
+						IOCSource::put(pDbChannel, value); // put
+					} else {
+						DBLocker F(pDbChannel->addr.precord); // lock
+						IOCSource::put(pDbChannel, value); // put
+						IOCSource::doPostProcessing(pDbChannel); // post-process
+					}
 					putOperation->reply();
 				} catch (std::exception& e) {
 					putOperation->error(e.what());

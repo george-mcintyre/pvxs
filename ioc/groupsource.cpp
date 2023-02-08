@@ -347,7 +347,11 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
 
 			// Prepare group put operation
 			for (auto& field: group.fields) {
-				IOCSource::doPreProcessing((dbChannel*)field.value.channel);
+				auto pDbChannel = (dbChannel*)field.value.channel;
+				IOCSource::doPreProcessing(pDbChannel);
+				if (pDbChannel->addr.field_type >= DBF_INLINK && pDbChannel->addr.field_type <= DBF_FWDLINK) {
+					throw std::runtime_error("Links not supported for put");
+				}
 			}
 
 			// Lock all the fields
