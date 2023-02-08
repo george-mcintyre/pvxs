@@ -96,4 +96,5 @@ TypeCode::code_t fromDbrType(short dbrType) {
 		return TypeCode::Null;
 	}
 }
+
 }

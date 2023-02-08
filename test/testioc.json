@@ -4,69 +4,69 @@
  */
 
 /*
- * Group tst:tableExample2
+ * Group test:tableExample2
  * Use +id mapping: to present as a epics NTTable
  * with two columns of doubles taken from $(user):vectorExampleD1 and $(user):vectorExampleD2
  * Get metadata (alarms, etc) from $(user):vectorExampleD1
  */
 {
-  "tst:tableExample2": {
+  "test:tableExample2": {
     "+id": "epics:nt/NTTable:1.0",
     "": {
       "+type": "meta",
-      "+channel": "tst:vectorExampleD1.VAL"
+      "+channel": "test:vectorExampleD1.VAL"
     },
     "labels": {
-      "+channel": "tst:groupExampleAS.VAL",
+      "+channel": "test:groupExampleAS.VAL",
       "+type": "plain"
     },
     "value.jA": {
-      "+channel": "tst:vectorExampleD1.VAL",
+      "+channel": "test:vectorExampleD1.VAL",
       "+type": "plain",
       "+putorder": 1
     },
     "value.jB": {
-      "+channel": "tst:vectorExampleD2.VAL",
+      "+channel": "test:vectorExampleD2.VAL",
       "+type": "plain",
       "+putorder": 1
     },
     "_save": {
-      "+channel": "tst:groupExampleSave.VAL",
+      "+channel": "test:groupExampleSave.VAL",
       "+type": "proc",
       "+putorder": 2,
       "+trigger": "*"
     }
   },
   /*
-   * Group tst:structExample2
+   * Group test:structExample2
    * This is an example of a structure that does not correspond to an EPICS normative type
    */
-  "tst:structExample2": {
+  "test:structExample2": {
     "+atomic": false,
-    "jai": {
-      "+channel": "tst:aiExample.VAL",
+    "ai": {
+      "+channel": "test:aiExample.VAL",
       "+putorder": 0
     },
-    "jcalc": {
-      "+channel": "tst:calcExample.VAL",
+    "calc": {
+      "+channel": "test:calcExample.VAL",
       "+type": "plain",
       "+putorder": 1
     },
-    "jstring": {
-      "+channel": "tst:stringExample.VAL",
+    "string": {
+      "+channel": "test:stringExample.VAL",
       "+putorder": 0
     },
-    "jarray": {
-      "+channel": "tst:arrayExample.VAL",
+    "array": {
+      "+channel": "test:arrayExample.VAL",
       "+putorder": 0
     },
-    "jsa[0].any": {
-      "+channel": "tst:longExample.VAL",
+    "sa[0].any": {
+      "+channel": "test:longExample.VAL",
       "+type": "any",
       "+putorder": 1
     },
-    "jsa[1].enum": {
-      "+channel": "tst:enumExample.VAL",
+    "sa[1].enum": {
+      "+channel": "test:enumExample.VAL",
       "+putorder": 0
     }
   }

@@ -34,119 +34,261 @@ namespace {
 
 } // namespace
 
+#define testOkB(__pass, __fmt, ...) boxLeft(); testOk(__pass, __fmt, ##__VA_ARGS__)
+#define testEqB(__lhs, __rhs) boxLeft(); testEq(__lhs, __rhs)
+#define testStrEqB(__lhs, __rhs) boxLeft(); testStrEq(__lhs, __rhs)
+#define testArrEqB(__lhs, __rhs) boxLeft(); testArrEq(__lhs, __rhs)
+#define testdbPutArrFieldOkB(__pv, __dbrType, __count, __pbuf) boxLeft(); testdbPutArrFieldOk(__pv, __dbrType, __count, __pbuf)
+#define testdbGetFieldEqualB(__pv, __dbrType, ...) boxLeft(); testdbGetFieldEqual(__pv, __dbrType, ##__VA_ARGS__)
+#define testdbGetArrFieldEqualB(__pv, __dbfType, __nRequest, __pbufcnt, __pbuf) boxLeft(); testdbGetArrFieldEqual(__pv, __dbfType, __nRequest, __pbufcnt, __pbuf)
+#define testThrowsB(__lambda) boxLeft(); testThrows<std::logic_error>(__lambda)
+
 static dbEventCtx testEvtCtx;
+static void pvxsTestIocInitOk();
+static void pvxsTestIocShutdownOk();
+static void boxLeft();
 
-static void pvxsTestIocInitOk()
-{
-	if(iocBuild() || iocRun())
-		testAbort("Failed to start up test database");
-	if(!(testEvtCtx=db_init_events()))
-		testAbort("Failed to initialize test dbEvent context");
-	if(DB_EVENT_OK!=db_start_events(testEvtCtx, "CAS-test", NULL, NULL, epicsThreadPriorityCAServerLow))
-		testAbort("Failed to start test dbEvent context");
-}
+static pvxs::client::Context cli;
 
-static void pvxsTestIocShutdownOk()
-{
-	db_close_events(testEvtCtx);
-	testEvtCtx = NULL;
-	if(iocShutdown())
-		testAbort("Failed to shutdown test database");
-}
+// List of all tests to be run in order
+static std::initializer_list<void (*)()> tests = {
+		[]() {
+			testThrowsB([] { ioc::server(); });
+		},
+		[]() {
+			testdbReadDatabase("testioc.dbd", nullptr, nullptr);
+			testOkB(true, R"("testioc.dbd" loaded)");
+		},
+		[]() {
+			testOkB(!testioc_registerRecordDeviceDriver(pdbbase), "testioc_registerRecordDeviceDriver(pdbbase)");
+		},
+		[]() { testOkB((bool)ioc::server(), "ioc::server()"); },
+		[]() {
+			testdbReadDatabase("testioc.db", nullptr, "user=test");
+			testOkB(true, R"(testdbReadDatabase("testioc.db", nullptr, "user=test"))");
+		},
+		[]() {
+			testdbReadDatabase("testiocg.db", nullptr, "user=test");
+			testOkB(true, R"(testdbReadDatabase("testiocg.db", nullptr, "user=test"))");
+		},
+		[]() { testOkB(!pvxs::ioc::dbLoadGroup("testioc.json"), R"(dbLoadGroup("testioc.json"))"); },
+		[]() { testOk(!iocshCmd("pvxsr"), R"(iocshCmd("pvxsr"))"); },
+		[]() { testOk(!iocshCmd("pvxsi"), R"(iocshCmd("pvxsi"))"); },
+		[]() { pvxsTestIocInitOk(); },
+		[]() { testOk(!iocshCmd("dbl"), R"(iocshCmd("dbl"))"); },
+		[]() { testOk(!iocshCmd("pvxsl"), R"(iocshCmd("pvxsl"))"); },
+		[]() { testOk(!iocshCmd("pvxsl 1"), R"(iocshCmd("pvxsl 1"))"); },
+		[]() { testOk(!iocshCmd("pvxsgl"), R"(iocshCmd("pvxsgl"))"); },
+		[]() { testOk(!iocshCmd("pvxsgl 1"), R"(iocshCmd("pvxsgl 1"))"); },
+		[]() { testOk(!iocshCmd("pvxsgl 2"), R"(iocshCmd("pvxsgl 2"))"); },
+		[]() { testOk(!iocshCmd("dbgf test:aiExample"), R"(iocshCmd("dbgf test:aiExample"))"); },
+		[]() { testOk(!iocshCmd("dbgf test:calcExample"), R"(iocshCmd("dbgf test:calcExample"))"); },
+		[]() { testOk(!iocshCmd("dbgf test:compressExample"), R"(iocshCmd("dbgf test:compressExample"))"); },
+		[]() { testOk(!iocshCmd("dbgf test:stringExample"), R"(iocshCmd("dbgf test:stringExample"))"); },
+		[]() { testOk(!iocshCmd("dbgf test:arrayExample"), R"(iocshCmd("dbgf test:arrayExample"))"); },
+		[]() { testOk(!iocshCmd("dbgf test:longExample"), R"(iocshCmd("dbgf test:longExample"))"); },
+		[]() { testOk(!iocshCmd("dbgf test:enumExample"), R"(iocshCmd("dbgf test:enumExample"))"); },
+		[]() { testOk(!iocshCmd("dbgf test:groupExampleAS"), R"(iocshCmd("dbgf test:groupExampleAS"))"); },
+		[]() { testOk(!iocshCmd("dbgf test:vectorExampleD1"), R"(iocshCmd("dbgf test:vectorExampleD1"))"); },
+		[]() { testOk(!iocshCmd("dbgf test:vectorExampleD2"), R"(iocshCmd("dbgf test:vectorExampleD2"))"); },
+		[]() { testOk(!iocshCmd("dbgf test:groupExampleSave"), R"(iocshCmd("dbgf test:groupExampleSave"))"); },
+		[]() { testOk(!iocshCmd("dbgf test:structExampleSave"), R"(iocshCmd("dbgf test:structExampleSave"))"); },
+		[]() { testdbGetFieldEqualB("test:aiExample", DBR_DOUBLE, 42.2); },
+		[]() { testdbGetFieldEqualB("test:compressExample", DBR_DOUBLE, 42.2); },
+		[]() { testdbGetFieldEqualB("test:stringExample", DBR_STRING, "Some random value"); },
+		[]() {
+			shared_array<double> expected({ 1.0, 2.0, 3.0 });
+			testdbGetArrFieldEqualB("test:arrayExample", DBR_DOUBLE, 3, expected.size(), expected.data());
+		},
+		[]() { testdbGetFieldEqualB("test:longExample", DBR_LONG, 102042); },
+		[]() { testdbGetFieldEqualB("test:enumExample", DBR_ENUM, 2); },
+		[]() {
+			char expected[MAX_STRING_SIZE * 2]{ 0 };
+			std::string first("Column A");
+			std::string second("Column B");
+			first.copy(&expected[0], MAX_STRING_SIZE - 1);
+			second.copy(&expected[MAX_STRING_SIZE], MAX_STRING_SIZE - 1);
 
+			testdbGetArrFieldEqualB("test:groupExampleAS", DBR_STRING, 2, 2, &expected);
+		},
+		[]() {
+			shared_array<double> expected({ 10, 20, 30, 40, 50 });
+			testdbGetArrFieldEqualB("test:vectorExampleD1", DBR_DOUBLE, 5, expected.size(), expected.data());
+		},
+		[]() {
+			shared_array<double> expected({ 1.1, 2.2, 3.3, 4.4, 5.5 });
+			testdbGetArrFieldEqualB("test:vectorExampleD2", DBR_DOUBLE, 5, expected.size(), expected.data());
+		},
+		[]() {
+			cli = ioc::server().clientConfig().build();
+			testOkB(true, "cli = ioc::server().clientConfig().build()");
+		},
+		[]() {
+			auto val = cli.get("test:aiExample").exec()->wait(5.0);
+			auto aiExample = val["value"].as<double>();
+			auto expected = 42.2;
+			testEqB(aiExample, expected);
+		},
+		[]() {
+			auto val = cli.get("test:compressExample").exec()->wait(5.0);
+			shared_array<double> expected({ 42.2 });
+			auto compressExample = val["value"].as<shared_array<const double>>();
+			testArrEqB(compressExample, expected);
+		},
+		[]() {
+			auto val = cli.get("test:stringExample").exec()->wait(5.0);
+			auto stringExample = val["value"].as<std::string>();
+			auto expected = "Some random value";
+			testStrEqB(stringExample, expected);
+		},
+		[]() {
+			auto val = cli.get("test:arrayExample").exec()->wait(5.0);
+			shared_array<double> expected({ 1.0, 2.0, 3.0 });
+			auto arrayExample = val["value"].as<shared_array<const double>>();
+			testArrEqB(arrayExample, expected);
+		},
+		[]() {
+			shared_array<double> array({ 1.0, 2.0, 3.0, 4.0, 5.0 });
+			testdbPutArrFieldOkB("test:arrayExample", DBR_DOUBLE, array.size(), array.data());
+		},
+		[]() {
+			auto val = cli.get("test:arrayExample").exec()->wait(5.0);
+			shared_array<double> expected({ 1.0, 2.0, 3.0, 4.0, 5.0 });
+			auto arrayExample = val["value"].as<shared_array<const double>>();
+			testArrEqB(arrayExample, expected);
+		},
+		[]() {
+			auto val = cli.get("test:longExample").exec()->wait(5.0);
+			auto longValue = val["value"].as<long>();
+			auto expected = 102042;
+			testEqB(longValue, expected);
+		},
+		[]() {
+			auto val = cli.get("test:enumExample").exec()->wait(5.0);
+			auto enumExample = val["value.index"].as<short>();
+			auto expected = 2;
+			testEqB(enumExample, expected);
+		},
+		[]() {
+			auto val = cli.get("test:enumExample").exec()->wait(5.0);
+			shared_array<const std::string> expected({ "zero", "one", "two" });
+			auto enumExampleChoices = val["value.choices"].as<shared_array<const std::string>>();
+			testArrEqB(enumExampleChoices, expected);
+		},
+		[]() {
+			auto val = cli.get("test:tableExample").exec()->wait(5.0);
+			shared_array<const std::string> expected({ "Column A", "Column B" });
+			auto tableExampleLabels = val["labels"].as<shared_array<const std::string>>();
+			testArrEqB(tableExampleLabels, expected);
+		},
+		[]() {
+			auto val = cli.get("test:tableExample").exec()->wait(5.0);
+			shared_array<const double> expected({ 10, 20, 30, 40, 50 });
+			auto tableExampleValueA = val["value.A"].as<shared_array<const double>>();
+			testArrEqB(tableExampleValueA, expected);
+		},
+		[]() {
+			auto val = cli.get("test:structExample").exec()->wait(5.0);
+			auto structExampleStringValue = val["string.value"].as<std::string>();
+			auto expected = "Some random value";
+			testStrEqB(structExampleStringValue, expected);
+		},
+		[]() {
+			auto val = cli.get("test:structExample").exec()->wait(5.0);
+			auto structExampleAiValue = val["ai.value"].as<double>();
+			auto expected = 42.2;
+			testEqB(structExampleAiValue, expected);
+		},
+		[]() {
+			auto val = cli.get("test:structExample").exec()->wait(5.0);
+			shared_array<const double> expected({ 1, 2, 3, 4, 5 });
+			auto structExampleArrayValue = val["array.value"].as<shared_array<const double>>();
+			testArrEqB(structExampleArrayValue, expected);
+		},
+		[]() {
+			auto val = cli.get("test:structExample").exec()->wait(5.0);
+			auto structExampleSa_0_LongValue = val["sa[0].long.value"].as<long>();
+			auto expected = 102042;
+			testEqB(structExampleSa_0_LongValue, expected);
+		},
+		[]() {
+			auto val = cli.get("test:structExample").exec()->wait(5.0);
+			auto structExampleSa_0_EnumValueIndex = val["sa[0].enum.value.index"].as<short>();
+			auto expected = 2;
+			testEqB(structExampleSa_0_EnumValueIndex, expected);
+		},
+		[]() {
+			auto val = cli.get("test:structExample").exec()->wait(5.0);
+			auto structExampleSa_0_EnumValueChoices = val["sa[0].enum.value.choices"]
+					.as<shared_array<const std::string>>();
+			shared_array<const std::string> expected({ "zero", "one", "two" });
+			testArrEqB(structExampleSa_0_EnumValueChoices, expected);
+		},
+};
+
+/**
+ * Test runner
+ *
+ * @return overall test status
+ */
 MAIN(testioc) {
-	testPlan(22);
+	auto testNum = 0;
+	testPlan((int)tests.size());
 	testSetup();
-
 	testdbPrepare();
 
-	testThrows<std::logic_error>([] {
-		ioc::server();
-	});
+	// Run tests
+	for (auto& test: tests) {
+		if (testNum++) {
+			printf("├──────────────────────────────────────────────────────────────────────┤\n");
+		} else {
+			printf("┌──────────────────────────────────────────────────────────────────────┐\n");
+		}
+		try {
+			test();
+		} catch (const std::exception& e) {
+			printf("│ not ok %d - Test failed: %s\n", testNum, e.what());
+		}
+	}
+	printf("└──────────────────────────────────────────────────────────────────────┘");
 
-	// Test (1) loading configuration file
-	testDiag("dbLoadDatabase(\"testioc.dbd\")");
-	testdbReadDatabase("testioc.dbd", nullptr, nullptr);
-	// Test (2)
-	testEq(0, testioc_registerRecordDeviceDriver(pdbbase));
-	// Test (3)
-	testEq(0, iocshCmd("pvxsr"));
-	// Test (4)
-	testEq(0, iocshCmd("pvxsi"));
-
-	// Loading database
-	testdbReadDatabase(EPICS_BASE OSI_PATH_SEPARATOR "test" OSI_PATH_SEPARATOR "testioc.db", nullptr, "user=test");
-
-	// (5) Test starting server
-	testTrue((bool)ioc::server());
-
-	// (5)
-	pvxsTestIocInitOk();
-
-	// Test (6) fields loaded ok
-	testEq(0, iocshCmd("dbl"));
-
-	// Test (7-11) ability to get fields via shell
-	testEq(0, iocshCmd("dbgf test:aiExample"));
-	testEq(0, iocshCmd("dbgf test:calcExample"));
-	testEq(0, iocshCmd("dbgf test:compressExample"));
-	testEq(0, iocshCmd("dbgf test:stringExample"));
-	testEq(0, iocshCmd("dbgf test:arrayExample"));
-
-	// Test (12-15) value of fields correct
-	testdbGetFieldEqual("test:aiExample", DBR_DOUBLE, 42.2);
-	testdbGetFieldEqual("test:compressExample", DBR_DOUBLE, 42.2);
-	testdbGetFieldEqual("test:stringExample", DBR_STRING, "Some random value");
-	double expected = 0.0;
-	testdbGetArrFieldEqual("test:arrayExample", DBR_DOUBLE, 0, 0, &expected);
-
-	// Get a client config to connect to server for network testing
-	client::Context cli(ioc::server().clientConfig().build());
-
-	// Test (16) client access to ioc
-	auto val = cli.get("test:aiExample").exec()->wait(5.0);
-	auto aiExample = val["value"].as<double>();
-	testEq(42.2, aiExample);
-
-	// Test (17)
-	val = cli.get("test:calcExample").exec()->wait(5.0);
-	auto calcExample = val["value"].as<double>();
-	testEq(0.0, calcExample);
-
-	// Set test (18) values into array
-	shared_array<double> expectedArray({ 1.0, 2.0, 3.0 });
-	val = cli.get("test:arrayExample").exec()->wait(5.0);
-	auto actualArray = val["value"].as<shared_array<const double>>();
-	testArrEq(expectedArray, actualArray);
-
-	shared_array<double> expectedArray2({ 1.0, 2.0, 3.0, 4.0, 5.0 });
-	// (19)
-	testdbPutArrFieldOk("test:arrayExample", DBR_DOUBLE, expectedArray2.size(), expectedArray2.data());
-	val = cli.get("test:arrayExample").exec()->wait(5.0);
-	actualArray = val["value"].as<shared_array<const double>>();
-	// (20)
-	testArrEq(expectedArray2, actualArray);
-
-
-//	val = cli.get("test:compressExample").exec()->wait(5.0);
-//	auto compressExample = val["value"].as<double>();
-//	testEq(42.2, compressExample);
-
-	// (21)
-	val = cli.get("test:longExample").exec()->wait(5.0);
-	auto longValue = val["value"].as<long>();
-	testEq(102042, longValue);
-
-	// (22)
-	val = cli.get("test:stringExample").exec()->wait(5.0);
-	auto testString = val["value"];
-	testStrEq(std::string(SB() << testString), "string = \"Some random value\"\n");
-
-	//	cli.put();
-
-	// Test shutdown
 	pvxsTestIocShutdownOk();
 	testdbCleanup();
 
 	return testDone();
+}
+
+/**
+ * Test IocInit() functionality for pvxs
+ */
+static void pvxsTestIocInitOk() {
+	if (iocBuild() || iocRun()) {
+		testAbort("Failed to start up test database");
+	}
+	if (!(testEvtCtx = db_init_events())) {
+		testAbort("Failed to initialize test dbEvent context");
+	}
+	if (DB_EVENT_OK != db_start_events(testEvtCtx, "CAS-test", nullptr, nullptr, epicsThreadPriorityCAServerLow)) {
+		testAbort("Failed to start test dbEvent context");
+	}
+	testOk(true, "IocInit()");
+}
+
+/**
+ * Test IocShutdown() functionality for pvxs
+ */
+static void pvxsTestIocShutdownOk() {
+	db_close_events(testEvtCtx);
+	testEvtCtx = nullptr;
+	if (iocShutdown()) {
+		testAbort("Failed to shutdown test database");
+	}
+}
+
+static void testDbLoadGroupOk(const char* file) {
+	testOk(!pvxs::ioc::dbLoadGroup(file), "%s scheduled to be loaded during IocInit()", file);
+}
+
+static void boxLeft() {
+	printf("│ ");
 }

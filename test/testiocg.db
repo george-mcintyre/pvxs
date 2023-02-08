@@ -19,7 +19,7 @@ record(aai, "$(user):groupExampleAS") {
     field(TPRO, "1")
 }
 
-record(aao, "$(user):vectorExampleD1") {
+record(waveform, "$(user):vectorExampleD1") {
     field(FTVL, "DOUBLE")
     field(NELM, "10")
     info(Q:group, {
@@ -28,10 +28,11 @@ record(aao, "$(user):vectorExampleD1") {
             "value.A":{+type:"plain", +channel:"VAL", +putorder:1}
         }
     })
+    field(INP, {const:[10,20,30,40,50]})
     field(TPRO, "1")
 }
 
-record(aao, "$(user):vectorExampleD2") {
+record(waveform, "$(user):vectorExampleD2") {
     field(FTVL, "DOUBLE")
     field(NELM, "10")
     info(Q:group, {
@@ -39,6 +40,7 @@ record(aao, "$(user):vectorExampleD2") {
             "value.B":{+type:"plain", +channel:"VAL", +putorder:1}
         }
     })
+    field(INP, {const:[1.1,2.2,3.3,4.4,5.5]})
     field(TPRO, "1")
 }
 

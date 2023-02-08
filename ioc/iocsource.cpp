@@ -205,10 +205,7 @@ void IOCSource::putArray(dbChannel* pDbChannel, const Value& value) {
 		pValueBuffer = stringValueBuffer.data();
 	} else {
 		// Set the buffer to the internal value buffer as it's the same for the db records for non-string fields
-//		pValueBuffer = (void *)valueArray.data();
-		std::vector<double> valueBuffer;
-		valueBuffer.resize(nElements * pDbChannel->addr.field_size, '\0');
-		pValueBuffer = &valueBuffer[0];
+		pValueBuffer = (void*)valueArray.data();
 		setValueInBuffer(value, (char*)pValueBuffer, nElements);
 	}
 
@@ -285,8 +282,15 @@ void IOCSource::getValueFromBuffer(Value& valueTarget, const void* pValueBuffer)
  */
 void IOCSource::getValueFromBuffer(Value& valueTarget, const void* pValueBuffer, const long& nElements) {
 	auto valueType(valueTarget.type());
-	if (valueType.code == TypeCode::String) {
-		valueTarget = ((const char*)pValueBuffer);
+	if (valueType.code == TypeCode::StringA) {
+		shared_array<std::string> values(nElements);
+		char stringBuffer[MAX_STRING_SIZE + 1]{ 0 }; // Need to do this because some strings may not be null terminated
+		for (auto i = 0; i < nElements; i++) {
+			auto pStringValue = (char*)&((const char*)pValueBuffer)[i * MAX_STRING_SIZE];
+			strncpy(stringBuffer, pStringValue, MAX_STRING_SIZE);
+			values[i] = (char*)&stringBuffer[0];
+		}
+		valueTarget = values.freeze().template castTo<const void>();
 	} else {
 		SwitchTypeCodeForTemplatedCall(valueType.code, getValueFromBuffer, (valueTarget, pValueBuffer, nElements));
 	}

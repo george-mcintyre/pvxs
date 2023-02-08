@@ -26,6 +26,7 @@
 #include "groupprocessorcontext.h"
 #include "iocshcommand.h"
 #include "iocsource.h"
+#include "utilpvt.h"
 #include "yajlcallbackhandler.h"
 
 namespace pvxs {
@@ -73,31 +74,33 @@ void GroupConfigProcessor::loadConfigFiles() {
 		auto& groupConfigFiles = pPvxsServer->groupConfigFiles;
 
 		// For each file load the configuration file
-		std::list<std::string>::iterator it;
-		for (it = groupConfigFiles.begin(); it != groupConfigFiles.end(); ++it) {
-			auto groupConfigFileName = it->c_str();
+		auto it = groupConfigFiles.begin();
+		while (it != groupConfigFiles.end()) {
+			std::string groupConfigFileName(*it);
+			groupConfigFiles.erase(it++);
 
 			// Get contents of group definition file
 			std::ifstream jsonGroupConfigStream(groupConfigFileName, std::ifstream::in);
 			if (!jsonGroupConfigStream.is_open()) {
-				fprintf(stderr, "Error opening \"%s\"\n", groupConfigFileName);
+				fprintf(stderr, "Error opening \"%s\"\n", groupConfigFileName.c_str());
 				continue;
 			}
+
 			std::stringstream buffer;
 			buffer << jsonGroupConfigStream.rdbuf();
 			auto jsonGroupConfig = buffer.str();
 
-			log_debug_printf(_logname, "Process dbGroup file \"%s\"\n", groupConfigFileName);
+			log_debug_printf(_logname, "Process dbGroup file \"%s\"\n", groupConfigFileName.c_str());
 
 			try {
 				parseConfigString(jsonGroupConfig.c_str());
 				if (!groupProcessingWarnings.empty()) {
 					fprintf(stderr, "warning(s) from group definition file \"%s\"\n%s\n",
-							groupConfigFileName, groupProcessingWarnings.c_str());
+							groupConfigFileName.c_str(), groupProcessingWarnings.c_str());
 				}
 			} catch (std::exception& e) {
-				fprintf(stderr, "Error reading group definition file \"%s\"\n%s\n",
-						groupConfigFileName, e.what());
+				throw std::runtime_error(
+						SB() << "Error reading group definition file \"" << groupConfigFileName << "\"\n" << e.what());
 			}
 		}
 	});

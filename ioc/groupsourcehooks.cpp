@@ -12,10 +12,11 @@
 #include <epicsExport.h>
 #include <epicsString.h>
 
+#include <initHooks.h>
+
 #include <pvxs/source.h>
 #include <pvxs/iochooks.h>
 
-#include <initHooks.h>
 #include "groupsource.h"
 #include "groupconfigprocessor.h"
 #include "iocshcommand.h"
@@ -30,6 +31,8 @@ namespace ioc {
  */
 void dbLoadGroupCmd(const char* jsonFileName) {
 	(void)dbLoadGroup(jsonFileName);
+	auto gp = GroupConfigProcessor();
+	gp.loadConfigFiles();
 }
 
 /**

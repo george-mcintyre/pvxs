@@ -69,7 +69,8 @@ IOCServer& iocServer() {
  * @param method the string method from which this is called.  Use the __func__ macro by default
  * @param context the activity being attempted when the error occurred
  */
-void runOnServer(const std::function<void(IOCServer*)>& function, const char* method, const char* context) {
+void
+runOnServer(const std::function<void(IOCServer*)>& function, const char* method, const char* context) {
 	try {
 		if (auto pPvxsServer = pvxsServer.load()) {
 			function(pPvxsServer);
@@ -82,6 +83,7 @@ void runOnServer(const std::function<void(IOCServer*)>& function, const char* me
 			fprintf(stderr, "Error in %s: ", method);
 		}
 		fprintf(stderr, "%s\n", e.what());
+		throw e;
 	}
 }
 
