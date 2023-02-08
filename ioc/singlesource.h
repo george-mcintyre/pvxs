@@ -56,14 +56,15 @@ private:
 	// Subscriptions
 	//////////////////////////////
 	// Called when values are requested by a subscription
-	static void subscriptionValueCallback(void* userArg, dbChannel* pDbChannel, int eventsRemaining,
+	static void subscriptionValueCallback(void* userArg, dbChannel* pDbChannel, int,
 			db_field_log* pDbFieldLog);
 	// Called when properties are requested by a subscription
-	static void subscriptionPropertiesCallback(void* userArg, dbChannel* pDbChannel, int eventsRemaining,
+	static void subscriptionPropertiesCallback(void* userArg, dbChannel* pDbChannel, int,
 			db_field_log* pDbFieldLog);
 	// General subscriptions callback
-	static void subscriptionCallback(SingleSourceSubscriptionCtx* subscriptionCtx, dbChannel* pTriggeringDbChannel,
-			int eventsRemaining, db_field_log* pDbFieldLog);
+	static void
+	subscriptionCallback(SingleSourceSubscriptionCtx* subscriptionCtx, struct dbChannel* pTriggeringDbChannel,
+			struct db_field_log* pDbFieldLog);
 	// Called by onStart() when a client pauses / stops a subscription it has been subscribed to
 	static void onDisableSubscription(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext);
 	// Called by onStart() when a client starts a subscription it has subscribed to

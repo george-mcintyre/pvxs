@@ -307,8 +307,7 @@ void SingleSource::onSubscribe(const std::shared_ptr<SingleSourceSubscriptionCtx
  * @param pDbFieldLog the database field log
  */
 void SingleSource::subscriptionCallback(SingleSourceSubscriptionCtx* subscriptionContext,
-		struct dbChannel* pTriggeringDbChannel,
-		int eventsRemaining, struct db_field_log* pDbFieldLog) {
+		struct dbChannel* pTriggeringDbChannel, struct db_field_log* pDbFieldLog) {
 	// Make sure that the initial subscription update has occurred on both channels before continuing
 	// As we make two initial updates when opening a new subscription, we need both to have completed before continuing
 	if (!subscriptionContext->hadValueEvent || !subscriptionContext->hadPropertyEvent) {
@@ -319,11 +318,9 @@ void SingleSource::subscriptionCallback(SingleSourceSubscriptionCtx* subscriptio
 	bool forValue = (subscriptionContext->pValueChannel.get() == pTriggeringDbChannel);
 	auto& pDbChannel = forValue ? subscriptionContext->pValueChannel : subscriptionContext->pPropertiesChannel;
 	IOCSource::get(pDbChannel.get(), subscriptionContext->prototype.cloneEmpty(), forValue, !forValue,
-			[subscriptionContext, &eventsRemaining](Value& value) {
-				if (!eventsRemaining) {
-					// Return value
-					subscriptionContext->subscriptionControl->tryPost(value);
-				}
+			[subscriptionContext](Value& value) {
+				// Return value
+				subscriptionContext->subscriptionControl->tryPost(value);
 			}, pDbFieldLog);
 }
 
@@ -336,14 +333,14 @@ void SingleSource::subscriptionCallback(SingleSourceSubscriptionCtx* subscriptio
  * @param eventsRemaining the remaining number of events to process
  * @param pDbFieldLog the database field log containing the changes to notify
  */
-void SingleSource::subscriptionPropertiesCallback(void* userArg, struct dbChannel* pDbChannel, int eventsRemaining,
+void SingleSource::subscriptionPropertiesCallback(void* userArg, struct dbChannel* pDbChannel, int,
 		struct db_field_log* pDbFieldLog) {
 	auto subscriptionContext = (SingleSourceSubscriptionCtx*)userArg;
 	{
 		epicsGuard<epicsMutex> G((subscriptionContext)->eventLock);
 		subscriptionContext->hadPropertyEvent = true;
 	}
-	subscriptionCallback(subscriptionContext, pDbChannel, eventsRemaining, pDbFieldLog);
+	subscriptionCallback(subscriptionContext, pDbChannel, pDbFieldLog);
 }
 
 /**
@@ -355,14 +352,14 @@ void SingleSource::subscriptionPropertiesCallback(void* userArg, struct dbChanne
  * @param eventsRemaining the remaining number of events to process
  * @param pDbFieldLog the database field log containing the changes to notify
  */
-void SingleSource::subscriptionValueCallback(void* userArg, struct dbChannel* pDbChannel, int eventsRemaining,
+void SingleSource::subscriptionValueCallback(void* userArg, struct dbChannel* pDbChannel, int,
 		struct db_field_log* pDbFieldLog) {
 	auto subscriptionContext = (SingleSourceSubscriptionCtx*)userArg;
 	{
 		epicsGuard<epicsMutex> G((subscriptionContext)->eventLock);
 		subscriptionContext->hadValueEvent = true;
 	}
-	subscriptionCallback(subscriptionContext, pDbChannel, eventsRemaining, pDbFieldLog);
+	subscriptionCallback(subscriptionContext, pDbChannel, pDbFieldLog);
 }
 
 } // ioc
