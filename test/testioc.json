@@ -42,6 +42,7 @@
    * This is an example of a structure that does not correspond to an EPICS normative type
    */
   "tst:structExample2": {
+    "+atomic": false,
     "jai": {
       "+channel": "tst:aiExample.VAL",
       "+putorder": 0
@@ -67,12 +68,6 @@
     "jsa[1].enum": {
       "+channel": "tst:enumExample.VAL",
       "+putorder": 0
-    },
-    "_save": {
-      "+channel": "tst:structExampleSave.VAL",
-      "+type": "proc",
-      "+putorder": 2,
-      "+trigger": "*"
     }
   }
 }
