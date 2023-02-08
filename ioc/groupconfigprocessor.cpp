@@ -12,13 +12,13 @@
 #include <map>
 #include <string>
 
-#include <pvxs/log.h>
-#include <pvxs/nt.h>
-
 #include <dbChannel.h>
 
 #include <yajl_alloc.h>
 #include <yajl_parse.h>
+
+#include <pvxs/log.h>
+#include <pvxs/nt.h>
 
 #include "dbentry.h"
 #include "groupconfigprocessor.h"

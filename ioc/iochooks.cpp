@@ -16,14 +16,14 @@
 #include <memory>
 #include <stdexcept>
 
+#include <epicsExport.h>
+#include <initHooks.h>
+#include <iocsh.h>
+
 #include <pvxs/iochooks.h>
 #include <pvxs/log.h>
 #include <pvxs/server.h>
 #include <pvxs/source.h>
-
-#include <epicsExport.h>
-#include <initHooks.h>
-#include <iocsh.h>
 
 #include "iocserver.h"
 #include "iocshcommand.h"

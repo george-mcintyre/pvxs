@@ -9,11 +9,11 @@
 
 #include <vector>
 
-#include <pvxs/source.h>
-#include <pvxs/iochooks.h>
-
 #include <epicsExport.h>
 #include <epicsString.h>
+
+#include <pvxs/source.h>
+#include <pvxs/iochooks.h>
 
 #include <initHooks.h>
 #include "groupsource.h"

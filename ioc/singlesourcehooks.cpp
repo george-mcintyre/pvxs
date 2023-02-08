@@ -11,10 +11,10 @@
 #include <string>
 #include <vector>
 
-#include <pvxs/source.h>
-
 #include <initHooks.h>
 #include <epicsExport.h>
+
+#include <pvxs/source.h>
 
 #include "iocshcommand.h"
 #include "singlesource.h"

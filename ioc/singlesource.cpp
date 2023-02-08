@@ -12,15 +12,15 @@
 #include <iostream>
 #include <string>
 
-#include <pvxs/log.h>
-#include <pvxs/nt.h>
-
-#include <pvxs/source.h>
 #include <dbAccess.h>
 #include <dbChannel.h>
 #include <dbEvent.h>
 #include <dbStaticLib.h>
 #include <special.h>
+
+#include <pvxs/log.h>
+#include <pvxs/nt.h>
+#include <pvxs/source.h>
 
 #include "dbentry.h"
 #include "dberrormessage.h"

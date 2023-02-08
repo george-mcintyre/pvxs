@@ -10,12 +10,12 @@
 #include <iostream>
 #include <string>
 
-#include <pvxs/source.h>
-#include <pvxs/log.h>
-
 #include <dbEvent.h>
 #include <dbChannel.h>
 #include <special.h>
+
+#include <pvxs/source.h>
+#include <pvxs/log.h>
 
 #include "dberrormessage.h"
 #include "dblocker.h"
