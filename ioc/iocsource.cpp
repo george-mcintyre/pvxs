@@ -225,6 +225,9 @@ void IOCSource::doPreProcessing(dbChannel* pDbChannel) {
 		throw std::runtime_error("Unable to put value: Modifications not allowed: S_db_noMod");
 	} else if (pDbChannel->addr.precord->disp && pDbChannel->addr.pfield != &pDbChannel->addr.precord->disp) {
 		throw std::runtime_error("Unable to put value: Field Disabled: S_db_putDisabled");
+// TODO add access control checks
+//	 } else if (!pDbChannel->aspvt.canWrite()) {
+//		throw std::runtime_error("Put not permitted");
 	} else if (pDbChannel->addr.field_type >= DBF_INLINK && pDbChannel->addr.field_type <= DBF_FWDLINK) {
 		throw std::runtime_error("Links not supported for put");
 	}
