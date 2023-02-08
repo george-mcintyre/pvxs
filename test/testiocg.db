@@ -12,6 +12,7 @@ record(aai, "$(user):groupExampleAS") {
     info(Q:group, {
         "$(user):tableExample":{
             +id:"epics:nt/NTTable:1.0",
+            +atomic:false,
             "labels":{+type:"plain", +channel:"VAL"}
         }
     })

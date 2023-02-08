@@ -36,7 +36,7 @@ void GroupProcessorContext::assign(const Value& value) {
 	if (depth == 2) {
 		if (field == "+atomic") {
 			groupPvConfig.atomic = value.as<bool>();
-			groupPvConfig.atomic_set = true;
+			groupPvConfig.atomicIsSet = true;
 
 		} else if (field == "+id") {
 			groupPvConfig.structureId = value.as<std::string>();

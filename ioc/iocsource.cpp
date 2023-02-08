@@ -229,7 +229,6 @@ void IOCSource::doPreProcessing(dbChannel* pDbChannel) {
 	} else if (pDbChannel->addr.precord->disp && pDbChannel->addr.pfield != &pDbChannel->addr.precord->disp) {
 		throw std::runtime_error("Unable to put value: Field Disabled: S_db_putDisabled");
 	} else if (pDbChannel->addr.field_type >= DBF_INLINK && pDbChannel->addr.field_type <= DBF_FWDLINK) {
-		// TODO support links for put
 		throw std::runtime_error("Links not supported for put");
 	}
 }
@@ -424,7 +423,7 @@ TypeCode IOCSource::getChannelValueType(const dbChannel* pDbChannel, const bool 
 			if (errOnLinks) {
 				throw std::runtime_error("Link fields not allowed in this context");
 			} else {
-				// TODO handle links.  For the moment we handle as chars and fail later
+				// Handle as chars and fail later
 				dbrType = DBF_CHAR;
 			}
 		}

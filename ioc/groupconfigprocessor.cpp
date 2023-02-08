@@ -131,7 +131,7 @@ void GroupConfigProcessor::defineGroups() {
 			// configure the group fields
 			defineFields(groupDefinition, groupConfig, groupName);
 
-			if (groupConfig.atomic_set) {
+			if (groupConfig.atomicIsSet) {
 				defineAtomicity(groupDefinition, groupConfig, groupName);
 			}
 
@@ -202,7 +202,7 @@ void GroupConfigProcessor::defineFieldSortOrder() {
  */
 void GroupConfigProcessor::defineAtomicity(GroupDefinition& groupDefinition, const GroupConfig& groupConfig,
 		const std::string& groupName) {
-	assert(groupConfig.atomic_set);
+	assert(groupConfig.atomicIsSet);
 	TriState atomicity = groupConfig.atomic ? True : False;
 
 	if (groupDefinition.atomic != Unset && groupDefinition.atomic != atomicity) {
