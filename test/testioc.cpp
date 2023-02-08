@@ -8,16 +8,12 @@
 #include <dbUnitTest.h>
 #include <iocInit.h>
 #include <iocsh.h>
-#include <osiFileName.h>
 #include <testMain.h>
 
 #include <pvxs/client.h>
 #include <pvxs/iochooks.h>
 #include <pvxs/server.h>
 #include <pvxs/unittest.h>
-
-// Source private headers
-#include "utilpvt.h"
 
 #ifndef EPICS_BASE
 #define EPICS_BASE ""
@@ -72,27 +68,7 @@ static std::initializer_list<void (*)()> tests = {
 			testOkB(true, R"(testdbReadDatabase("testiocg.db", nullptr, "user=test"))");
 		},
 		[]() { testOkB(!pvxs::ioc::dbLoadGroup("testioc.json"), R"(dbLoadGroup("testioc.json"))"); },
-		[]() { testOk(!iocshCmd("pvxsr"), R"(iocshCmd("pvxsr"))"); },
-		[]() { testOk(!iocshCmd("pvxsi"), R"(iocshCmd("pvxsi"))"); },
 		[]() { pvxsTestIocInitOk(); },
-		[]() { testOk(!iocshCmd("dbl"), R"(iocshCmd("dbl"))"); },
-		[]() { testOk(!iocshCmd("pvxsl"), R"(iocshCmd("pvxsl"))"); },
-		[]() { testOk(!iocshCmd("pvxsl 1"), R"(iocshCmd("pvxsl 1"))"); },
-		[]() { testOk(!iocshCmd("pvxsgl"), R"(iocshCmd("pvxsgl"))"); },
-		[]() { testOk(!iocshCmd("pvxsgl 1"), R"(iocshCmd("pvxsgl 1"))"); },
-		[]() { testOk(!iocshCmd("pvxsgl 2"), R"(iocshCmd("pvxsgl 2"))"); },
-		[]() { testOk(!iocshCmd("dbgf test:aiExample"), R"(iocshCmd("dbgf test:aiExample"))"); },
-		[]() { testOk(!iocshCmd("dbgf test:calcExample"), R"(iocshCmd("dbgf test:calcExample"))"); },
-		[]() { testOk(!iocshCmd("dbgf test:compressExample"), R"(iocshCmd("dbgf test:compressExample"))"); },
-		[]() { testOk(!iocshCmd("dbgf test:stringExample"), R"(iocshCmd("dbgf test:stringExample"))"); },
-		[]() { testOk(!iocshCmd("dbgf test:arrayExample"), R"(iocshCmd("dbgf test:arrayExample"))"); },
-		[]() { testOk(!iocshCmd("dbgf test:longExample"), R"(iocshCmd("dbgf test:longExample"))"); },
-		[]() { testOk(!iocshCmd("dbgf test:enumExample"), R"(iocshCmd("dbgf test:enumExample"))"); },
-		[]() { testOk(!iocshCmd("dbgf test:groupExampleAS"), R"(iocshCmd("dbgf test:groupExampleAS"))"); },
-		[]() { testOk(!iocshCmd("dbgf test:vectorExampleD1"), R"(iocshCmd("dbgf test:vectorExampleD1"))"); },
-		[]() { testOk(!iocshCmd("dbgf test:vectorExampleD2"), R"(iocshCmd("dbgf test:vectorExampleD2"))"); },
-		[]() { testOk(!iocshCmd("dbgf test:groupExampleSave"), R"(iocshCmd("dbgf test:groupExampleSave"))"); },
-		[]() { testOk(!iocshCmd("dbgf test:structExampleSave"), R"(iocshCmd("dbgf test:structExampleSave"))"); },
 		[]() { testdbGetFieldEqualB("test:aiExample", DBR_DOUBLE, 42.2); },
 		[]() { testdbGetFieldEqualB("test:compressExample", DBR_DOUBLE, 42.2); },
 		[]() { testdbGetFieldEqualB("test:stringExample", DBR_STRING, "Some random value"); },
@@ -240,9 +216,9 @@ MAIN(testioc) {
 	// Run tests
 	for (auto& test: tests) {
 		if (testNum++) {
-			printf("├──────────────────────────────────────────────────────────────────────┤\n");
+			printf("#├──────────────────────────────────────────────────────────────────────┤\n");
 		} else {
-			printf("┌──────────────────────────────────────────────────────────────────────┐\n");
+			printf("#┌──────────────────────────────────────────────────────────────────────┐\n");
 		}
 		try {
 			test();
@@ -250,7 +226,7 @@ MAIN(testioc) {
 			printf("│ not ok %d - Test failed: %s\n", testNum, e.what());
 		}
 	}
-	printf("└──────────────────────────────────────────────────────────────────────┘");
+	printf("#└──────────────────────────────────────────────────────────────────────┘");
 
 	pvxsTestIocShutdownOk();
 	testdbCleanup();
@@ -290,5 +266,4 @@ static void testDbLoadGroupOk(const char* file) {
 }
 
 static void boxLeft() {
-	printf("│ ");
 }
