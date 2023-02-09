@@ -26,6 +26,7 @@
 #include "groupsrcsubscriptionctx.h"
 #include "iocshcommand.h"
 #include "iocsource.h"
+#include "securitylogger.h"
 
 namespace pvxs {
 namespace ioc {
@@ -413,7 +414,8 @@ void GroupSource::putField(const Value& value, const Field& field, dbChannel* pD
 
 	// If the field references a valid part of the given value then we can send it to the database
 	if (leafNode.valid() && leafNode.isMarked()) {
-		IOCSource::doFieldPreProcessing(pDbChannel, credentials); // pre-process field
+		SecurityLogger securityLogger;
+		IOCSource::doFieldPreProcessing(pDbChannel, credentials, securityLogger); // pre-process field
 		IOCSource::put((dbChannel*)field.value.channel, leafNode);
 	}
 }

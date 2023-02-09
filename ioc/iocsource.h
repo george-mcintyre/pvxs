@@ -17,6 +17,7 @@
 #include "metadata.h"
 #include "singlesrcsubscriptionctx.h"
 #include "credentials.h"
+#include "securitylogger.h"
 
 #define FOR_VALUES true
 #define FOR_PROPERTIES false
@@ -60,7 +61,8 @@ public:
 	static void putArray(dbChannel* pDbChannel, const Value& value);
 	static void doPostProcessing(dbChannel* pDbChannel);
 	static void doPreProcessing(dbChannel* pDbChannel, Credentials& credentials);
-	static void doFieldPreProcessing(dbChannel* pDbChannel, Credentials& credentials);
+	static void doFieldPreProcessing(dbChannel* pDbChannel, Credentials& credentials,
+			pvxs::ioc::SecurityLogger& securityLogger);
 
 	//////////////////////////////
 	// Get & Subscription

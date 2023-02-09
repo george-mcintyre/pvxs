@@ -19,6 +19,7 @@
 #include "typeutils.h"
 #include "credentials.h"
 #include "securityclient.h"
+#include "securitylogger.h"
 
 namespace pvxs {
 namespace ioc {
@@ -248,9 +249,23 @@ void IOCSource::doPreProcessing(dbChannel* pDbChannel, Credentials& credentials)
  *
  * @param pDbChannel channel to do preprocessing for
  */
-void IOCSource::doFieldPreProcessing(dbChannel* pDbChannel, Credentials& credentials) {
+void IOCSource::doFieldPreProcessing(dbChannel* pDbChannel, Credentials& credentials, SecurityLogger& securityLogger) {
 	SecurityClient securityClient;
 	securityClient.update(pDbChannel, credentials);
+
+	// TODO correct constructor arguments
+	SecurityLogger asWritePvt(
+			asTrapWriteWithData((securityClient.cli)[0],
+					std::string(credentials.cred[0].begin(), credentials.cred[0].end()).c_str(),
+					std::string(credentials.host.begin(), credentials.host.end()).c_str(),
+					pDbChannel,
+					pDbChannel->final_type,
+					pDbChannel->final_no_elements,
+					nullptr
+			)
+	);
+
+	securityLogger.swap(asWritePvt);
 
 	if (!securityClient.canWrite()) {
 		// TODO this will abort the whole group put operation, so may be a behavior change, need to check

@@ -17,7 +17,10 @@ namespace pvxs {
 namespace ioc {
 
 SecurityLogger::~SecurityLogger() {
-	asTrapWriteAfterWrite(pvt);
+	if (pvt) {
+		asTrapWriteAfterWrite(pvt);
+		pvt = nullptr;
+	}
 }
 
 void SecurityLogger::swap(SecurityLogger& o) {
