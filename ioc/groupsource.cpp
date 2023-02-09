@@ -343,11 +343,13 @@ void GroupSource::onStartSubscription(const std::shared_ptr<GroupSourceSubscript
 void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOperation, const Value& value) {
 	try {
 		Credentials credentials(*putOperation->credentials());
+		std::vector<SecurityLogger> securityLoggers(group.fields.size());
+		auto i = 0;
 
 		// Prepare group put operation
 		for (auto& field: group.fields) {
 			auto pDbChannel = (dbChannel*)field.value.channel;
-			IOCSource::doPreProcessing(pDbChannel, credentials);
+			IOCSource::doPreProcessing(pDbChannel, credentials, securityLoggers[i++]);
 			if (pDbChannel->addr.field_type >= DBF_INLINK && pDbChannel->addr.field_type <= DBF_FWDLINK) {
 				throw std::runtime_error("Links not supported for put");
 			}
@@ -415,7 +417,7 @@ void GroupSource::putField(const Value& value, const Field& field, dbChannel* pD
 	// If the field references a valid part of the given value then we can send it to the database
 	if (leafNode.valid() && leafNode.isMarked()) {
 		SecurityLogger securityLogger;
-		IOCSource::doFieldPreProcessing(pDbChannel, credentials, securityLogger); // pre-process field
+		IOCSource::doFieldPreProcessing(pDbChannel, credentials); // pre-process field
 		IOCSource::put((dbChannel*)field.value.channel, leafNode);
 	}
 }

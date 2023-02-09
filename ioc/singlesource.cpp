@@ -232,8 +232,8 @@ void SingleSource::onOp(const std::shared_ptr<dbChannel>& dbChannelSharedPtr, co
 					SecurityLogger securityLogger;
 
 					auto pDbChannel = dbChannelSharedPtr.get();
-					IOCSource::doPreProcessing(pDbChannel, credentials); // pre-process
-					IOCSource::doFieldPreProcessing(pDbChannel, credentials, securityLogger); // pre-process field
+					IOCSource::doPreProcessing(pDbChannel, credentials, securityLogger); // pre-process
+					IOCSource::doFieldPreProcessing(pDbChannel, credentials); // pre-process field
 					if (dbChannelFieldType(pDbChannel) >= DBF_INLINK && dbChannelFieldType(pDbChannel) <= DBF_FWDLINK) {
 						IOCSource::put(pDbChannel, value); // put
 					} else {

@@ -235,23 +235,16 @@ void IOCSource::putArray(dbChannel* pDbChannel, const Value& value) {
  * Do necessary preprocessing before put operations.  Check if put is allowed.
  *
  * @param pDbChannel channel to do preprocessing for
+ * @param credentials client credentials that are applied to this execution context
+ * @param securityLogger the security logger.  Keep in scope around the put operation
  */
-void IOCSource::doPreProcessing(dbChannel* pDbChannel, Credentials& credentials) {
+void IOCSource::doPreProcessing(dbChannel* pDbChannel, Credentials& credentials, SecurityLogger& securityLogger) {
 	if (pDbChannel->addr.special == SPC_ATTRIBUTE) {
 		throw std::runtime_error("Unable to put value: Modifications not allowed: S_db_noMod");
 	} else if (pDbChannel->addr.precord->disp && pDbChannel->addr.pfield != &pDbChannel->addr.precord->disp) {
 		throw std::runtime_error("Unable to put value: Field Disabled: S_db_putDisabled");
 	}
-}
 
-/**
- * Do necessary preprocessing before put operations.  Check if put is allowed.
- *
- * @param pDbChannel channel to do preprocessing for
- * @param credentials client credentials that are applied to this execution context
- * @param securityLogger the security logger.  Keep in scope around the put operation
- */
-void IOCSource::doFieldPreProcessing(dbChannel* pDbChannel, Credentials& credentials, SecurityLogger& securityLogger) {
 	SecurityClient securityClient;
 	securityClient.update(pDbChannel, credentials);
 
@@ -267,6 +260,18 @@ void IOCSource::doFieldPreProcessing(dbChannel* pDbChannel, Credentials& credent
 	);
 
 	securityLogger.swap(asWritePvt);
+
+}
+
+/**
+ * Do necessary preprocessing before put operations.  Check if put is allowed.
+ *
+ * @param pDbChannel channel to do preprocessing for
+ * @param credentials client credentials that are applied to this execution context
+ */
+void IOCSource::doFieldPreProcessing(dbChannel* pDbChannel, Credentials& credentials) {
+	SecurityClient securityClient;
+	securityClient.update(pDbChannel, credentials);
 
 	if (!securityClient.canWrite()) {
 		// TODO this will abort the whole group put operation, so may be a behavior change, need to check

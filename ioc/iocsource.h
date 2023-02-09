@@ -60,9 +60,8 @@ public:
 	static void putScalar(dbChannel* pDbChannel, const Value& value);
 	static void putArray(dbChannel* pDbChannel, const Value& value);
 	static void doPostProcessing(dbChannel* pDbChannel);
-	static void doPreProcessing(dbChannel* pDbChannel, Credentials& credentials);
-	static void doFieldPreProcessing(dbChannel* pDbChannel, Credentials& credentials,
-			pvxs::ioc::SecurityLogger& securityLogger);
+	static void doPreProcessing(dbChannel* pDbChannel, Credentials& credentials, SecurityLogger& securityLogger);
+	static void doFieldPreProcessing(dbChannel* pDbChannel, Credentials& credentials);
 
 	//////////////////////////////
 	// Get & Subscription
