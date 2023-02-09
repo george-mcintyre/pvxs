@@ -248,16 +248,17 @@ void IOCSource::doPreProcessing(dbChannel* pDbChannel, Credentials& credentials)
  * Do necessary preprocessing before put operations.  Check if put is allowed.
  *
  * @param pDbChannel channel to do preprocessing for
+ * @param credentials client credentials that are applied to this execution context
+ * @param securityLogger the security logger.  Keep in scope around the put operation
  */
 void IOCSource::doFieldPreProcessing(dbChannel* pDbChannel, Credentials& credentials, SecurityLogger& securityLogger) {
 	SecurityClient securityClient;
 	securityClient.update(pDbChannel, credentials);
 
-	// TODO correct constructor arguments
 	SecurityLogger asWritePvt(
-			asTrapWriteWithData((securityClient.cli)[0],
-					std::string(credentials.cred[0].begin(), credentials.cred[0].end()).c_str(),
-					std::string(credentials.host.begin(), credentials.host.end()).c_str(),
+			asTrapWriteWithData((securityClient.cli)[0], // The user is the first element
+					credentials.cred[0].c_str(),         // The user is the first element
+					credentials.host.c_str(),
 					pDbChannel,
 					pDbChannel->final_type,
 					pDbChannel->final_no_elements,
