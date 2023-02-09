@@ -21,8 +21,10 @@ namespace ioc {
 
 class SecurityClient {
 	std::vector<ASCLIENTPVT> cli;
+public:
 	~SecurityClient();
 	void update(dbChannel* ch, Credentials& cred);
+	bool canWrite();
 };
 
 } // pvxs

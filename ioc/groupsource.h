@@ -67,7 +67,7 @@ private:
 	void onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx,
 			std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) const;
 	static void onStart(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx, bool isStarting);
-	static void putField(const Value& value, const Field& field);
+	static void putField(const Value& value, const Field& field, dbChannel* pDbChannel, Credentials& credentials);
 };
 
 } // ioc

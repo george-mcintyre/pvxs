@@ -17,6 +17,7 @@
 #include "dberrormessage.h"
 #include "typeutils.h"
 #include "credentials.h"
+#include "securityclient.h"
 
 namespace pvxs {
 namespace ioc {
@@ -238,15 +239,28 @@ void IOCSource::doPreProcessing(dbChannel* pDbChannel, Credentials& credentials)
 		throw std::runtime_error("Unable to put value: Modifications not allowed: S_db_noMod");
 	} else if (pDbChannel->addr.precord->disp && pDbChannel->addr.pfield != &pDbChannel->addr.precord->disp) {
 		throw std::runtime_error("Unable to put value: Field Disabled: S_db_putDisabled");
-// TODO add access control checks
-//	 } else if (!pDbChannel->aspvt.canWrite()) {
-//		throw std::runtime_error("Put not permitted");
+	}
+}
+
+/**
+ * Do necessary preprocessing before put operations.  Check if put is allowed.
+ *
+ * @param pDbChannel channel to do preprocessing for
+ */
+void IOCSource::doFieldPreProcessing(dbChannel* pDbChannel, Credentials& credentials) {
+	SecurityClient securityClient;
+	securityClient.update(pDbChannel, credentials);
+
+	if (!securityClient.canWrite()) {
+		// TODO this will abort the whole group put operation, so may be a behavior change, need to check
+		throw std::runtime_error("Put not permitted");
 	}
 }
 
 /**
  * Do necessary post processing after put operations.  If this field is a processing record then do processing
  * and set status
+ * Note: Only called when dbPutField() is not called.
  *
  * @param pDbChannel channel to do post processing for
  */

@@ -341,31 +341,29 @@ void GroupSource::onStartSubscription(const std::shared_ptr<GroupSourceSubscript
  */
 void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOperation, const Value& value) {
 	try {
+		Credentials credentials(*putOperation->credentials());
+
+		// Prepare group put operation
+		for (auto& field: group.fields) {
+			auto pDbChannel = (dbChannel*)field.value.channel;
+			IOCSource::doPreProcessing(pDbChannel, credentials);
+			if (pDbChannel->addr.field_type >= DBF_INLINK && pDbChannel->addr.field_type <= DBF_FWDLINK) {
+				throw std::runtime_error("Links not supported for put");
+			}
+		}
+
 		// If the group is configured for an atomic put operation,
 		// then we need to put all the fields at once, so we lock them all together
 		// and do the operation in one go
 		if (group.atomicPutGet) {
-			Credentials credentials(*putOperation->credentials());
-
-			// Prepare group put operation
-			for (auto& field: group.fields) {
-				auto pDbChannel = (dbChannel*)field.value.channel;
-				IOCSource::doPreProcessing(pDbChannel, credentials);
-				if (pDbChannel->addr.field_type >= DBF_INLINK && pDbChannel->addr.field_type <= DBF_FWDLINK) {
-					throw std::runtime_error("Links not supported for put");
-				}
-			}
-
 			// Lock all the fields
 			DBManyLocker G(group.value.lock);
 			// Loop through all fields
 			for (auto& field: group.fields) {
+				auto pDbChannel = (dbChannel*)field.value.channel;
 				// Put the field
-				putField(value, field);
-			}
-
-			// Do processing if required
-			for (auto& field: group.fields) {
+				putField(value, field, pDbChannel, credentials);
+				// Do processing if required
 				IOCSource::doPostProcessing((dbChannel*)field.value.channel);
 			}
 
@@ -377,10 +375,13 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
 
 			// Loop through all fields
 			for (auto& field: group.fields) {
+				auto pDbChannel = (dbChannel*)field.value.channel;
 				// Lock this field
-				DBLocker F(((dbChannel*)field.value.channel)->addr.precord);
+				DBLocker F(pDbChannel->addr.precord);
 				// Put the field
-				putField(value, field);
+				putField(value, field, pDbChannel, credentials);
+				// Do processing if required
+				IOCSource::doPostProcessing((dbChannel*)field.value.channel);
 				// Unlock this field when locker goes out of scope
 			}
 		}
@@ -406,12 +407,13 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
  * @param value the sparsely populated value to put into the group's field
  * @param field the group field to check against
  */
-void GroupSource::putField(const Value& value, const Field& field) {
+void GroupSource::putField(const Value& value, const Field& field, dbChannel* pDbChannel, Credentials& credentials) {
 	// find the leaf node that the field refers to in the given value
 	auto leafNode = field.findIn(value);
 
 	// If the field references a valid part of the given value then we can send it to the database
-	if (leafNode.valid()) {
+	if (leafNode.valid() && leafNode.isMarked()) {
+		IOCSource::doFieldPreProcessing(pDbChannel, credentials); // pre-process field
 		IOCSource::put((dbChannel*)field.value.channel, leafNode);
 	}
 }

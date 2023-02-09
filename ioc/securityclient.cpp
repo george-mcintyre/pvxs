@@ -38,5 +38,13 @@ SecurityClient::~SecurityClient() {
 		asRemoveClient(&asc);
 	}
 }
+bool SecurityClient::canWrite() {
+	for (auto asc: cli) {
+		if (!asCheckPut(asc)) {
+			return false;
+		};
+	}
+	return true;
+}
 } // pvxs
 } // ioc
