@@ -17,6 +17,7 @@
 #include <pvxs/source.h>
 #include <pvxs/log.h>
 
+#include "credentials.h"
 #include "dberrormessage.h"
 #include "dblocker.h"
 #include "dbmanylocker.h"
@@ -25,7 +26,6 @@
 #include "groupsrcsubscriptionctx.h"
 #include "iocshcommand.h"
 #include "iocsource.h"
-#include "credentials.h"
 
 namespace pvxs {
 namespace ioc {

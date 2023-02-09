@@ -7,27 +7,30 @@
  *
  */
 
-#ifndef PVXS_SECURITYCLIENT_H
-#define PVXS_SECURITYCLIENT_H
+#include <algorithm>
 
-#include <vector>
 #include <asLib.h>
-#include <dbChannel.h>
 
-#include "credentials.h"
+#include "securitylogger.h"
 
 namespace pvxs {
 namespace ioc {
 
-class SecurityClient {
-public:
-	std::vector<ASCLIENTPVT> cli;
-	~SecurityClient();
-	void update(dbChannel* ch, Credentials& cred);
-	bool canWrite();
-};
+SecurityLogger::~SecurityLogger() {
+	asTrapWriteAfterWrite(pvt);
+}
+
+void SecurityLogger::swap(SecurityLogger& o) {
+	std::swap(pvt, o.pvt);
+}
+
+SecurityLogger::SecurityLogger(void* pvt)
+		:pvt(pvt) {
+}
+
+SecurityLogger::SecurityLogger()
+		:pvt(nullptr) {
+}
 
 } // pvxs
 } // ioc
-
-#endif //PVXS_SECURITYCLIENT_H
