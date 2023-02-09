@@ -28,6 +28,7 @@
 #include "iocsource.h"
 #include "singlesource.h"
 #include "singlesrcsubscriptionctx.h"
+#include "credentials.h"
 
 namespace pvxs {
 namespace ioc {
@@ -226,8 +227,10 @@ void SingleSource::onOp(const std::shared_ptr<dbChannel>& dbChannelSharedPtr, co
 			->onPut([dbChannelSharedPtr, valuePrototype](std::unique_ptr<server::ExecOp>&& putOperation,
 					Value&& value) {
 				try {
+					Credentials credentials(*putOperation->credentials());
+
 					auto pDbChannel = dbChannelSharedPtr.get();
-					IOCSource::doPreProcessing(pDbChannel); // pre-process
+					IOCSource::doPreProcessing(pDbChannel, credentials); // pre-process
 					if (dbChannelFieldType(pDbChannel) >= DBF_INLINK && dbChannelFieldType(pDbChannel) <= DBF_FWDLINK) {
 						IOCSource::put(pDbChannel, value); // put
 					} else {

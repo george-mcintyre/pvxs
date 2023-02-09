@@ -25,6 +25,7 @@
 #include "groupsrcsubscriptionctx.h"
 #include "iocshcommand.h"
 #include "iocsource.h"
+#include "credentials.h"
 
 namespace pvxs {
 namespace ioc {
@@ -344,11 +345,12 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
 		// then we need to put all the fields at once, so we lock them all together
 		// and do the operation in one go
 		if (group.atomicPutGet) {
+			Credentials credentials(*putOperation->credentials());
 
 			// Prepare group put operation
 			for (auto& field: group.fields) {
 				auto pDbChannel = (dbChannel*)field.value.channel;
-				IOCSource::doPreProcessing(pDbChannel);
+				IOCSource::doPreProcessing(pDbChannel, credentials);
 				if (pDbChannel->addr.field_type >= DBF_INLINK && pDbChannel->addr.field_type <= DBF_FWDLINK) {
 					throw std::runtime_error("Links not supported for put");
 				}

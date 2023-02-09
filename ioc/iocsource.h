@@ -16,6 +16,7 @@
 #include "field.h"
 #include "metadata.h"
 #include "singlesrcsubscriptionctx.h"
+#include "credentials.h"
 
 #define FOR_VALUES true
 #define FOR_PROPERTIES false
@@ -58,7 +59,7 @@ public:
 	static void putScalar(dbChannel* pDbChannel, const Value& value);
 	static void putArray(dbChannel* pDbChannel, const Value& value);
 	static void doPostProcessing(dbChannel* pDbChannel);
-	static void doPreProcessing(dbChannel* pDbChannel);
+	static void doPreProcessing(dbChannel* pDbChannel, Credentials& credentials);
 
 	//////////////////////////////
 	// Get & Subscription

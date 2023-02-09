@@ -16,6 +16,7 @@
 #include "dbentry.h"
 #include "dberrormessage.h"
 #include "typeutils.h"
+#include "credentials.h"
 
 namespace pvxs {
 namespace ioc {
@@ -232,7 +233,7 @@ void IOCSource::putArray(dbChannel* pDbChannel, const Value& value) {
  *
  * @param pDbChannel channel to do preprocessing for
  */
-void IOCSource::doPreProcessing(dbChannel* pDbChannel) {
+void IOCSource::doPreProcessing(dbChannel* pDbChannel, Credentials& credentials) {
 	if (pDbChannel->addr.special == SPC_ATTRIBUTE) {
 		throw std::runtime_error("Unable to put value: Modifications not allowed: S_db_noMod");
 	} else if (pDbChannel->addr.precord->disp && pDbChannel->addr.pfield != &pDbChannel->addr.precord->disp) {
