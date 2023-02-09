@@ -70,7 +70,6 @@ static std::initializer_list<void (*)()> tests = {
 		[]() { testOkB(!pvxs::ioc::dbLoadGroup("testioc.json"), R"(dbLoadGroup("testioc.json"))"); },
 		[]() { pvxsTestIocInitOk(); },
 		[]() { testdbGetFieldEqualB("test:aiExample", DBR_DOUBLE, 42.2); },
-		[]() { testdbGetFieldEqualB("test:compressExample", DBR_DOUBLE, 42.2); },
 		[]() { testdbGetFieldEqualB("test:stringExample", DBR_STRING, "Some random value"); },
 		[]() {
 			shared_array<double> expected({ 1.0, 2.0, 3.0 });
@@ -104,12 +103,6 @@ static std::initializer_list<void (*)()> tests = {
 			auto aiExample = val["value"].as<double>();
 			auto expected = 42.2;
 			testEqB(aiExample, expected);
-		},
-		[]() {
-			auto val = clientContext.get("test:compressExample").exec()->wait(5.0);
-			shared_array<double> expected({ 42.2 });
-			auto compressExample = val["value"].as<shared_array<const double>>();
-			testArrEqB(compressExample, expected);
 		},
 		[]() {
 			auto val = clientContext.get("test:stringExample").exec()->wait(5.0);

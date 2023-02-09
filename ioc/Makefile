@@ -30,6 +30,7 @@ PROD_LIBS = Com
 
 SHRLIB_VERSION = $(PVXS_MAJOR_VERSION).$(PVXS_MINOR_VERSION)
 
+pvxsIoc_SRCS += credentials.cpp
 pvxsIoc_SRCS += channel.cpp
 pvxsIoc_SRCS += dbentry.cpp
 pvxsIoc_SRCS += dberrormessage.cpp
@@ -50,6 +51,7 @@ pvxsIoc_SRCS += groupsrcsubscriptionctx.cpp
 pvxsIoc_SRCS += iochooks.cpp
 pvxsIoc_SRCS += iocserver.cpp
 pvxsIoc_SRCS += iocsource.cpp
+pvxsIoc_SRCS += securityclient.cpp
 pvxsIoc_SRCS += singlesource.cpp
 pvxsIoc_SRCS += singlesourcehooks.cpp
 pvxsIoc_SRCS += singlesrcsubscriptionctx.cpp

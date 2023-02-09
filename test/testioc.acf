@@ -1,4 +1,4 @@
-HAG(MYSELF) {
+UAG(MYSELF) {
     "$(user)"
 }
 
@@ -8,7 +8,7 @@ ASG(DEFAULT) {
 
 ASG(SPECIAL) {
     RULE(1,WRITE,TRAPWRITE) {
-        HAG(MYSELF)
+        UAG(MYSELF)
     }
 }
 
