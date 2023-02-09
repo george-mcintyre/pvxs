@@ -82,3 +82,13 @@ record(mbbi, "$(user):enumExample") {
   field(TWVL, "3")
   info(Q:time:tag, "nsec:lsb:4")
 }
+record(longin, "$(user):roLongExample") {
+  field(VAL, "204084")
+  field(SEVR, "1")
+  field(STAT, "1")
+  field(EGU, "arb")
+  field(HOPR, "100")
+  field(LOPR, "10")
+  field(ASG,"RO")
+  info(Q:form, "Hex")
+}
