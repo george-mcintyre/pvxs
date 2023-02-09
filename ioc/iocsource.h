@@ -18,6 +18,7 @@
 #include "singlesrcsubscriptionctx.h"
 #include "credentials.h"
 #include "securitylogger.h"
+#include "securityclient.h"
 
 #define FOR_VALUES true
 #define FOR_PROPERTIES false
@@ -60,8 +61,9 @@ public:
 	static void putScalar(dbChannel* pDbChannel, const Value& value);
 	static void putArray(dbChannel* pDbChannel, const Value& value);
 	static void doPostProcessing(dbChannel* pDbChannel);
-	static void doPreProcessing(dbChannel* pDbChannel, Credentials& credentials, SecurityLogger& securityLogger);
-	static void doFieldPreProcessing(dbChannel* pDbChannel, Credentials& credentials);
+	static void doPreProcessing(dbChannel* pDbChannel, SecurityLogger& securityLogger, const Credentials& credentials,
+			const SecurityClient& securityClient);
+	static void doFieldPreProcessing(const SecurityClient& securityClient);
 
 	//////////////////////////////
 	// Get & Subscription

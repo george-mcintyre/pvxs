@@ -27,6 +27,7 @@
 #include "iocshcommand.h"
 #include "iocsource.h"
 #include "securitylogger.h"
+#include "securityclient.h"
 
 namespace pvxs {
 namespace ioc {
@@ -255,14 +256,34 @@ void GroupSource::onOp(Group& group,
 	channelConnectOperation->connect(group.valueTemplate);
 
 	// register handler for pvxs group get
-	channelConnectOperation->onGet([&](std::unique_ptr<server::ExecOp>&& getOperation) {
+	channelConnectOperation->onGet([&group](std::unique_ptr<server::ExecOp>&& getOperation) {
 		get(group, getOperation);
 	});
 
+	// Make a security cache for this client's connection to this group
+	// Each time the same client calls put we will re-use the cached security client
+	// The security cache will be deleted when the client disconnects from this group pv
+	auto securityCache = std::make_shared<GroupSecurityCache>();
+
 	// register handler for pvxs group put
 	channelConnectOperation
-			->onPut([&](std::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
-				putGroup(group, putOperation, value);
+			->onPut([&group, securityCache](std::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
+				if (!securityCache->done) {
+					// First time we call put we need to initialise the security cache
+					securityCache->securityClients.resize(group.fields.size());
+					securityCache->credentials.reset(new Credentials(*putOperation->credentials()));
+					auto fieldIndex = 0u;
+					for (auto& field: group.fields) {
+						if (field.value.channel) {
+							securityCache->securityClients[fieldIndex]
+									.update(field.value.channel, *securityCache->credentials);
+						}
+						fieldIndex++;
+					}
+					securityCache->done = true;
+				}
+
+				putGroup(group, putOperation, value, *securityCache);
 			});
 }
 
@@ -340,20 +361,28 @@ void GroupSource::onStartSubscription(const std::shared_ptr<GroupSourceSubscript
  * @param putOperation the put operation object to use to interact with the client
  * @param value the value being posted
  */
-void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOperation, const Value& value) {
+void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOperation, const Value& value,
+		const GroupSecurityCache& groupSecurityCache) {
 	try {
-		Credentials credentials(*putOperation->credentials());
 		std::vector<SecurityLogger> securityLoggers(group.fields.size());
-		auto i = 0;
 
 		// Prepare group put operation
+		auto fieldIndex = 0;
 		for (auto& field: group.fields) {
-			auto pDbChannel = (dbChannel*)field.value.channel;
-			IOCSource::doPreProcessing(pDbChannel, credentials, securityLoggers[i++]);
-			if (pDbChannel->addr.field_type >= DBF_INLINK && pDbChannel->addr.field_type <= DBF_FWDLINK) {
-				throw std::runtime_error("Links not supported for put");
+			dbChannel* pDbChannel = field.value.channel;
+			if (pDbChannel) {
+				IOCSource::doPreProcessing(pDbChannel,
+						securityLoggers[fieldIndex], *groupSecurityCache.credentials,
+						groupSecurityCache.securityClients[fieldIndex]);
+				if (pDbChannel->addr.field_type >= DBF_INLINK && pDbChannel->addr.field_type <= DBF_FWDLINK) {
+					throw std::runtime_error("Links not supported for put");
+				}
 			}
+			fieldIndex++;
 		}
+
+		// Reset index for subsequent loops
+		fieldIndex = 0;
 
 		// If the group is configured for an atomic put operation,
 		// then we need to put all the fields at once, so we lock them all together
@@ -365,9 +394,10 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
 			for (auto& field: group.fields) {
 				auto pDbChannel = (dbChannel*)field.value.channel;
 				// Put the field
-				putField(value, field, pDbChannel, credentials);
+				putField(value, field, pDbChannel, groupSecurityCache.securityClients[fieldIndex]);
 				// Do processing if required
 				IOCSource::doPostProcessing((dbChannel*)field.value.channel);
+				fieldIndex++;
 			}
 
 			// Unlock the all group fields when the locker goes out of scope
@@ -382,10 +412,11 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
 				// Lock this field
 				DBLocker F(pDbChannel->addr.precord);
 				// Put the field
-				putField(value, field, pDbChannel, credentials);
+				putField(value, field, pDbChannel, groupSecurityCache.securityClients[fieldIndex]);
 				// Do processing if required
 				IOCSource::doPostProcessing((dbChannel*)field.value.channel);
 				// Unlock this field when locker goes out of scope
+				fieldIndex++;
 			}
 		}
 
@@ -410,14 +441,15 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
  * @param value the sparsely populated value to put into the group's field
  * @param field the group field to check against
  */
-void GroupSource::putField(const Value& value, const Field& field, dbChannel* pDbChannel, Credentials& credentials) {
+void GroupSource::putField(const Value& value, const Field& field, dbChannel* pDbChannel,
+		const SecurityClient& securityClient) {
 	// find the leaf node that the field refers to in the given value
 	auto leafNode = field.findIn(value);
 
 	// If the field references a valid part of the given value then we can send it to the database
 	if (leafNode.valid() && leafNode.isMarked()) {
 		SecurityLogger securityLogger;
-		IOCSource::doFieldPreProcessing(pDbChannel, credentials); // pre-process field
+		IOCSource::doFieldPreProcessing(securityClient); // pre-process field
 		IOCSource::put((dbChannel*)field.value.channel, leafNode);
 	}
 }

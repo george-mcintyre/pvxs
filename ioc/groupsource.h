@@ -14,6 +14,7 @@
 #include "groupsrcsubscriptionctx.h"
 #include "iocserver.h"
 #include "iocsource.h"
+#include "securityclient.h"
 
 namespace pvxs {
 namespace ioc {
@@ -48,7 +49,8 @@ private:
 	//////////////////////////////
 	// Put
 	//////////////////////////////
-	static void putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOperation, const Value& value);
+	static void putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOperation, const Value& value,
+			const GroupSecurityCache& groupSecurityCache);
 
 	//////////////////////////////
 	// Subscriptions
@@ -67,7 +69,8 @@ private:
 	void onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx,
 			std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) const;
 	static void onStart(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx, bool isStarting);
-	static void putField(const Value& value, const Field& field, dbChannel* pDbChannel, Credentials& credentials);
+	static void
+	putField(const Value& value, const Field& field, dbChannel* pDbChannel, const SecurityClient& securityClient);
 };
 
 } // ioc

@@ -238,15 +238,14 @@ void IOCSource::putArray(dbChannel* pDbChannel, const Value& value) {
  * @param credentials client credentials that are applied to this execution context
  * @param securityLogger the security logger.  Keep in scope around the put operation
  */
-void IOCSource::doPreProcessing(dbChannel* pDbChannel, Credentials& credentials, SecurityLogger& securityLogger) {
+void
+IOCSource::doPreProcessing(dbChannel* pDbChannel, SecurityLogger& securityLogger, const Credentials& credentials,
+		const SecurityClient& securityClient) {
 	if (pDbChannel->addr.special == SPC_ATTRIBUTE) {
 		throw std::runtime_error("Unable to put value: Modifications not allowed: S_db_noMod");
 	} else if (pDbChannel->addr.precord->disp && pDbChannel->addr.pfield != &pDbChannel->addr.precord->disp) {
 		throw std::runtime_error("Unable to put value: Field Disabled: S_db_putDisabled");
 	}
-
-	SecurityClient securityClient;
-	securityClient.update(pDbChannel, credentials);
 
 	SecurityLogger asWritePvt(
 			asTrapWriteWithData((securityClient.cli)[0], // The user is the first element
@@ -266,13 +265,9 @@ void IOCSource::doPreProcessing(dbChannel* pDbChannel, Credentials& credentials,
 /**
  * Do necessary preprocessing before put operations.  Check if put is allowed.
  *
- * @param pDbChannel channel to do preprocessing for
- * @param credentials client credentials that are applied to this execution context
+ * @param securityClient security client applied to this execution context
  */
-void IOCSource::doFieldPreProcessing(dbChannel* pDbChannel, Credentials& credentials) {
-	SecurityClient securityClient;
-	securityClient.update(pDbChannel, credentials);
-
+void IOCSource::doFieldPreProcessing(const SecurityClient& securityClient) {
 	if (!securityClient.canWrite()) {
 		// TODO this will abort the whole group put operation, so may be a behavior change, need to check
 		throw std::runtime_error("Put not permitted");

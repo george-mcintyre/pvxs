@@ -24,7 +24,19 @@ public:
 	std::vector<ASCLIENTPVT> cli;
 	~SecurityClient();
 	void update(dbChannel* ch, Credentials& cred);
-	bool canWrite();
+	bool canWrite() const;
+};
+
+struct GroupSecurityCache {
+	bool done = false;
+	std::vector<SecurityClient> securityClients;
+	std::unique_ptr<Credentials> credentials;
+};
+
+struct SecurityCache {
+	bool done = false;
+	SecurityClient securityClient;
+	std::unique_ptr<Credentials> credentials;
 };
 
 } // pvxs

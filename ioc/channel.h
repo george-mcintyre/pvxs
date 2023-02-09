@@ -35,8 +35,11 @@ public:
 	~Channel();
 
 	// Casting and indirection
-	explicit operator dbChannel*() const;
+	operator dbChannel*() const;
 	const dbChannel* operator->() const;
+	explicit operator bool() const {
+		return pDbChannel.operator bool();
+	}
 
 	// Disallowed methods.  Copy and move constructors
 	Channel(const Channel&) = delete;

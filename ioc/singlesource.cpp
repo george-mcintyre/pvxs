@@ -30,6 +30,7 @@
 #include "singlesrcsubscriptionctx.h"
 #include "credentials.h"
 #include "securitylogger.h"
+#include "securityclient.h"
 
 namespace pvxs {
 namespace ioc {
@@ -223,17 +224,30 @@ void SingleSource::onOp(const std::shared_ptr<dbChannel>& dbChannelSharedPtr, co
 				get(dbChannelSharedPtr.get(), getOperation, valuePrototype);
 			});
 
+	// Make a security cache for this client's connection to this pv
+	// Each time the same client calls put we will re-use the cached security client
+	// The security cache will be deleted when the client disconnects from this pv
+	auto securityCache = std::make_shared<SecurityCache>();
+
 	// Set up handler for put requests
 	channelConnectOperation
-			->onPut([dbChannelSharedPtr, valuePrototype](std::unique_ptr<server::ExecOp>&& putOperation,
+			->onPut([dbChannelSharedPtr, valuePrototype, securityCache](std::unique_ptr<server::ExecOp>&& putOperation,
 					Value&& value) {
 				try {
-					Credentials credentials(*putOperation->credentials());
+					auto pDbChannel = dbChannelSharedPtr.get();
+					if (!securityCache->done) {
+						securityCache->credentials.reset(new Credentials(*putOperation->credentials()));
+						securityCache->securityClient.update(pDbChannel, *securityCache->credentials);
+						securityCache->done = true;
+					}
+
 					SecurityLogger securityLogger;
 
-					auto pDbChannel = dbChannelSharedPtr.get();
-					IOCSource::doPreProcessing(pDbChannel, credentials, securityLogger); // pre-process
-					IOCSource::doFieldPreProcessing(pDbChannel, credentials); // pre-process field
+					IOCSource::doPreProcessing(pDbChannel,
+							securityLogger,
+							*securityCache->credentials,
+							securityCache->securityClient); // pre-process
+					IOCSource::doFieldPreProcessing(securityCache->securityClient); // pre-process field
 					if (dbChannelFieldType(pDbChannel) >= DBF_INLINK && dbChannelFieldType(pDbChannel) <= DBF_FWDLINK) {
 						IOCSource::put(pDbChannel, value); // put
 					} else {

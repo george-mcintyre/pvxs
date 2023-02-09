@@ -38,7 +38,7 @@ SecurityClient::~SecurityClient() {
 		asRemoveClient(&asc);
 	}
 }
-bool SecurityClient::canWrite() {
+bool SecurityClient::canWrite() const {
 	for (auto asc: cli) {
 		if (!asCheckPut(asc)) {
 			return false;
