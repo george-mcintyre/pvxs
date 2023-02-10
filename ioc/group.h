@@ -41,6 +41,8 @@ public:
 	virtual ~Group();
 	virtual void show(int level) const;
 	Field& operator[](const std::string& fieldName);
+
+	Group(const Group&) = delete;
 };
 
 // A map of group name to Group

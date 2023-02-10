@@ -190,8 +190,14 @@ void GroupConfigProcessor::defineFieldSortOrder() {
 		std::sort(groupDefinition.fields.begin(), groupDefinition.fields.end());
 		groupDefinition.fieldMap.clear();
 
-		for (size_t i = 0, N = groupDefinition.fields.size(); i < N; i++) {
-			groupDefinition.fieldMap[groupDefinition.fields[i].name] = i;
+		// Indexes are to be copied to the final group structure, so they must skip fields that will be skipped in the
+		// final group
+		auto groupFieldIndex = 0;
+		for (auto& fieldDefinition: groupDefinition.fields) {
+			groupDefinition.fieldMap[fieldDefinition.name] = groupFieldIndex;
+			if (!fieldDefinition.name.empty()) {
+				groupFieldIndex++;
+			}
 		}
 	}
 }

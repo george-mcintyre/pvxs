@@ -42,15 +42,15 @@ typedef enum {
  */
 class GroupDefinition {
 public:
-	GroupDefinition() = default;
-	virtual ~GroupDefinition() = default;
-	bool hasTriggers{ false };
 	std::string structureId;            // The Normative Type structure ID or any other arbitrary string if not a normative type
+	bool hasTriggers{ false };
+	TriState atomic{ Unset };
 	FieldDefinitions fields;            // The group's fields
 	FieldDefinitionMap fieldMap;        // The field map, mapping field order
-	TriState atomic{ Unset };
 	FieldTriggerMap fieldTriggerMap;    // The trigger map, mapping fields to related triggering fields
 
+	GroupDefinition() = default;
+	virtual ~GroupDefinition() = default;
 	size_t channelCount() const;
 };
 

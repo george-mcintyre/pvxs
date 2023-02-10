@@ -32,6 +32,7 @@ SHRLIB_VERSION = $(PVXS_MAJOR_VERSION).$(PVXS_MINOR_VERSION)
 
 pvxsIoc_SRCS += credentials.cpp
 pvxsIoc_SRCS += channel.cpp
+pvxsIoc_SRCS += demo.cpp
 pvxsIoc_SRCS += dbentry.cpp
 pvxsIoc_SRCS += dberrormessage.cpp
 pvxsIoc_SRCS += dbeventcontextdeleter.cpp
@@ -48,6 +49,7 @@ pvxsIoc_SRCS += groupprocessorcontext.cpp
 pvxsIoc_SRCS += groupsource.cpp
 pvxsIoc_SRCS += groupsourcehooks.cpp
 pvxsIoc_SRCS += groupsrcsubscriptionctx.cpp
+pvxsIoc_SRCS += imagedemo.c
 pvxsIoc_SRCS += iochooks.cpp
 pvxsIoc_SRCS += iocserver.cpp
 pvxsIoc_SRCS += iocsource.cpp
