@@ -194,6 +194,12 @@ static std::initializer_list<void (*)()> tests = {
 			testArrEqB(structExampleSa_0_EnumValueChoices, expected);
 		},
 		[]() {
+			auto val = clientContext.get("test:structExample2").exec()->wait(5.0);
+			auto structExample2Sa_0_AnyValue = val["sa[0].any.value"].as<long>();
+			auto expected = 102042;
+			testEqB(structExample2Sa_0_AnyValue, expected);
+		},
+		[]() {
 			clientContext.put("test:calcExample.FLNK").set("value", "").exec()->wait(5.0);
 			testdbGetFieldEqualB("test:calcExample.FLNK", DBR_STRING, "");
 		},

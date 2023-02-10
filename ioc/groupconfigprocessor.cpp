@@ -529,12 +529,10 @@ void GroupConfigProcessor::addTemplatesForDefinedFields(std::vector<Member>& gro
 				addMembersForMetaData(groupMembers, field);
 			} else if (type == "proc") {
 				field.allowProc = true;
-			} else if (type.empty() || type == "scalar") {
+			} else if (type.empty() || type == "scalar" || type == "any") {
 				addMembersForScalarType(groupMembers, field, pDbChannel);
 			} else if (type == "plain") {
 				addMembersForPlainType(groupMembers, field, pDbChannel);
-			} else if (type == "any") {
-				addMembersForAnyType(groupMembers, field);
 			} else if (type == "structure") {
 				addMembersForStructureType(groupMembers, field);
 			} else {
@@ -781,15 +779,20 @@ void GroupConfigProcessor::checkForTrailingCommentsAtEnd(const std::string& line
  *    effect: group members += {Struct{a: Struct{b: NTScalar{}}}} - adds NTScalar at a.b
  *
  * @param groupMembers the given group members to update
- * @param field the field used to determine the members to add and how to create them
+ * @param groupField the field used to determine the members to add and how to create them
  * @param pDbChannel the db channel to get information on what scalar type to create
  */
-void GroupConfigProcessor::addMembersForScalarType(std::vector<Member>& groupMembers, const Field& field,
+void GroupConfigProcessor::addMembersForScalarType(std::vector<Member>& groupMembers, const Field& groupField,
 		const dbChannel* pDbChannel) {
 	using namespace pvxs::members;
-	assert(!field.fieldName.empty()); // Must not call with empty field name
+	assert(!groupField.fieldName.empty()); // Must not call with empty field name
 
-	// Get the type for the leaf
+	TypeDef leaf = getTypeDefForChannel(pDbChannel);
+
+	std::vector<Member> newScalarMembers({ leaf.as(groupField.fieldName.leafFieldName()) });
+	setFieldTypeDefinition(groupMembers, groupField.fieldName, newScalarMembers);
+}
+TypeDef GroupConfigProcessor::getTypeDefForChannel(const dbChannel* pDbChannel) {// Get the type for the leaf
 	auto leafCode(IOCSource::getChannelValueType(pDbChannel, true));
 	TypeDef leaf;
 
@@ -803,8 +806,7 @@ void GroupConfigProcessor::addMembersForScalarType(std::vector<Member>& groupMem
 		bool valueAlarm = (dbfType != DBF_STRING);
 		leaf = nt::NTScalar{ leafCode, display, control, valueAlarm }.build();
 	}
-	std::vector<Member> newScalarMembers({ leaf.as(field.fieldName.leafFieldName()) });
-	setFieldTypeDefinition(groupMembers, field.fieldName, newScalarMembers);
+	return leaf;
 }
 
 /**
@@ -823,21 +825,6 @@ void GroupConfigProcessor::addMembersForPlainType(std::vector<Member>& groupMemb
 	auto leafCode(IOCSource::getChannelValueType(pDbChannel, true));
 	TypeDef leaf(leafCode);
 	std::vector<Member> newScalarMembers({ leaf.as(groupField.fieldName.leafFieldName()) });
-	setFieldTypeDefinition(groupMembers, groupField.fieldName, newScalarMembers);
-}
-
-/**
-* Add members to the given vector of members for an `any` type field - a field that contains any scalar type,
-* that is referenced by the given group field.
-*
-* @param groupMembers the vector of members to add to
-* @param groupField the given group field
- */
-void GroupConfigProcessor::addMembersForAnyType(std::vector<Member>& groupMembers,
-		const Field& groupField) {
-	assert(!groupField.fieldName.empty()); // Must not call with empty field name
-	TypeDef leaf(TypeCode::Any);
-	std::vector<Member> newScalarMembers({ leaf.as("") });
 	setFieldTypeDefinition(groupMembers, groupField.fieldName, newScalarMembers);
 }
 
