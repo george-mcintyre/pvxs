@@ -45,7 +45,9 @@ void IOCSource::get(dbChannel* pDbChannel, const Value& valuePrototype, const bo
 	Value value = valuePrototype; // The value that will be returned, if compound then metadata is set here
 	Value valueTarget = valuePrototype; // The part of value that will be retrieved from the database value field
 	bool isCompound = false;
-	if (auto targetCandidate = value["value"]) {
+	if (value.type() == TypeCode::Any) {
+		value = valueTarget = TypeDef(fromDbrType(pDbChannel->final_type)).create();
+	} else if (auto targetCandidate = value["value"]) {
 		isCompound = true;
 		valueTarget = targetCandidate;
 	}

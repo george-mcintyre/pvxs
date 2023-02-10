@@ -77,6 +77,7 @@ private:
 	static void
 	addTemplatesForDefinedFields(std::vector<Member>& groupMembers, Group& group,
 			const GroupDefinition& groupDefinition);
+	static void addMembersForAnyType(std::vector<Member>& groupMembers, const Field& groupField);
 	static void addMembersForMetaData(std::vector<Member>& groupMembers, const Field& groupField);
 	static void addMembersForPlainType(std::vector<Member>& groupMembers, const Field& groupField,
 			const dbChannel* pDbChannel);

@@ -144,7 +144,7 @@ void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::
 
 	// Subscription requests
 	// Shared ptr for one of captured vars below
-	subscriptionContext->prototype = valuePrototype.cloneEmpty();
+	subscriptionContext->prototype = valuePrototype;
 	channelControl
 			->onSubscribe([this, subscriptionContext](std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
 				onSubscribe(subscriptionContext, std::move(subscriptionOperation));

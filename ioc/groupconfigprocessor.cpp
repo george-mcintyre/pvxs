@@ -468,6 +468,7 @@ void GroupConfigProcessor::initialiseValueTemplate(Group& group, const GroupDefi
 
 	// create the group's valueTemplate from the group type
 	auto groupValueTemplate = groupType.create();
+	std::cout << "group: " << group.name << ". prototype: " << groupValueTemplate << std::endl;
 	group.valueTemplate = std::move(groupValueTemplate);
 }
 
@@ -529,10 +530,12 @@ void GroupConfigProcessor::addTemplatesForDefinedFields(std::vector<Member>& gro
 				addMembersForMetaData(groupMembers, field);
 			} else if (type == "proc") {
 				field.allowProc = true;
-			} else if (type.empty() || type == "scalar" || type == "any") {
+			} else if (type.empty() || type == "scalar") {
 				addMembersForScalarType(groupMembers, field, pDbChannel);
 			} else if (type == "plain") {
 				addMembersForPlainType(groupMembers, field, pDbChannel);
+			} else if (type == "any") {
+				addMembersForAnyType(groupMembers, field);
 			} else if (type == "structure") {
 				addMembersForStructureType(groupMembers, field);
 			} else {
@@ -792,22 +795,7 @@ void GroupConfigProcessor::addMembersForScalarType(std::vector<Member>& groupMem
 	std::vector<Member> newScalarMembers({ leaf.as(groupField.fieldName.leafFieldName()) });
 	setFieldTypeDefinition(groupMembers, groupField.fieldName, newScalarMembers);
 }
-TypeDef GroupConfigProcessor::getTypeDefForChannel(const dbChannel* pDbChannel) {// Get the type for the leaf
-	auto leafCode(IOCSource::getChannelValueType(pDbChannel, true));
-	TypeDef leaf;
 
-	// Create the leaf
-	auto dbfType = dbChannelFinalFieldType(pDbChannel);
-	if (dbfType == DBF_ENUM || dbfType == DBF_MENU) {
-		leaf = nt::NTEnum{}.build();
-	} else {
-		bool display = true;
-		bool control = true;
-		bool valueAlarm = (dbfType != DBF_STRING);
-		leaf = nt::NTScalar{ leafCode, display, control, valueAlarm }.build();
-	}
-	return leaf;
-}
 
 /**
  * Add members to the given vector of members for a plain type field (not Normative Type), that is referenced by the
@@ -825,6 +813,22 @@ void GroupConfigProcessor::addMembersForPlainType(std::vector<Member>& groupMemb
 	auto leafCode(IOCSource::getChannelValueType(pDbChannel, true));
 	TypeDef leaf(leafCode);
 	std::vector<Member> newScalarMembers({ leaf.as(groupField.fieldName.leafFieldName()) });
+	setFieldTypeDefinition(groupMembers, groupField.fieldName, newScalarMembers);
+}
+
+/**
+* Add members to the given vector of members for an `any` type field - a field that contains any scalar type,
+* that is referenced by the given group field.
+*
+* @param groupMembers the vector of members to add to
+* @param groupField the given group field
+ */
+void GroupConfigProcessor::addMembersForAnyType(std::vector<Member>& groupMembers,
+		const Field& groupField) {
+	assert(!groupField.fieldName.empty()); // Must not call with empty field name
+	std::vector<Member> newScalarMembers({
+			Member(TypeCode::Any, groupField.fieldName.leafFieldName())
+	});
 	setFieldTypeDefinition(groupMembers, groupField.fieldName, newScalarMembers);
 }
 
@@ -868,6 +872,23 @@ void GroupConfigProcessor::addMembersForMetaData(std::vector<Member>& groupMembe
 
 	// Add metadata to the group members at the position determined by group field name
 	setFieldTypeDefinition(groupMembers, groupField.fieldName, newMetaMembers);
+}
+
+TypeDef GroupConfigProcessor::getTypeDefForChannel(const dbChannel* pDbChannel) {// Get the type for the leaf
+	auto leafCode(IOCSource::getChannelValueType(pDbChannel, true));
+	TypeDef leaf;
+
+	// Create the leaf
+	auto dbfType = dbChannelFinalFieldType(pDbChannel);
+	if (dbfType == DBF_ENUM || dbfType == DBF_MENU) {
+		leaf = nt::NTEnum{}.build();
+	} else {
+		bool display = true;
+		bool control = true;
+		bool valueAlarm = (dbfType != DBF_STRING);
+		leaf = nt::NTScalar{ leafCode, display, control, valueAlarm }.build();
+	}
+	return leaf;
 }
 
 /**
