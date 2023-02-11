@@ -22,7 +22,7 @@ namespace pvxs {
  * @return a pvxs type code
  *
  */
-TypeCode::code_t fromDbfType(dbfType dbfType) {
+TypeCode fromDbfType(dbfType dbfType) {
 	switch (dbfType) {
 	case DBF_CHAR:
 		return TypeCode::Int8;
@@ -66,7 +66,7 @@ TypeCode::code_t fromDbfType(dbfType dbfType) {
  * @return a pvxs type code
  *
  */
-TypeCode::code_t fromDbrType(short dbrType) {
+TypeCode fromDbrType(short dbrType) {
 	switch (dbrType) {
 	case DBR_CHAR:
 		return TypeCode::Int8;

@@ -46,7 +46,11 @@ void IOCSource::get(dbChannel* pDbChannel, const Value& valuePrototype, const bo
 	Value valueTarget = valuePrototype; // The part of value that will be retrieved from the database value field
 	bool isCompound = false;
 	if (value.type() == TypeCode::Any) {
-		value = valueTarget = TypeDef(fromDbrType(pDbChannel->final_type)).create();
+		auto type = fromDbrType(pDbChannel->final_type);
+		if (pDbChannel->final_no_elements != 1) {
+			type = type.arrayOf();
+		}
+		value = valueTarget = TypeDef(type).create();
 	} else if (auto targetCandidate = value["value"]) {
 		isCompound = true;
 		valueTarget = targetCandidate;
@@ -65,9 +69,9 @@ void IOCSource::get(dbChannel* pDbChannel, const Value& valuePrototype, const bo
 	}
 
 	if (pDbChannel->addr.no_elements == 1) {
-		getScalar(pDbChannel, value, valueTarget, options, pDbFieldLog);
+		getScalar(pDbChannel, value, valueTarget, options, pDbFieldLog, forValues);
 	} else {
-		getArray(pDbChannel, value, valueTarget, options, pDbFieldLog);
+		getArray(pDbChannel, value, valueTarget, options, pDbFieldLog, forValues);
 	}
 
 	// Send reply
@@ -82,10 +86,10 @@ void IOCSource::get(dbChannel* pDbChannel, const Value& valuePrototype, const bo
  * @param requestedOptions the options defining what metadata to get
  */
 void IOCSource::getScalar(dbChannel* pDbChannel, Value& value, Value& valueTarget, uint32_t& requestedOptions,
-		db_field_log* pDbFieldLog) {
+		db_field_log* pDbFieldLog, const bool forValue) {
 	ValueBuffer valueBuffer{}; // Enough for metadata and 1 scalar
 	void* pValueBuffer = &valueBuffer;
-	long nElements = 1;
+	long nElements = forValue ? 1 : 0;
 	long actualOptions = requestedOptions;
 
 	// Get metadata and field value
@@ -98,10 +102,12 @@ void IOCSource::getScalar(dbChannel* pDbChannel, Value& value, Value& valueTarge
 	// Get metadata from buffer if any have been requested
 	getMetadata(value, pValueBuffer, requestedOptions, actualOptions);
 
-	if (pDbChannel->final_type == DBR_ENUM) {
-		valueTarget["index"] = *(uint16_t*)(pValueBuffer);
-	} else {
-		getValueFromBuffer(valueTarget, pValueBuffer);
+	if (forValue) {
+		if (pDbChannel->final_type == DBR_ENUM && valueTarget.type() == TypeCode::Struct) {
+			valueTarget["index"] = *(uint16_t*)(pValueBuffer);
+		} else {
+			getValueFromBuffer(valueTarget, pValueBuffer);
+		}
 	}
 }
 
@@ -114,10 +120,10 @@ void IOCSource::getScalar(dbChannel* pDbChannel, Value& value, Value& valueTarge
  * @param requestedOptions the options defining what metadata to get
  */
 void IOCSource::getArray(dbChannel* pDbChannel, Value& value, Value& valueTarget, uint32_t& requestedOptions,
-		db_field_log* pDbFieldLog) {
+		db_field_log* pDbFieldLog, const bool forValues) {
 	// value buffer to store the field we will get from the database including metadata.
 	std::vector<char> valueBuffer;
-	auto nElements = (long)pDbChannel->addr.no_elements; // maximal number of elements
+	auto nElements = forValues ? (long)pDbChannel->addr.no_elements : 0; // maximal number of elements
 	// Initialize the buffer to the maximal size including metadata and zero it out
 	valueBuffer.resize(nElements * pDbChannel->addr.field_size + MAX_METADATA_SIZE, '\0');
 	void* pValueBuffer = &valueBuffer[0];
@@ -133,16 +139,18 @@ void IOCSource::getArray(dbChannel* pDbChannel, Value& value, Value& valueTarget
 	// Get metadata from buffer if any have been requested
 	getMetadata(value, pValueBuffer, requestedOptions, actualOptions);
 
-	// Get the array value from the updated buffer pointer
-	// Note: nElements has been updated with the number of elements in the array
-	if (pDbChannel->final_type == DBR_ENUM) {
-		shared_array<uint16_t> values(nElements);
-		for (auto i = 0; i < nElements; i++) {
-			values[i] = ((uint16_t*)pValueBuffer)[i];
+	if (forValues) {
+		// Get the array value from the updated buffer pointer
+		// Note: nElements has been updated with the number of elements in the array
+		if (pDbChannel->final_type == DBR_ENUM && valueTarget.type() == TypeCode::Struct) {
+			shared_array<uint16_t> values(nElements);
+			for (auto i = 0; i < nElements; i++) {
+				values[i] = ((uint16_t*)pValueBuffer)[i];
+			}
+			valueTarget["index"] = values.freeze();
+		} else {
+			getValueFromBuffer(valueTarget, pValueBuffer, nElements);
 		}
-		valueTarget["index"] = values.freeze();
-	} else {
-		getValueFromBuffer(valueTarget, pValueBuffer, nElements);
 	}
 }
 
@@ -313,10 +321,10 @@ void IOCSource::doPostProcessing(dbChannel* pDbChannel) {
 void IOCSource::getValueFromBuffer(Value& valueTarget, const void* pValueBuffer) {
 	auto valueType(valueTarget.type());
 
-	if (valueType.code == TypeCode::String) {
+	if (valueType == TypeCode::String) {
 		valueTarget = ((const char*)pValueBuffer);
 	} else {
-		SwitchTypeCodeForTemplatedCall(valueType.code, getValueFromBuffer, (valueTarget, pValueBuffer));
+		SwitchTypeCodeForTemplatedCall(valueType, getValueFromBuffer, (valueTarget, pValueBuffer));
 	}
 }
 
@@ -329,7 +337,7 @@ void IOCSource::getValueFromBuffer(Value& valueTarget, const void* pValueBuffer)
  */
 void IOCSource::getValueFromBuffer(Value& valueTarget, const void* pValueBuffer, const long& nElements) {
 	auto valueType(valueTarget.type());
-	if (valueType.code == TypeCode::StringA) {
+	if (valueType == TypeCode::StringA) {
 		shared_array<std::string> values(nElements);
 		char stringBuffer[MAX_STRING_SIZE + 1]{ 0 }; // Need to do this because some strings may not be null terminated
 		for (auto i = 0; i < nElements; i++) {
@@ -339,7 +347,7 @@ void IOCSource::getValueFromBuffer(Value& valueTarget, const void* pValueBuffer,
 		}
 		valueTarget = values.freeze().template castTo<const void>();
 	} else {
-		SwitchTypeCodeForTemplatedCall(valueType.code, getValueFromBuffer, (valueTarget, pValueBuffer, nElements));
+		SwitchTypeCodeForTemplatedCall(valueType, getValueFromBuffer, (valueTarget, pValueBuffer, nElements));
 	}
 }
 
@@ -352,13 +360,13 @@ void IOCSource::getValueFromBuffer(Value& valueTarget, const void* pValueBuffer,
  */
 void IOCSource::setValueInBuffer(const Value& valueSource, char* pValueBuffer, dbChannel* pDbChannel) {
 	auto valueType(valueSource.type());
-	if (valueType.code == TypeCode::String) {
+	if (valueType == TypeCode::String) {
 		setStringValueInBuffer(valueSource, pValueBuffer);
-	} else if (valueType.code == TypeCode::Any || valueType.code == TypeCode::Union) {
+	} else if (valueType == TypeCode::Any || valueType == TypeCode::Union) {
 		SwitchTypeCodeForTemplatedCall(fromDbrType(pDbChannel->final_type), setValueInBuffer,
 				(valueSource, pValueBuffer));
 	} else {
-		SwitchTypeCodeForTemplatedCall(valueType.code, setValueInBuffer, (valueSource, pValueBuffer));
+		SwitchTypeCodeForTemplatedCall(valueType, setValueInBuffer, (valueSource, pValueBuffer));
 	}
 }
 
@@ -372,13 +380,13 @@ void IOCSource::setValueInBuffer(const Value& valueSource, char* pValueBuffer, d
  */
 void IOCSource::setValueInBuffer(const Value& valueSource, char* pValueBuffer, long nElements) {
 	auto valueType(valueSource.type());
-	if (valueType.code == TypeCode::StringA) {
+	if (valueType == TypeCode::StringA) {
 		auto sharedValueArray = valueSource.as<shared_array<const Value>>();
 		for (auto i = 0; i < sharedValueArray.size(); i++, pValueBuffer += MAX_STRING_SIZE) {
 			setStringValueInBuffer(sharedValueArray[i], pValueBuffer);
 		}
 	} else {
-		SwitchTypeCodeForTemplatedCall(valueType.code, setValueInBuffer, (valueSource, pValueBuffer, nElements));
+		SwitchTypeCodeForTemplatedCall(valueType, setValueInBuffer, (valueSource, pValueBuffer, nElements));
 	}
 }
 

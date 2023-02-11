@@ -195,7 +195,7 @@ static std::initializer_list<void (*)()> tests = {
 		},
 		[]() {
 			auto val = clientContext.get("test:structExample2").exec()->wait(5.0);
-			auto structExample2Sa_0_AnyValue = val["sa[0].any.value"].as<long>();
+			auto structExample2Sa_0_AnyValue = val["sa[0].any"].as<long>();
 			auto expected = 102042;
 			testEqB(structExample2Sa_0_AnyValue, expected);
 		},

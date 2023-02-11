@@ -30,7 +30,7 @@
  * @param _arguments the list of arguments to be passed to the templated function.  include the parentheses
  */
 #define SwitchTypeCodeForTemplatedCall(_typeCode, _function, _arguments) \
-switch (_typeCode) {                               \
+switch ((_typeCode.code)) {                               \
     case TypeCode::Int8:    case TypeCode::Int8A:       return _function<int8_t>_arguments ;    \
     case TypeCode::UInt8:   case TypeCode::UInt8A:      return _function<uint8_t>_arguments ;    \
     case TypeCode::Int16:   case TypeCode::Int16A:      return _function<int16_t>_arguments ;    \
@@ -51,8 +51,8 @@ switch (_typeCode) {                               \
 
 namespace pvxs {
 
-TypeCode::code_t fromDbfType(dbfType dbfType);
-TypeCode::code_t fromDbrType(short dbrType);
+TypeCode fromDbfType(dbfType dbfType);
+TypeCode fromDbrType(short dbrType);
 
 }
 

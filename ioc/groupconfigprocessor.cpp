@@ -468,7 +468,6 @@ void GroupConfigProcessor::initialiseValueTemplate(Group& group, const GroupDefi
 
 	// create the group's valueTemplate from the group type
 	auto groupValueTemplate = groupType.create();
-	std::cout << "group: " << group.name << ". prototype: " << groupValueTemplate << std::endl;
 	group.valueTemplate = std::move(groupValueTemplate);
 }
 
