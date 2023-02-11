@@ -162,7 +162,10 @@ void IOCSource::getArray(dbChannel* pDbChannel, Value& value, Value& valueTarget
  */
 void IOCSource::put(dbChannel* pDbChannel, const Value& value) {
 	Value valueSource = value;
-	if (auto sourceCandidate = value["value"]) {
+	// TODO may need to handle Array of and Union as special cases as well
+	if (value.type() == TypeCode::Any) {
+		valueSource = valueSource["->"];
+	} else if (auto sourceCandidate = value["value"]) {
 		valueSource = sourceCandidate;
 	}
 

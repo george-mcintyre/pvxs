@@ -67,6 +67,10 @@ static std::initializer_list<void (*)()> tests = {
 			testdbReadDatabase("testiocg.db", nullptr, "user=test");
 			testOkB(true, R"(testdbReadDatabase("testiocg.db", nullptr, "user=test"))");
 		},
+		[]() {
+			testdbReadDatabase("image.db", nullptr, "N=tst");
+			testOkB(true, R"(testdbReadDatabase("testiocg.db", nullptr, "user=test"))");
+		},
 		[]() { testOkB(!pvxs::ioc::dbLoadGroup("testioc.json"), R"(dbLoadGroup("testioc.json"))"); },
 		[]() { pvxsTestIocInitOk(); },
 		[]() { testdbGetFieldEqualB("test:aiExample", DBR_DOUBLE, 42.2); },
@@ -214,6 +218,16 @@ static std::initializer_list<void (*)()> tests = {
 			clientContext.put("test:calcExample.FLNK$").set("value", arrayLinkVal).exec()->wait(5.0);
 			testdbGetFieldEqualB("test:calcExample.FLNK", DBR_STRING, "test:aiExample");
 		},
+		[]() {
+			shared_array<const uint16_t> expected({ 1, 2, 3, 4, 5 });
+			clientContext.put("tst:Array").build([&expected](Value&& prototype) -> Value {
+						auto putval = prototype.cloneEmpty();
+						putval["value"] = expected;
+						return putval;
+					})
+					.exec()->wait(5.0);
+			testdbGetArrFieldEqualB("tst:ArrayData", DBR_USHORT, 5, expected.size(), expected.data());
+		},
 };
 
 /**
@@ -237,7 +251,7 @@ MAIN(testioc) {
 		try {
 			test();
 		} catch (const std::exception& e) {
-			printf("│ not ok %d - Test failed: %s\n", testNum, e.what());
+			testFail("Test failed with unexpected exception: %s\n", e.what());
 		}
 	}
 	printf("#└──────────────────────────────────────────────────────────────────────┘");
