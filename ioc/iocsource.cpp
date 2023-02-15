@@ -12,6 +12,7 @@
 #include <iostream>
 
 #include <special.h>
+#include <epicsTime.h>
 
 #include "iocsource.h"
 #include "dbentry.h"
@@ -569,7 +570,8 @@ void IOCSource::getMetadata(Value& value, void*& pValueBuffer, const uint32_t& r
 			get2MetadataFields(pValueBuffer, uint32_t, metadata.metadata.time.secPastEpoch,
 					metadata.metadata.time.nsec);
 			if (actualOptions & DBR_TIME) {
-				checkedSetField(metadata.metadata.time.secPastEpoch, timeStamp.secondsPastEpoch);
+				checkedSetField(metadata.metadata.time.secPastEpoch + POSIX_TIME_AT_EPICS_EPOCH,
+						timeStamp.secondsPastEpoch);
 				checkedSetField(metadata.metadata.time.nsec, timeStamp.nanoseconds);
 			}
 		}
