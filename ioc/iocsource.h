@@ -60,7 +60,7 @@ public:
 	static void put(dbChannel* pDbChannel, const Value& value);
 	static void putScalar(dbChannel* pDbChannel, const Value& value);
 	static void putArray(dbChannel* pDbChannel, const Value& value);
-	static void doPostProcessing(dbChannel* pDbChannel);
+	static void doPostProcessing(dbChannel* pDbChannel, TriState forceProcessing);
 	static void doPreProcessing(dbChannel* pDbChannel, SecurityLogger& securityLogger, const Credentials& credentials,
 			const SecurityClient& securityClient);
 	static void doFieldPreProcessing(const SecurityClient& securityClient);
@@ -106,6 +106,8 @@ public:
 			db_field_log* pDbFieldLog, bool forValues);
 	static void getMetadata(Value& valuePrototype, void*& pValueBuffer, const uint32_t& requestedOptions,
 			const uint32_t& actualOptions);
+	static void
+	setForceProcessingFlag(const Value& pvRequest, const std::shared_ptr<SecurityControlObject>& securityControlObject);
 };
 
 } // pvxs

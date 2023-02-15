@@ -294,11 +294,13 @@ void IOCSource::doFieldPreProcessing(const SecurityClient& securityClient) {
  *
  * @param pDbChannel channel to do post processing for
  */
-void IOCSource::doPostProcessing(dbChannel* pDbChannel) {
+void IOCSource::doPostProcessing(dbChannel* pDbChannel, TriState forceProcessing) {
 	if (pDbChannel->addr.pfield == &pDbChannel->addr.precord->proc ||
+			(forceProcessing == True) ||
 			(pDbChannel->addr.pfldDes->process_passive &&
 					pDbChannel->addr.precord->scan == 0 &&
-					pDbChannel->addr.field_type < DBR_PUT_ACKT)) {
+					pDbChannel->addr.field_type < DBR_PUT_ACKT &&
+					forceProcessing == Unset)) {
 		if (pDbChannel->addr.precord->pact) {
 			if (dbAccessDebugPUTF && pDbChannel->addr.precord->tpro) {
 				printf("%s: single source onPut to Active '%s', setting RPRO=1\n",
@@ -313,6 +315,18 @@ void IOCSource::doPostProcessing(dbChannel* pDbChannel) {
 			}
 		}
 	}
+}
+
+void IOCSource::setForceProcessingFlag(const Value& pvRequest,
+		const std::shared_ptr<SecurityControlObject>& securityControlObject) {
+	pvRequest["record._options.process"]
+			.as<std::string>([&securityControlObject](const std::string& forceProcessingOption) {
+				if (forceProcessingOption == "true") {
+					securityControlObject->forceProcessing = True;
+				} else if (forceProcessingOption == "false") {
+					securityControlObject->forceProcessing = False;
+				}
+			});
 }
 
 /**

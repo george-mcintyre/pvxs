@@ -248,15 +248,10 @@ void SingleSource::onOp(const std::shared_ptr<dbChannel>& dbChannelSharedPtr, co
 
 						auto& pvRequest = putOperation->pvRequest();
 						pvRequest["record._options.block"].as<bool>(putOperationCache->doWait);
-						pvRequest["record._options.process"]
-								.as<std::string>([&putOperationCache](const std::string& forceProcessingOption) {
-									if (forceProcessingOption == "true") {
-										putOperationCache->forceProcessing = True;
-									} else if (forceProcessingOption == "false") {
-										putOperationCache->forceProcessing = False;
-										putOperationCache->doWait = false; // no point in waiting
-									}
-								});
+						IOCSource::setForceProcessingFlag(pvRequest, putOperationCache);
+						if (putOperationCache->forceProcessing) {
+							putOperationCache->doWait = false; // no point in waiting
+						}
 						putOperationCache->done = true;
 					}
 
@@ -284,7 +279,7 @@ void SingleSource::onOp(const std::shared_ptr<dbChannel>& dbChannelSharedPtr, co
 						// All other field types call dbChannelPut() directly, so we have to perform locking here
 						DBLocker F(pDbChannel->addr.precord); // lock
 						IOCSource::put(pDbChannel, value); // put
-						IOCSource::doPostProcessing(pDbChannel); // post-process
+						IOCSource::doPostProcessing(pDbChannel, putOperationCache->forceProcessing); // post-process
 					}
 					putOperation->reply();
 				} catch (std::exception& e) {
@@ -292,7 +287,6 @@ void SingleSource::onOp(const std::shared_ptr<dbChannel>& dbChannelSharedPtr, co
 				}
 			});
 }
-
 /**
  * Callback for asynchronous put operations to handle the actual put value operation
  *

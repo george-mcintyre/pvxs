@@ -95,3 +95,6 @@ record(calcout, "$(user):slowmo") {
     field(ODLY, "1")
     field(CALC, "VAL+1")
 }
+record(calcout, "$(user):procCounter") {
+    field(CALC, "VAL+1")
+}

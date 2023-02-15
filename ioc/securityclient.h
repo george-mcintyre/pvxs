@@ -30,11 +30,12 @@ public:
 };
 
 /**
- * Security objects that can be controlled, as "done" or "not done"
+ * Security objects that can be controlled
  */
 class SecurityControlObject {
 public:
 	bool done = false;
+	TriState forceProcessing{ Unset };
 };
 
 /**
@@ -61,7 +62,6 @@ public:
  */
 struct PutOperationCache : public SingleSecurityCache {
 	bool doWait{ false };
-	TriState forceProcessing{ Unset };
 	processNotify notify{};
 	Value valueToSet;
 	std::unique_ptr<server::ExecOp> putOperation;

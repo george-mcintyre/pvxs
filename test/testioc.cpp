@@ -232,6 +232,21 @@ static std::initializer_list<void (*)()> tests = {
 			clientContext.put("test:slowmo.PROC").set("value", 0).pvRequest("record[block=true]").exec()->wait(5.0);
 			testdbGetFieldEqualB("test:slowmo", DBR_DOUBLE, 1.0);
 		},
+		[]() {
+			clientContext.put("test:procCounter.HIGH").set("value", 0).pvRequest("record[process=true]").exec()
+					->wait(5.0);
+			testdbGetFieldEqualB("test:procCounter", DBR_DOUBLE, 1.0);
+		},
+		[]() {
+			clientContext.put("test:procCounter.HIGH").set("value", 0).pvRequest("record[process=false]").exec()
+					->wait(5.0);
+			testdbGetFieldEqualB("test:procCounter", DBR_DOUBLE, 1.0);
+		},
+		[]() {
+			clientContext.put("test:procCounter.HIGH").set("value", 0).pvRequest("record[process=passive]").exec()
+					->wait(5.0);
+			testdbGetFieldEqualB("test:procCounter", DBR_DOUBLE, 2.0);
+		},
 };
 
 /**

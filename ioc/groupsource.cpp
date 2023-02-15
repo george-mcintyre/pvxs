@@ -280,6 +280,8 @@ void GroupSource::onOp(Group& group,
 						}
 						fieldIndex++;
 					}
+					auto& pvRequest = putOperation->pvRequest();
+					IOCSource::setForceProcessingFlag(pvRequest, securityCache);
 					securityCache->done = true;
 				}
 
@@ -396,7 +398,7 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
 				// Put the field
 				putField(value, field, pDbChannel, groupSecurityCache.securityClients[fieldIndex]);
 				// Do processing if required
-				IOCSource::doPostProcessing((dbChannel*)field.value.channel);
+				IOCSource::doPostProcessing((dbChannel*)field.value.channel, groupSecurityCache.forceProcessing);
 				fieldIndex++;
 			}
 
@@ -414,7 +416,7 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
 				// Put the field
 				putField(value, field, pDbChannel, groupSecurityCache.securityClients[fieldIndex]);
 				// Do processing if required
-				IOCSource::doPostProcessing((dbChannel*)field.value.channel);
+				IOCSource::doPostProcessing((dbChannel*)field.value.channel, groupSecurityCache.forceProcessing);
 				// Unlock this field when locker goes out of scope
 				fieldIndex++;
 			}
