@@ -274,7 +274,6 @@ void SingleSource::onOp(const std::shared_ptr<dbChannel>& dbChannelSharedPtr, co
 						putOperationCache->notify.requestType = value["value"].isMarked() ? putProcessRequest
 						                                                                  : processRequest;
 						putOperationCache->putOperation = std::move(putOperation);
-						std::cout << "calling dbProcessNotify()" << std::endl;
 						dbProcessNotify(&putOperationCache->notify);
 						return;
 					} else if (dbChannelFieldType(pDbChannel) >= DBF_INLINK

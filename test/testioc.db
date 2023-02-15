@@ -91,3 +91,7 @@ record(longin, "$(user):roLongExample") {
   field(ASG,"RO")
   info(Q:form, "Hex")
 }
+record(calcout, "$(user):slowmo") {
+    field(ODLY, "1")
+    field(CALC, "VAL+1")
+}

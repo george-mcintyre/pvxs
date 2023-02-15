@@ -228,6 +228,10 @@ static std::initializer_list<void (*)()> tests = {
 					.exec()->wait(5.0);
 			testdbGetArrFieldEqualB("tst:ArrayData", DBR_USHORT, 5, expected.size(), expected.data());
 		},
+		[]() {
+			clientContext.put("test:slowmo.PROC").set("value", 0).pvRequest("record[block=true]").exec()->wait(5.0);
+			testdbGetFieldEqualB("test:slowmo", DBR_DOUBLE, 1.0);
+		},
 };
 
 /**
