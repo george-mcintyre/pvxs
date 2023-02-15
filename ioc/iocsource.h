@@ -56,7 +56,7 @@ typedef struct {
 class IOCSource {
 public:
 	static void get(dbChannel* pDbChannel, const Value& valuePrototype, bool forValues, bool forProperties,
-			const std::function<void(Value&)>& returnFn, db_field_log* pDbFieldLog = nullptr);
+			db_field_log* pDbFieldLog = nullptr);
 	static void put(dbChannel* pDbChannel, const Value& value);
 	static void putScalar(dbChannel* pDbChannel, const Value& value);
 	static void putArray(dbChannel* pDbChannel, const Value& value);

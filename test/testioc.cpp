@@ -4,6 +4,7 @@
  * in file LICENSE that is included with this distribution.
  */
 
+#include <iostream>
 #include <dbAccess.h>
 #include <dbUnitTest.h>
 #include <iocInit.h>
@@ -209,6 +210,7 @@ static std::initializer_list<void (*)()> tests = {
 		},
 		[]() {
 			auto val = clientContext.get("test:structExample2").exec()->wait(5.0);
+			std::cout << "val: " << val << std::endl;
 			auto structExample2Sa_0_AnyValue = val["sa[0].any"].as<long>();
 			auto expected = 102042;
 			testEqB(structExample2Sa_0_AnyValue, expected);

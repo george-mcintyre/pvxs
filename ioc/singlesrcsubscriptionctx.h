@@ -30,9 +30,9 @@ public:
 	std::shared_ptr<dbChannel> pValueChannel;
 	std::shared_ptr<dbChannel> pPropertiesChannel;
 
-	// This is also used as a special case for storing the initial value prior to both initial subscription events returning
-	// This is so that we can merge this with the subsequent values that come in before all initial events are in
-	Value prototype{};
+	// This is used to store the current value.  Each subscription event simply merges
+	// new fields into this value
+	Value currentValue{};
 	epicsMutex eventLock{};
 	std::unique_ptr<server::MonitorControlOp> subscriptionControl{};
 };

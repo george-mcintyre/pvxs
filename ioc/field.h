@@ -52,6 +52,8 @@ public:
 
 	Field(const std::string& stringFieldName, const std::string& stringChannelName);
 	Value findIn(Value valueTarget) const;
+	void setPropertiesChannel(const std::string& channelName);
+	void setValueChannel(const std::string& channelName);
 };
 
 typedef std::vector<Field> Fields;

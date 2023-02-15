@@ -42,6 +42,12 @@ Channel::Channel(Channel&& other) noexcept
 		:pDbChannel(std::move(other.pDbChannel)) {
 }
 
+Channel& Channel::operator=(Channel&& other) noexcept {
+	pDbChannel = std::move(other.pDbChannel);
+	other.pDbChannel = nullptr;
+	return *this;
+}
+
 /**
  * Destructor is default because pDbChannel cleans up after itself.
  */
@@ -67,7 +73,6 @@ void Channel::prepare() {
 Channel::operator dbChannel*() const {
 	return pDbChannel.get();
 }
-
 /**
  * Const pointer indirection operator
  * @return pointer to the dbChannel associated with this group channel

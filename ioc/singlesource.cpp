@@ -146,7 +146,7 @@ void SingleSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::
 
 	// Subscription requests
 	// Shared ptr for one of captured vars below
-	subscriptionContext->prototype = valuePrototype;
+	subscriptionContext->currentValue = valuePrototype;
 	channelControl
 			->onSubscribe([this, subscriptionContext](std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
 				onSubscribe(subscriptionContext, std::move(subscriptionOperation));
@@ -188,9 +188,9 @@ Value SingleSource::getValuePrototype(const std::shared_ptr<dbChannel>& dbChanne
 void SingleSource::get(dbChannel* channel, std::unique_ptr<server::ExecOp>& getOperation,
 		const Value& valuePrototype) {
 	try {
-		IOCSource::get(channel, valuePrototype.cloneEmpty(), true, true, [&getOperation](Value& value) {
-			getOperation->reply(value);
-		});
+		auto returnValue = valuePrototype.cloneEmpty();
+		IOCSource::get(channel, returnValue, true, true);
+		getOperation->reply(returnValue);
 	} catch (const std::exception& getException) {
 		getOperation->error(getException.what());
 	}
@@ -386,7 +386,7 @@ void SingleSource::onStartSubscription(const std::shared_ptr<SingleSourceSubscri
 void SingleSource::onSubscribe(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext,
 		std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) const {
 	// inform peer of data type and acquire control of the subscription queue
-	subscriptionContext->subscriptionControl = subscriptionOperation->connect(subscriptionContext->prototype);
+	subscriptionContext->subscriptionControl = subscriptionOperation->connect(subscriptionContext->currentValue);
 
 	// Two subscription are made for pvxs
 	// first subscription is for Value changes
@@ -416,20 +416,21 @@ void SingleSource::onSubscribe(const std::shared_ptr<SingleSourceSubscriptionCtx
  */
 void SingleSource::subscriptionCallback(SingleSourceSubscriptionCtx* subscriptionContext,
 		struct dbChannel* pTriggeringDbChannel, struct db_field_log* pDbFieldLog) {
-	// Make sure that the initial subscription update has occurred on both channels before continuing
-	// As we make two initial updates when opening a new subscription, we need both to have completed before continuing
-	if (!subscriptionContext->hadValueEvent || !subscriptionContext->hadPropertyEvent) {
-		return;
-	}
+	// Get the current value of this subscription
+	// We simply merge new field changes onto this value as events occur
+	auto currentValue = subscriptionContext->currentValue;
 
-	// Get and return the value to the monitor
 	bool forValue = (subscriptionContext->pValueChannel.get() == pTriggeringDbChannel);
 	auto& pDbChannel = forValue ? subscriptionContext->pValueChannel : subscriptionContext->pPropertiesChannel;
-	IOCSource::get(pDbChannel.get(), subscriptionContext->prototype.cloneEmpty(), forValue, !forValue,
-			[subscriptionContext](Value& value) {
-				// Return value
-				subscriptionContext->subscriptionControl->tryPost(value);
-			}, pDbFieldLog);
+	IOCSource::get(pDbChannel.get(), currentValue, forValue, !forValue, pDbFieldLog);
+
+	// Make sure that the initial subscription update has occurred on both channels before continuing
+	// As we make two initial updates when opening a new subscription, we need both to have completed before continuing
+	if (subscriptionContext->hadValueEvent && subscriptionContext->hadPropertyEvent) {
+		// Return value
+		subscriptionContext->subscriptionControl->post(currentValue.clone());
+		currentValue.unmark();
+	}
 }
 
 /**
@@ -443,10 +444,7 @@ void SingleSource::subscriptionCallback(SingleSourceSubscriptionCtx* subscriptio
 void SingleSource::subscriptionPropertiesCallback(void* userArg, struct dbChannel* pDbChannel, int,
 		struct db_field_log* pDbFieldLog) {
 	auto subscriptionContext = (SingleSourceSubscriptionCtx*)userArg;
-	{
-		epicsGuard<epicsMutex> G((subscriptionContext)->eventLock);
-		subscriptionContext->hadPropertyEvent = true;
-	}
+	subscriptionContext->hadPropertyEvent = true;
 	subscriptionCallback(subscriptionContext, pDbChannel, pDbFieldLog);
 }
 
@@ -461,10 +459,7 @@ void SingleSource::subscriptionPropertiesCallback(void* userArg, struct dbChanne
 void SingleSource::subscriptionValueCallback(void* userArg, struct dbChannel* pDbChannel, int,
 		struct db_field_log* pDbFieldLog) {
 	auto subscriptionContext = (SingleSourceSubscriptionCtx*)userArg;
-	{
-		epicsGuard<epicsMutex> G((subscriptionContext)->eventLock);
-		subscriptionContext->hadValueEvent = true;
-	}
+	subscriptionContext->hadValueEvent = true;
 	subscriptionCallback(subscriptionContext, pDbChannel, pDbFieldLog);
 }
 

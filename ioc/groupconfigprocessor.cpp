@@ -342,7 +342,18 @@ void GroupConfigProcessor::defineGroupTriggers(FieldDefinition& fieldDefinition,
 						groupName.c_str(), triggerName.c_str());
 				continue;
 			}
-			auto& index = ((FieldDefinitionMap&)groupDefinition.fieldMap)[triggerName];
+			// TODO Fixed failed index lookup - eternal shame!
+//			auto& index = ((FieldDefinitionMap&)groupDefinition.fieldMap)[triggerName];
+			int index = -1;
+			for (auto i = 0; i < groupDefinition.fields.size(); i++) {
+				if (groupDefinition.fields[i].name == triggerName) {
+					index = i;
+					break;
+				}
+			}
+			if (index == -1) {
+				continue;
+			}
 			auto& targetedField = groupDefinition.fields[index];
 
 			// And if it references a PV
@@ -431,8 +442,20 @@ void GroupConfigProcessor::initialiseGroupFields(Group& group, const GroupDefini
 	// for each field with channels
 	for (auto& fieldDefinition: groupDefinition.fields) {
 		if (!fieldDefinition.channel.empty()) {
-			// Create field in group
-			group.fields.emplace_back(fieldDefinition.name, fieldDefinition.channel);
+			try {
+				auto& existingField = group[fieldDefinition.name];
+				// Field already exists
+				if (fieldDefinition.type == "meta") {
+					// Update properties channel of existing field in group
+					existingField.setPropertiesChannel(fieldDefinition.channel);
+				} else {
+					// Update value channel of existing field in group
+					existingField.setValueChannel(fieldDefinition.channel);
+				}
+			} catch (std::exception& e) {
+				// Create field in group
+				group.fields.emplace_back(fieldDefinition.name, fieldDefinition.channel);
+			}
 		}
 	}
 }
@@ -497,8 +520,12 @@ void GroupConfigProcessor::initialiseTriggers(Group& group, const GroupDefinitio
 					// Add new trigger reference
 					field.triggers.push_back(&referencedField);
 					// Add new lock record
-					field.value.references.push_back(referencedField.value.channel->addr.precord);
-					field.properties.references.push_back(referencedField.properties.channel->addr.precord);
+					if (referencedField.value.channel) {
+						field.value.references.push_back(referencedField.value.channel->addr.precord);
+					}
+					if (referencedField.properties.channel) {
+						field.properties.references.push_back(referencedField.properties.channel->addr.precord);
+					}
 				}
 			}
 
@@ -795,7 +822,6 @@ void GroupConfigProcessor::addMembersForScalarType(std::vector<Member>& groupMem
 	setFieldTypeDefinition(groupMembers, groupField.fieldName, newScalarMembers);
 }
 
-
 /**
  * Add members to the given vector of members for a plain type field (not Normative Type), that is referenced by the
  * given group field.  The provided channel is used to get the type of the leaf member to create.
@@ -1068,10 +1094,14 @@ bool GroupConfigProcessor::yajlParseHelper(std::istream& jsonGroupDefinitionStre
  */
 void GroupConfigProcessor::initialiseDbLocker(Group& group) {
 	for (auto& field: group.fields) {
-		auto pValueChannel = (dbChannel*)field.value.channel;
-		auto pPropertiesChannel = (dbChannel*)field.properties.channel;
-		group.value.channels.push_back(pValueChannel->addr.precord);
-		group.properties.channels.push_back(pPropertiesChannel->addr.precord);
+		dbChannel* pValueChannel = field.value.channel;
+		dbChannel* pPropertiesChannel = field.properties.channel;
+		if (pValueChannel) {
+			group.value.channels.push_back(pValueChannel->addr.precord);
+		}
+		if (pPropertiesChannel) {
+			group.properties.channels.push_back(pPropertiesChannel->addr.precord);
+		}
 	}
 	group.value.lock = DBManyLock(group.value.channels);
 	group.properties.lock = DBManyLock(group.properties.channels);

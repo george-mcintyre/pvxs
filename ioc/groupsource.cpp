@@ -177,39 +177,23 @@ void GroupSource::groupGet(Group& group, const std::function<void(Value&)>& retu
 		// find the leaf node in which to set the value
 		auto leafNode = field.findIn(returnValue);
 
-		if (leafNode.valid()) {
+		if (leafNode) {
 			try {
-				if (field.isMeta) {
-					IOCSource::get((dbChannel*)field.value.channel,
-							leafNode, false, true,
-							[&leafNode](Value& value) {
-								auto alarm = value["alarm"];
-								auto timestamp = value["timestamp"];
-								auto display = value["display"];
-								auto control = value["control"];
-								auto valueAlarm = value["valueAlarm"];
-								if (alarm.valid()) {
-									leafNode["alarm"] = alarm;
-								}
-								if (timestamp.valid()) {
-									leafNode["timestamp"] = timestamp;
-								}
-								if (display.valid()) {
-									leafNode["display"] = display;
-								}
-								if (control.valid()) {
-									leafNode["control"] = control;
-								}
-								if (valueAlarm.valid()) {
-									leafNode["valueAlarm"] = valueAlarm;
-								}
-							});
-				} else if (!field.fieldName.empty()) {
-					IOCSource::get((dbChannel*)field.value.channel,
-							leafNode, true, false,
-							[&leafNode](Value& value) {
-								leafNode.assign(value);
-							});
+				// If channels are same then get both values and props
+				if (field.value.channel == field.properties.channel) {
+					// If field name is not set then only props
+					if (field.name.empty()) {
+						IOCSource::get(field.properties.channel, leafNode, false, true);
+					} else {
+						IOCSource::get(field.value.channel, leafNode, true, true);
+					}
+					// else get both values and props separately
+				} else {
+					// If field name is not set then only props
+					if (!field.name.empty()) {
+						IOCSource::get(field.value.channel, leafNode, true, false);
+					}
+					IOCSource::get(field.properties.channel, leafNode, false, true);
 				}
 			} catch (std::exception& e) {
 				std::stringstream errorString;
@@ -449,7 +433,7 @@ void GroupSource::putField(const Value& value, const Field& field, dbChannel* pD
 	auto leafNode = field.findIn(value);
 
 	// If the field references a valid part of the given value then we can send it to the database
-	if (leafNode.valid() && leafNode.isMarked()) {
+	if (leafNode && leafNode.isMarked()) {
 		SecurityLogger securityLogger;
 		IOCSource::doFieldPreProcessing(securityClient); // pre-process field
 		IOCSource::put((dbChannel*)field.value.channel, leafNode);
@@ -461,16 +445,46 @@ void GroupSource::putField(const Value& value, const Field& field, dbChannel* pD
  * to the monitor.  It is called whenever a field subscription event is received.
  *
  * @param fieldSubscriptionCtx the field subscription context
- * @param pDbChannel the channel to get the database value
- * @param eventsRemaining the number of events remaining
  * @param pDbFieldLog the database field log
  */
 void GroupSource::subscriptionCallback(FieldSubscriptionCtx* fieldSubscriptionCtx,
-		dbChannel* pDbChannel, int eventsRemaining, struct db_field_log* pDbFieldLog, bool forValues) {
-	// Make sure that the initial subscription update has occurred on all channels before continuing
-	// As we make two initial updates when opening a new subscription, for each field,
-	// we need both fields to have completed before continuing
+		dbChannel*, int, struct db_field_log* pDbFieldLog, bool forValues) {
+
+	// Find the group subscription context from the field subscription context
 	auto& pGroupCtx = fieldSubscriptionCtx->pGroupCtx;
+	// Also find the field
+	auto field = fieldSubscriptionCtx->field;
+
+	// Get the current value of this group subscription
+	// We simply merge new field changes onto this value as events occur
+	auto currentValue = pGroupCtx->currentValue;
+
+	// Lock only fields triggered by this field
+	DBManyLocker G(forValues ? field->value.lock : field->properties.lock);
+
+	// for all triggered fields get the values.  Assumes that self has been added to triggered list
+	for (auto& pTriggeredField: field->triggers) {
+		dbChannel* pFinalChannel = forValues ? pTriggeredField->value.channel : pTriggeredField->properties.channel;
+		if (!pFinalChannel) {
+			// Skip if trigger not defined for this
+			continue;
+		}
+
+		// Find leaf node within the current value.  This will be a reference into the currentValue.
+		// So that if we assign the leafNode with the value we `get()` back, then currentValue will be updated
+		auto leafNode = pTriggeredField->findIn(currentValue);
+		if (leafNode && !(pTriggeredField->isMeta && forValues)) {
+			if (pTriggeredField == field) {
+				IOCSource::get(pFinalChannel, leafNode, forValues, !forValues, pDbFieldLog);
+			} else {
+				IOCSource::get(pFinalChannel, leafNode, forValues, !forValues);
+			}
+		}
+	}
+
+	// Make sure that the initial subscription update has occurred on all channels before replying
+	// As we make two initial updates when opening a new subscription, for each field,
+	// we need all updates for all fields to have completed before continuing
 	if (!pGroupCtx->eventsPrimed) {
 		for (auto& fieldCtx: pGroupCtx->fieldSubscriptionContexts) {
 			if (!fieldCtx.hadValueEvent || !fieldCtx.hadPropertyEvent) {
@@ -480,47 +494,10 @@ void GroupSource::subscriptionCallback(FieldSubscriptionCtx* fieldSubscriptionCt
 		pGroupCtx->eventsPrimed = true;
 	}
 
-	// Get and return the value to the monitor
-	auto& group = pGroupCtx->group;
-	auto field = fieldSubscriptionCtx->field;
-	auto returnValue = group.valueTemplate.cloneEmpty();
-
-	// First time after priming we need to get all fields
-	if (pGroupCtx->firstEvent) {
-		groupGet(group, [&fieldSubscriptionCtx](Value& value) {
-			fieldSubscriptionCtx->pGroupCtx->subscriptionControl->tryPost(value);
-		}, [](const char* errorMessage) {
-			throw std::runtime_error(errorMessage);
-		});
-		pGroupCtx->firstEvent = false;
-		return;
-	}
-
-	// Lock only fields triggered by this field
-	DBManyLocker G(forValues ? field->value.lock : field->properties.lock);
-
-	// for all triggered fields get the values.  Assumes that self has been added to triggered list
-	for (auto& pTriggeredField: field->triggers) {
-		auto pFinalChannel =
-				(dbChannel*)(forValues ? pTriggeredField->value.channel : pTriggeredField->properties.channel);
-		// Find leaf node within the return value.  This will be a reference into the returnValue.
-		// So that if we assign the leafNode with the value we `get()` back, then returnValue will be updated
-		auto leafNode = pTriggeredField->findIn(returnValue);
-		if (leafNode.valid()) {
-			IOCSource::get(pFinalChannel, leafNode, forValues, !forValues,
-					[&leafNode](Value& value) {
-						if (value.valid()) {
-							leafNode.assign(value);
-						}
-					}, pDbFieldLog);
-		}
-	}
-
-	// If there are no other events remaining ...
-	if (!eventsRemaining) {
-		// Post a reply to the group subscription monitor if everything is OK
-		fieldSubscriptionCtx->pGroupCtx->subscriptionControl->tryPost(returnValue);
-	}
+	// If events have been primed then return the value to the subscriber,
+	// and unmark all accumulated changes
+	pGroupCtx->subscriptionControl->post(currentValue.clone());
+	currentValue.unmark();
 
 	// Unlock fields in group when locker goes out of scope
 }

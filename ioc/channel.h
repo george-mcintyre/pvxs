@@ -41,9 +41,11 @@ public:
 		return pDbChannel.operator bool();
 	}
 
+	Channel(Channel&&) noexcept;
+	Channel& operator=(Channel&& other) noexcept;
+
 	// Disallowed methods.  Copy and move constructors
 	Channel(const Channel&) = delete;
-	Channel(Channel&&) noexcept;
 	const std::shared_ptr<dbChannel>& shared_ptr() const {
 		return pDbChannel;
 	};

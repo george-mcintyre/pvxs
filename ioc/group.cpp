@@ -79,7 +79,6 @@ Field& Group::operator[](const std::string& fieldName) {
 	if (foundField == fields.end()) {
 		std::ostringstream fileNameStream;
 		fileNameStream << "field not found in group: \"" << fieldName << "\"";
-
 		throw std::logic_error(fileNameStream.str());
 	};
 

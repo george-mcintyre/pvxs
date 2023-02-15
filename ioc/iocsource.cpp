@@ -38,10 +38,9 @@ namespace ioc {
  * @param valuePrototype the value prototype to use to determine the shape of the data
  * @param forValues the flag to denote that value is to be retrieved from the database
  * @param forProperties the flag to denote that properties are to be retrieved from the database
- * @param returnFn the function to call when the data has been retrieved
  */
 void IOCSource::get(dbChannel* pDbChannel, const Value& valuePrototype, const bool forValues, const bool forProperties,
-		const std::function<void(Value&)>& returnFn, db_field_log* pDbFieldLog) {
+		db_field_log* pDbFieldLog) {
 	// Assumes this is the leaf node in a group, or is a simple db record.field reference
 	Value value = valuePrototype; // The value that will be returned, if compound then metadata is set here
 	Value valueTarget = valuePrototype; // The part of value that will be retrieved from the database value field
@@ -65,6 +64,7 @@ void IOCSource::get(dbChannel* pDbChannel, const Value& valuePrototype, const bo
 	if (isCompound && forProperties) {
 		options |= IOC_PROPERTIES_OPTIONS;
 	}
+
 	if (!forValues && !forProperties) {
 		throw std::runtime_error("call to `get` but neither values nor properties requested");
 	}
@@ -74,9 +74,6 @@ void IOCSource::get(dbChannel* pDbChannel, const Value& valuePrototype, const bo
 	} else {
 		getArray(pDbChannel, value, valueTarget, options, pDbFieldLog, forValues);
 	}
-
-	// Send reply
-	returnFn(value);
 }
 
 /**
