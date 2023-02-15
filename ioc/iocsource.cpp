@@ -397,7 +397,7 @@ void IOCSource::setValueInBuffer(const Value& valueSource, char* pValueBuffer, l
 	auto valueType(valueSource.type());
 	if (valueType == TypeCode::StringA) {
 		auto sharedValueArray = valueSource.as<shared_array<const Value>>();
-		for (auto i = 0; i < sharedValueArray.size(); i++, pValueBuffer += MAX_STRING_SIZE) {
+                for (auto i = 0u; i < sharedValueArray.size(); i++, pValueBuffer += MAX_STRING_SIZE) {
 			setStringValueInBuffer(sharedValueArray[i], pValueBuffer);
 		}
 	} else {

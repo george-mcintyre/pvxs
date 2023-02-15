@@ -345,7 +345,7 @@ void GroupConfigProcessor::defineGroupTriggers(FieldDefinition& fieldDefinition,
 			// TODO Fixed failed index lookup - eternal shame!
 //			auto& index = ((FieldDefinitionMap&)groupDefinition.fieldMap)[triggerName];
 			int index = -1;
-			for (auto i = 0; i < groupDefinition.fields.size(); i++) {
+                        for (auto i = 0u; i < groupDefinition.fields.size(); i++) {
 				if (groupDefinition.fields[i].name == triggerName) {
 					index = i;
 					break;

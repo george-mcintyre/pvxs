@@ -330,9 +330,9 @@ static void pvxsTestIocShutdownOk() {
 	}
 }
 
-static void testDbLoadGroupOk(const char* file) {
-	testOk(!pvxs::ioc::dbLoadGroup(file), "%s scheduled to be loaded during IocInit()", file);
-}
+//static void testDbLoadGroupOk(const char* file) {
+//	testOk(!pvxs::ioc::dbLoadGroup(file), "%s scheduled to be loaded during IocInit()", file);
+//}
 
 static void boxLeft() {
 }
