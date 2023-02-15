@@ -121,6 +121,16 @@ static std::initializer_list<void (*)()> tests = {
 			testArrEqB(arrayExample, expected);
 		},
 		[]() {
+			shared_array<double> array({});
+			testdbPutArrFieldOkB("test:arrayExample", DBR_DOUBLE, array.size(), array.data());
+		},
+		[]() {
+			auto val = clientContext.get("test:arrayExample").exec()->wait(5.0);
+			shared_array<double> expected({});
+			auto arrayExample = val["value"].as<shared_array<const double>>();
+			testArrEqB(arrayExample, expected);
+		},
+		[]() {
 			shared_array<double> array({ 1.0, 2.0, 3.0, 4.0, 5.0 });
 			testdbPutArrFieldOkB("test:arrayExample", DBR_DOUBLE, array.size(), array.data());
 		},
@@ -217,6 +227,16 @@ static std::initializer_list<void (*)()> tests = {
 					{ 't', 'e', 's', 't', ':', 'a', 'i', 'E', 'x', 'a', 'm', 'p', 'l', 'e', '\0' });
 			clientContext.put("test:calcExample.FLNK$").set("value", arrayLinkVal).exec()->wait(5.0);
 			testdbGetFieldEqualB("test:calcExample.FLNK", DBR_STRING, "test:aiExample");
+		},
+		[]() {
+			shared_array<const uint16_t> expected({});
+			clientContext.put("tst:Array").build([&expected](Value&& prototype) -> Value {
+						auto putval = prototype.cloneEmpty();
+						putval["value"] = expected;
+						return putval;
+					})
+					.exec()->wait(5.0);
+			testdbGetArrFieldEqualB("tst:ArrayData", DBR_USHORT, 0, expected.size(), expected.data());
 		},
 		[]() {
 			shared_array<const uint16_t> expected({ 1, 2, 3, 4, 5 });
