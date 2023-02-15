@@ -39,18 +39,19 @@ namespace ioc {
  * @param forValues the flag to denote that value is to be retrieved from the database
  * @param forProperties the flag to denote that properties are to be retrieved from the database
  */
-void IOCSource::get(dbChannel* pDbChannel, const Value& valuePrototype, const bool forValues, const bool forProperties,
+void IOCSource::get(dbChannel* pDbChannel, Value& valuePrototype, const bool forValues, const bool forProperties,
 		db_field_log* pDbFieldLog) {
 	// Assumes this is the leaf node in a group, or is a simple db record.field reference
 	Value value = valuePrototype; // The value that will be returned, if compound then metadata is set here
 	Value valueTarget = valuePrototype; // The part of value that will be retrieved from the database value field
 	bool isCompound = false;
-	if (value.type() == TypeCode::Any) {
+	if (forValues && value.type() == TypeCode::Any) {
 		auto type = fromDbrType(pDbChannel->final_type);
 		if (pDbChannel->final_no_elements != 1) {
 			type = type.arrayOf();
 		}
 		value = valueTarget = TypeDef(type).create();
+		valuePrototype.from(value);
 	} else if (auto targetCandidate = value["value"]) {
 		isCompound = true;
 		valueTarget = targetCandidate;
@@ -99,7 +100,6 @@ void IOCSource::getScalar(dbChannel* pDbChannel, Value& value, Value& valueTarge
 	}
 	// Get metadata from buffer if any have been requested
 	getMetadata(value, pValueBuffer, requestedOptions, actualOptions);
-
 	if (forValue) {
 		if (pDbChannel->final_type == DBR_ENUM && valueTarget.type() == TypeCode::Struct) {
 			valueTarget["index"] = *(uint16_t*)(pValueBuffer);
