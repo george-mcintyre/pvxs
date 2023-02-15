@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "fielddefinition.h"
+#include "typeutils.h"
 
 namespace pvxs {
 namespace ioc {
@@ -24,15 +25,6 @@ namespace ioc {
  * channel trigger map, maps field name to set of related field it is triggered by
  */
 typedef std::map<std::string, TriggerNames> FieldTriggerMap;
-
-/**
- * Tristate value for status flags
- */
-typedef enum {
-	Unset,
-	True,
-	False
-} TriState;
 
 /**
  * A Group PV

@@ -13,8 +13,10 @@
 #include <vector>
 #include <asLib.h>
 #include <dbChannel.h>
+#include <dbNotify.h>
 
 #include "credentials.h"
+#include "typeutils.h"
 
 namespace pvxs {
 namespace ioc {
@@ -27,16 +29,43 @@ public:
 	bool canWrite() const;
 };
 
-struct GroupSecurityCache {
+/**
+ * Security objects that can be controlled, as "done" or "not done"
+ */
+class SecurityControlObject {
+public:
 	bool done = false;
+};
+
+/**
+ * group security cache - for storing group security credentials and clients
+ */
+class GroupSecurityCache : public SecurityControlObject {
+public:
 	std::vector<SecurityClient> securityClients;
 	std::unique_ptr<Credentials> credentials;
 };
 
-struct SecurityCache {
-	bool done = false;
+/**
+ * sing security cache - for storing single a source security credential and client
+ */
+class SingleSecurityCache : public SecurityControlObject {
+public:
 	SecurityClient securityClient;
 	std::unique_ptr<Credentials> credentials;
+};
+
+/**
+ * The put operation cache for caching information about the current client put connection
+ * Includes a single security cache as well as information pertaining to asynchronous put operations
+ */
+struct PutOperationCache : public SingleSecurityCache {
+	bool doWait{ false };
+	TriState forceProcessing{ Unset };
+	processNotify notify{};
+	Value valueToSet;
+	std::unique_ptr<server::ExecOp> putOperation;
+	~PutOperationCache();
 };
 
 } // pvxs

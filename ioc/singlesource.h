@@ -10,6 +10,8 @@
 #ifndef PVXS_SINGLESOURCE_H
 #define PVXS_SINGLESOURCE_H
 
+#include <dbNotify.h>
+
 #include "dbeventcontextdeleter.h"
 #include "metadata.h"
 #include "singlesrcsubscriptionctx.h"
@@ -40,7 +42,7 @@ private:
 	void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>&& channelControl,
 			const std::shared_ptr<dbChannel>& dbChannelSharedPtr);
 	// Handles all get, put and subscribe requests
-	static void onOp(const std::shared_ptr<dbChannel>& dbChannelSharedPtr, const Value& valuePrototype,
+	static void onOp(const std::shared_ptr<dbChannel>& forceProcessingOption, const Value& valuePrototype,
 			std::unique_ptr<server::ConnectOp>&& channelConnectOperation);
 	// Helper function to create a value prototype for the given channel
 	static Value getValuePrototype(const std::shared_ptr<dbChannel>& dbChannelSharedPtr);
@@ -73,8 +75,10 @@ private:
 	void onSubscribe(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext,
 			std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) const;
 	// Called when a client starts or stops a subscription. isStarting flag determines which
-	static void onStart(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext, bool isStarting) ;
+	static void onStart(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext, bool isStarting);
 
+	static int putCallback(processNotify* notify, notifyPutType type);
+	static void doneCallback(processNotify* notify);
 };
 
 } // ioc

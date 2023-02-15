@@ -38,6 +38,7 @@ SecurityClient::~SecurityClient() {
 		asRemoveClient(&asc);
 	}
 }
+
 bool SecurityClient::canWrite() const {
 	for (auto asc: cli) {
 		if (!asCheckPut(asc)) {
@@ -45,6 +46,13 @@ bool SecurityClient::canWrite() const {
 		};
 	}
 	return true;
+}
+
+PutOperationCache::~PutOperationCache() {
+	// To avoid bug epics-base: unchecked access to notify.chan
+	if (notify.chan) {
+		dbNotifyCancel(&notify);
+	}
 }
 } // pvxs
 } // ioc

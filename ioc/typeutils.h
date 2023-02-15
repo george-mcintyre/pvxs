@@ -54,6 +54,17 @@ namespace pvxs {
 TypeCode fromDbfType(dbfType dbfType);
 TypeCode fromDbrType(short dbrType);
 
-}
+namespace ioc {
 
+/**
+ * Tristate value for status flags
+ */
+typedef enum {
+	Unset,
+	True,
+	False
+} TriState;
+
+}
+}
 #endif //PVXS_TYPEUTILS_H

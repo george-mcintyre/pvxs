@@ -21,6 +21,7 @@
 #include <pvxs/log.h>
 #include <pvxs/nt.h>
 #include <pvxs/source.h>
+#include <dbNotify.h>
 
 #include "dbentry.h"
 #include "dberrormessage.h"
@@ -31,6 +32,7 @@
 #include "credentials.h"
 #include "securitylogger.h"
 #include "securityclient.h"
+#include "typeutils.h"
 
 namespace pvxs {
 namespace ioc {
@@ -227,30 +229,60 @@ void SingleSource::onOp(const std::shared_ptr<dbChannel>& dbChannelSharedPtr, co
 	// Make a security cache for this client's connection to this pv
 	// Each time the same client calls put we will re-use the cached security client
 	// The security cache will be deleted when the client disconnects from this pv
-	auto securityCache = std::make_shared<SecurityCache>();
+	auto putOperationCache = std::make_shared<PutOperationCache>();
 
 	// Set up handler for put requests
 	channelConnectOperation
-			->onPut([dbChannelSharedPtr, valuePrototype, securityCache](std::unique_ptr<server::ExecOp>&& putOperation,
+			->onPut([dbChannelSharedPtr, valuePrototype, putOperationCache](
+					std::unique_ptr<server::ExecOp>&& putOperation,
 					Value&& value) {
 				try {
 					auto pDbChannel = dbChannelSharedPtr.get();
-					if (!securityCache->done) {
-						securityCache->credentials.reset(new Credentials(*putOperation->credentials()));
-						securityCache->securityClient.update(pDbChannel, *securityCache->credentials);
-						securityCache->done = true;
+					if (!putOperationCache->done) {
+						putOperationCache->credentials.reset(new Credentials(*putOperation->credentials()));
+						putOperationCache->securityClient.update(pDbChannel, *putOperationCache->credentials);
+						putOperationCache->notify.usrPvt = putOperationCache.get();
+						putOperationCache->notify.chan = pDbChannel;
+						putOperationCache->notify.putCallback = putCallback;
+						putOperationCache->notify.doneCallback = doneCallback;
+
+						auto& pvRequest = putOperation->pvRequest();
+						pvRequest["record._options.block"].as<bool>(putOperationCache->doWait);
+						pvRequest["record._options.process"]
+								.as<std::string>([&putOperationCache](const std::string& forceProcessingOption) {
+									if (forceProcessingOption == "true") {
+										putOperationCache->forceProcessing = True;
+									} else if (forceProcessingOption == "false") {
+										putOperationCache->forceProcessing = False;
+										putOperationCache->doWait = false; // no point in waiting
+									}
+								});
+						putOperationCache->done = true;
 					}
 
 					SecurityLogger securityLogger;
 
 					IOCSource::doPreProcessing(pDbChannel,
 							securityLogger,
-							*securityCache->credentials,
-							securityCache->securityClient); // pre-process
-					IOCSource::doFieldPreProcessing(securityCache->securityClient); // pre-process field
-					if (dbChannelFieldType(pDbChannel) >= DBF_INLINK && dbChannelFieldType(pDbChannel) <= DBF_FWDLINK) {
+							*putOperationCache->credentials,
+							putOperationCache->securityClient); // pre-process
+					IOCSource::doFieldPreProcessing(putOperationCache->securityClient); // pre-process field
+					if (putOperationCache->doWait) {
+						putOperationCache->valueToSet = value;
+						// TODO prevent concurrent put with callbacks (notifyBusy)
+
+						putOperationCache->notify.requestType = value["value"].isMarked() ? putProcessRequest
+						                                                                  : processRequest;
+						putOperationCache->putOperation = std::move(putOperation);
+						std::cout << "calling dbProcessNotify()" << std::endl;
+						dbProcessNotify(&putOperationCache->notify);
+						return;
+					} else if (dbChannelFieldType(pDbChannel) >= DBF_INLINK
+							&& dbChannelFieldType(pDbChannel) <= DBF_FWDLINK) {
+						// Locking is handled by dbPutField() called as a special case in IOCSource::put() for links
 						IOCSource::put(pDbChannel, value); // put
 					} else {
+						// All other field types call dbChannelPut() directly, so we have to perform locking here
 						DBLocker F(pDbChannel->addr.precord); // lock
 						IOCSource::put(pDbChannel, value); // put
 						IOCSource::doPostProcessing(pDbChannel); // post-process
@@ -260,6 +292,69 @@ void SingleSource::onOp(const std::shared_ptr<dbChannel>& dbChannelSharedPtr, co
 					putOperation->error(e.what());
 				}
 			});
+}
+
+/**
+ * Callback for asynchronous put operations to handle the actual put value operation
+ *
+ * @param notify the process notify object to use
+ * @param type the put notification type
+ * @return 1 for success and 0 for errors
+ */
+int SingleSource::putCallback(struct processNotify* notify, notifyPutType type) {
+	if (notify->status != notifyOK) {
+		return 0;
+	}
+
+	auto pPutOperationCache = (PutOperationCache*)notify->usrPvt;
+	auto valueToSet = std::move(pPutOperationCache->valueToSet);
+
+	switch (type) {
+	case putDisabledType:
+		// Request has been made but the record has been disabled, so noop and only call done callback
+		return 0;
+	case putFieldType:
+		// As this type will be only called for Links the IOCSource::put() will handle the locking as a special case
+	case putType:
+		// For this type, the caller has already locked the record, so we'll not lock either
+		IOCSource::put(pPutOperationCache->notify.chan, valueToSet); // put
+		break;
+	}
+	return 1;
+}
+
+/**
+ * Callback when asynchronous put's are complete
+ *
+ * @param notify the process notify object to use
+ */
+void SingleSource::doneCallback(struct processNotify* notify) {
+	// Get our put operation cache object from the user pointer
+	auto pPutOperationCache = (PutOperationCache*)notify->usrPvt;
+
+	// Get the cached putOperation controller
+	auto putOperation = std::move(pPutOperationCache->putOperation);
+
+	// TODO handle cancelled requests
+//	int expected = 1;
+//	if (std::atomic_compare_exchange_weak(&pPutOperationCache->notifyBusy, &expected, 0) == 0) {
+//		std::cerr << "SinglePut dbNotify state error?\n";
+//	}
+
+	switch (notify->status) {
+	case notifyOK:
+		// If everything is ok then notify the caller
+		putOperation->reply();
+		break;
+	case notifyCanceled:
+		return; // skip notification
+	case notifyError:
+		putOperation->error("Error in dbNotify");
+		break;
+	case notifyPutDisabled:
+		putOperation->error("Put disabled");
+		break;
+	}
 }
 
 /**
