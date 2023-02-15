@@ -23,19 +23,21 @@
 #define FOR_VALUES true
 #define FOR_PROPERTIES false
 
+struct AllMetadataSize {
+    DBRstatus
+    DBRamsg
+    DBRunits
+    DBRprecision
+    DBRtime
+    DBRutag
+    DBRenumStrs
+    DBRgrDouble
+    DBRctrlDouble
+    DBRalDouble
+};
+
 // Maximum amount of space that metadata can use in the buffer returned by dbGetField()
-#define MAX_METADATA_SIZE (\
-    dbr_status_size + \
-    dbr_units_size + \
-    dbr_precision_size + \
-    dbr_time_size + \
-    dbr_enumStrs_size + \
-    dbr_grLong_size + \
-    dbr_grDouble_size + \
-    dbr_ctrlLong_size + \
-    dbr_ctrlDouble_size + \
-    dbr_alLong_size + \
-    dbr_alDouble_size )
+#define MAX_METADATA_SIZE sizeof(AllMetadataSize)
 
 namespace pvxs {
 namespace ioc {
