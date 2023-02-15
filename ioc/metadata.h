@@ -21,8 +21,7 @@
     DBR_STATUS | \
     DBR_AMSG | \
     DBR_TIME | \
-    DBR_UTAG | \
-    DBR_ENUM_STRS)
+    DBR_UTAG )
 
 // Options when retrieving metadata for properties
 #define IOC_PROPERTIES_OPTIONS ( \
@@ -30,6 +29,7 @@
     DBR_PRECISION | \
     DBR_TIME | \
     DBR_UTAG | \
+    DBR_ENUM_STRS| \
     DBR_GR_DOUBLE | \
     DBR_CTRL_DOUBLE | \
     DBR_AL_DOUBLE)
