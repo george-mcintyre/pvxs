@@ -296,7 +296,7 @@ void GroupSource::onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>&
 
 		// Two subscription are made for each group channel for pvxs
 		fieldSubscriptionContext
-				.subscribeField(eventContext.get(), subscriptionValueCallback, DBE_VALUE | DBE_ALARM);
+				.subscribeField(eventContext.get(), subscriptionValueCallback, DBE_VALUE | DBE_ALARM | DBE_ARCHIVE);
 		fieldSubscriptionContext
 				.subscribeField(eventContext.get(), subscriptionPropertiesCallback, DBE_PROPERTY, false);
 	}

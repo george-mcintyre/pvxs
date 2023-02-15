@@ -390,7 +390,7 @@ void SingleSource::onSubscribe(const std::shared_ptr<SingleSourceSubscriptionCtx
 
 	// Two subscription are made for pvxs
 	// first subscription is for Value changes
-	addSubscriptionEvent(Value, eventContext, subscriptionContext, DBE_VALUE | DBE_ALARM);
+	addSubscriptionEvent(Value, eventContext, subscriptionContext, DBE_VALUE | DBE_ALARM | DBE_ARCHIVE);
 	// second subscription is for Property changes
 	addSubscriptionEvent(Properties, eventContext, subscriptionContext, DBE_PROPERTY);
 
