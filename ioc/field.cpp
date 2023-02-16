@@ -25,8 +25,9 @@ ChannelAndLock::ChannelAndLock(const std::string& stringChannelName)
  * @param stringFieldName the field name
  * @param stringChannelName the channel name
  */
-Field::Field(const std::string& stringFieldName, const std::string& stringChannelName)
-		:fieldName(stringFieldName), isMeta(false), allowProc(false), isArray(false), value(stringChannelName),
+Field::Field(const std::string& stringFieldName, const std::string& stringChannelName, std::string id)
+		:id(std::move(id)), fieldName(stringFieldName), isMeta(false), allowProc(false), isArray(false),
+		 value(stringChannelName),
 		 properties(stringChannelName) {
 	if (!fieldName.fieldNameComponents.empty()) {
 		name = fieldName.fieldNameComponents[0].name;

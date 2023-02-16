@@ -424,9 +424,9 @@ void GroupConfigProcessor::initialiseGroupFields(Group& group, const GroupDefini
 	// Reserve enough space for fields with channels
 	group.fields.reserve(groupDefinition.fields.size());
 
-	// for each field with channels
+	// for each field
 	for (auto& fieldDefinition: groupDefinition.fields) {
-		group.fields.emplace_back(fieldDefinition.name, fieldDefinition.channel);
+		group.fields.emplace_back(fieldDefinition.name, fieldDefinition.channel, fieldDefinition.structureId);
 	}
 }
 

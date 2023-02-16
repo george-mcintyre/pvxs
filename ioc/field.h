@@ -50,7 +50,7 @@ public:
 	ChannelAndLock properties;
 	Triggers triggers;          // reference to the fields that are triggered by this field during subscriptions
 
-	Field(const std::string& stringFieldName, const std::string& stringChannelName);
+	Field(const std::string& stringFieldName, const std::string& stringChannelName, std::string id);
 	Value findIn(Value valueTarget) const;
 };
 
