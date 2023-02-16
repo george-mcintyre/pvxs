@@ -518,7 +518,7 @@ void GroupConfigProcessor::addTemplatesForDefinedFields(std::vector<Member>& gro
 	for (auto& fieldDefinition: groupDefinition.fields) {
 		auto& field = group[fieldDefinition.name];
 		if (fieldDefinition.channel.empty()) {
-			// TODO set structure id for fields that don't have a channel
+			addMembersForId(groupMembers, field);
 		} else {
 			auto& type = fieldDefinition.type;
 
@@ -847,6 +847,23 @@ void GroupConfigProcessor::addMembersForStructureType(std::vector<Member>& group
 
 	// Add ID to the group members at the position determined by group field name
 	setFieldTypeDefinition(groupMembers, groupField.fieldName, newIdMembers);
+}
+
+/**
+ * Add metadata fields to the prescribed subfield (or top level) by adding the appropriate members to the
+ * given members list.
+ *
+ * @param groupMembers the given group members to update
+ * @param groupField the group field used to determine the members to add and how to create them
+ */
+void GroupConfigProcessor::addMembersForId(std::vector<Member>& groupMembers, const Field& groupField) {
+	using namespace pvxs::members;
+	std::vector<Member> newMetaMembers({
+			Struct(groupField.name, groupField.id, {}),
+	});
+
+	// Add metadata to the group members at the position determined by group field name
+	setFieldTypeDefinition(groupMembers, groupField.fieldName, newMetaMembers);
 }
 
 /**
