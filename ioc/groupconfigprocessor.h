@@ -70,7 +70,7 @@ public:
 	void loadConfigFromDb();
 	void resolveTriggerReferences();
 	static void setFieldTypeDefinition(std::vector<Member>& groupMembers, const FieldName& fieldName,
-			const std::vector<Member>& leafMembers);
+			const std::vector<Member>& leafMembers, bool isLeaf = true);
 	static int yajlProcess(void* parserContext, const std::function<int(GroupProcessorContext*)>& pFunction);
 
 private:

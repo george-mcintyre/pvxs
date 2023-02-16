@@ -41,7 +41,8 @@ record(waveform, "$(N):ArrayData") {
             "value":{+type:"any",
                      +channel:"VAL",
                      +trigger:"*"},
-            "":{+type:"meta", +channel:"SEVR"}
+            "":{+type:"meta", +channel:"SEVR"},
+            "x":{+type:"meta", +channel:"SEVR"}
         }
     })
 }
@@ -71,6 +72,20 @@ record(mbbi, "$(N):ColorMode") {
     info(Q:group, {
         "$(N):Array":{
             "attribute[0].value":{+type:"any", +channel:"VAL"}
+        }
+    })
+}
+
+record(bo, "$(N):extra") {
+    field(ZNAM, "foo")
+    field(ONAM, "bar")
+    info(Q:group, {
+        "$(N):Array":{
+            "attribute[1].value":{+type:"any",
+                                  +channel:"VAL",
+                                  +putorder:0,
+                                  +trigger:"attribute[1].value"},
+            "attribute[1]":{+type:"meta", +channel:"SEVR"}
         }
     })
 }

@@ -29,9 +29,15 @@ Field::Field(const std::string& stringFieldName, const std::string& stringChanne
 		:id(std::move(id)), fieldName(stringFieldName), isMeta(false), allowProc(false), isArray(false),
 		 value(stringChannelName),
 		 properties(stringChannelName) {
+
 	if (!fieldName.fieldNameComponents.empty()) {
 		name = fieldName.fieldNameComponents[0].name;
 		fullName = std::string(fieldName.to_string());
+
+		if (fieldName.fieldNameComponents[fieldName.fieldNameComponents.size() - 1].isArray()) {
+			isArray = true;
+		}
+
 	}
 }
 

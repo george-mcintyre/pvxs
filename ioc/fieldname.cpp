@@ -64,12 +64,6 @@ FieldName::FieldName(const std::string& fieldName) {
 		if (fieldNameComponents.empty()) {
 			throw std::runtime_error("Empty field name");
 		}
-
-		// If the field name ends in an array reference then it's an error.  e.g. a.b[1] is not allowed,
-		// whereas a.b[1].c is allowed.
-		if (fieldNameComponents.back().isArray()) {
-			throw std::runtime_error("leaf field may not have sub-script : " + fieldName);
-		}
 	}
 }
 

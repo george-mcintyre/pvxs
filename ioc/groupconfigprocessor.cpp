@@ -885,7 +885,7 @@ void GroupConfigProcessor::addMembersForMetaData(std::vector<Member>& groupMembe
 	});
 
 	// Add metadata to the group members at the position determined by group field name
-	setFieldTypeDefinition(groupMembers, groupField.fieldName, newMetaMembers);
+	setFieldTypeDefinition(groupMembers, groupField.fieldName, newMetaMembers, false);
 }
 
 TypeDef GroupConfigProcessor::getTypeDefForChannel(const dbChannel* pDbChannel) {// Get the type for the leaf
@@ -930,9 +930,8 @@ TypeDef GroupConfigProcessor::getTypeDefForChannel(const dbChannel* pDbChannel) 
  * @param fieldName The field name to use to determine how to create the members
  * @param leafMembers the leaf member or members to place at the leaf of the members tree
  */
-void GroupConfigProcessor::setFieldTypeDefinition(std::vector<Member>& groupMembers,
-		const FieldName& fieldName,
-		const std::vector<Member>& leafMembers) {
+void GroupConfigProcessor::setFieldTypeDefinition(std::vector<Member>& groupMembers, const FieldName& fieldName,
+		const std::vector<Member>& leafMembers, bool isLeaf) {
 	using namespace pvxs::members;
 
 	// Make up the full structure starting from the leaf
@@ -940,8 +939,12 @@ void GroupConfigProcessor::setFieldTypeDefinition(std::vector<Member>& groupMemb
 		// Add all the members (or just one) to the list of group members
 		groupMembers.insert(groupMembers.end(), leafMembers.begin(), leafMembers.end());
 	} else {
-		auto isLeaf = true;
 		std::vector<Member> childrenToAdd;
+
+		if (!isLeaf) {
+			childrenToAdd = leafMembers;
+		}
+
 		for (auto componentNumber = fieldName.size(); componentNumber > 0; componentNumber--) {
 			const auto& component = fieldName[componentNumber - 1];
 
