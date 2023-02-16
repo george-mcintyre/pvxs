@@ -38,20 +38,26 @@ void Group::show(int level) const {
 	if (level > 1) {
 		if (!fields.empty()) {
 			for (auto& field: fields) {
-				printf("    ");
-				std::string suffix;
-				if (field.isMeta) {
-					suffix = "<meta>";
-				} else if (field.allowProc) {
-					suffix = "<proc>";
-				} else if (!field.value.channel) {
+				if (!field.id.empty()) {
+					std::string suffix;
+					printf("    ");
 					suffix = "<id>";
-				}
-				field.fieldName.show(suffix);
-				if (field.value.channel) {
-					printf(" <-> %s\n", dbChannelName(field.value.channel));
-				} else {
+					field.fieldName.show(suffix);
 					printf(" <-> \"%s\"\n", field.id.c_str());
+				}
+
+				if (field.value.channel) {
+					printf("    ");
+					std::string suffix;
+					if (field.isMeta) {
+						suffix = "<meta>";
+					} else if (field.allowProc) {
+						suffix = "<proc>";
+					}
+					field.fieldName.show(suffix);
+					if (field.value.channel) {
+						printf(" <-> %s\n", dbChannelName(field.value.channel));
+					}
 				}
 			}
 		}
