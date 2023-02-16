@@ -13,6 +13,7 @@
 #include <dbNotify.h>
 
 #include "dbeventcontextdeleter.h"
+#include "iocsource.h"
 #include "metadata.h"
 #include "singlesrcsubscriptionctx.h"
 
@@ -65,7 +66,7 @@ private:
 			db_field_log* pDbFieldLog);
 	// General subscriptions callback
 	static void
-	subscriptionCallback(SingleSourceSubscriptionCtx* subscriptionCtx, struct dbChannel* pTriggeringDbChannel,
+	subscriptionCallback(SingleSourceSubscriptionCtx* subscriptionCtx, GetOperationType getOperationType,
 			struct db_field_log* pDbFieldLog);
 	// Called by onStart() when a client pauses / stops a subscription it has been subscribed to
 	static void onDisableSubscription(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext);

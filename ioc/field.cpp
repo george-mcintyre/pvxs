@@ -34,13 +34,6 @@ Field::Field(const std::string& stringFieldName, const std::string& stringChanne
 	}
 }
 
-void Field::setValueChannel(const std::string& channelName) {
-	value.channel = Channel(channelName);
-}
-
-void Field::setPropertiesChannel(const std::string& channelName) {
-	properties.channel = Channel(channelName);
-}
 /**
  * Using the field components configured in this Field, walk down from the given value,
  * to arrive at the part of the value referenced by this field.

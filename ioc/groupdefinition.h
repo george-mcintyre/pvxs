@@ -43,7 +43,6 @@ public:
 
 	GroupDefinition() = default;
 	virtual ~GroupDefinition() = default;
-	size_t channelCount() const;
 };
 
 // A map of group name to GroupPv

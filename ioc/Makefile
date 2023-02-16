@@ -44,7 +44,6 @@ pvxsIoc_SRCS += fieldnamecomponent.cpp
 pvxsIoc_SRCS += fieldsubscriptionctx.cpp
 pvxsIoc_SRCS += group.cpp
 pvxsIoc_SRCS += groupconfigprocessor.cpp
-pvxsIoc_SRCS += groupdefinition.cpp
 pvxsIoc_SRCS += groupprocessorcontext.cpp
 pvxsIoc_SRCS += groupsource.cpp
 pvxsIoc_SRCS += groupsourcehooks.cpp

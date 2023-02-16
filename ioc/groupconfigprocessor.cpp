@@ -190,14 +190,9 @@ void GroupConfigProcessor::defineFieldSortOrder() {
 		std::sort(groupDefinition.fields.begin(), groupDefinition.fields.end());
 		groupDefinition.fieldMap.clear();
 
-		// Indexes are to be copied to the final group structure, so they must skip fields that will be skipped in the
-		// final group
 		auto groupFieldIndex = 0;
 		for (auto& fieldDefinition: groupDefinition.fields) {
-			groupDefinition.fieldMap[fieldDefinition.name] = groupFieldIndex;
-			if (!fieldDefinition.name.empty()) {
-				groupFieldIndex++;
-			}
+			groupDefinition.fieldMap[fieldDefinition.name] = groupFieldIndex++;
 		}
 	}
 }
@@ -342,19 +337,9 @@ void GroupConfigProcessor::defineGroupTriggers(FieldDefinition& fieldDefinition,
 						groupName.c_str(), triggerName.c_str());
 				continue;
 			}
-			// TODO Fixed failed index lookup - eternal shame!
-//			auto& index = ((FieldDefinitionMap&)groupDefinition.fieldMap)[triggerName];
-			int index = -1;
-                        for (auto i = 0u; i < groupDefinition.fields.size(); i++) {
-				if (groupDefinition.fields[i].name == triggerName) {
-					index = i;
-					break;
-				}
-			}
-			if (index == -1) {
-				continue;
-			}
+			auto& index = ((FieldDefinitionMap&)groupDefinition.fieldMap)[triggerName];
 			auto& targetedField = groupDefinition.fields[index];
+			assert(targetedField.name == triggerName);
 
 			// And if it references a PV
 			if (targetedField.channel.empty()) {
@@ -437,26 +422,11 @@ void GroupConfigProcessor::createGroups() {
  */
 void GroupConfigProcessor::initialiseGroupFields(Group& group, const GroupDefinition& groupDefinition) {
 	// Reserve enough space for fields with channels
-	group.fields.reserve(groupDefinition.channelCount());
+	group.fields.reserve(groupDefinition.fields.size());
 
 	// for each field with channels
 	for (auto& fieldDefinition: groupDefinition.fields) {
-		if (!fieldDefinition.channel.empty()) {
-			try {
-				auto& existingField = group[fieldDefinition.name];
-				// Field already exists
-				if (fieldDefinition.type == "meta") {
-					// Update properties channel of existing field in group
-					existingField.setPropertiesChannel(fieldDefinition.channel);
-				} else {
-					// Update value channel of existing field in group
-					existingField.setValueChannel(fieldDefinition.channel);
-				}
-			} catch (std::exception& e) {
-				// Create field in group
-				group.fields.emplace_back(fieldDefinition.name, fieldDefinition.channel);
-			}
-		}
+		group.fields.emplace_back(fieldDefinition.name, fieldDefinition.channel);
 	}
 }
 
@@ -518,13 +488,13 @@ void GroupConfigProcessor::initialiseTriggers(Group& group, const GroupDefinitio
 					auto& referencedFieldIndex = referencedFieldIt->second;
 					auto& referencedField = group.fields[referencedFieldIndex];
 					// Add new trigger reference
-					field.triggers.push_back(&referencedField);
+					field.triggers.emplace_back(&referencedField);
 					// Add new lock record
 					if (referencedField.value.channel) {
-						field.value.references.push_back(referencedField.value.channel->addr.precord);
+						field.value.references.emplace_back(referencedField.value.channel->addr.precord);
 					}
 					if (referencedField.properties.channel) {
-						field.properties.references.push_back(referencedField.properties.channel->addr.precord);
+						field.properties.references.emplace_back(referencedField.properties.channel->addr.precord);
 					}
 				}
 			}
@@ -546,8 +516,10 @@ void GroupConfigProcessor::initialiseTriggers(Group& group, const GroupDefinitio
 void GroupConfigProcessor::addTemplatesForDefinedFields(std::vector<Member>& groupMembers, Group& group,
 		const GroupDefinition& groupDefinition) {
 	for (auto& fieldDefinition: groupDefinition.fields) {
-		if (!fieldDefinition.channel.empty()) {
-			auto& field = group[fieldDefinition.name];
+		auto& field = group[fieldDefinition.name];
+		if (fieldDefinition.channel.empty()) {
+			// TODO set structure id for fields that don't have a channel
+		} else {
 			auto& type = fieldDefinition.type;
 
 			auto pDbChannel = (dbChannel*)field.value.channel;
@@ -1097,10 +1069,10 @@ void GroupConfigProcessor::initialiseDbLocker(Group& group) {
 		dbChannel* pValueChannel = field.value.channel;
 		dbChannel* pPropertiesChannel = field.properties.channel;
 		if (pValueChannel) {
-			group.value.channels.push_back(pValueChannel->addr.precord);
+			group.value.channels.emplace_back(pValueChannel->addr.precord);
 		}
 		if (pPropertiesChannel) {
-			group.properties.channels.push_back(pPropertiesChannel->addr.precord);
+			group.properties.channels.emplace_back(pPropertiesChannel->addr.precord);
 		}
 	}
 	group.value.lock = DBManyLock(group.value.channels);

@@ -189,7 +189,7 @@ void SingleSource::get(dbChannel* channel, std::unique_ptr<server::ExecOp>& getO
 		const Value& valuePrototype) {
 	try {
 		auto returnValue = valuePrototype.cloneEmpty();
-		IOCSource::get(channel, returnValue, true, true);
+		IOCSource::get(channel, nullptr, returnValue, FOR_VALUE_AND_PROPERTIES);
 		getOperation->reply(returnValue);
 	} catch (const std::exception& getException) {
 		getOperation->error(getException.what());
@@ -410,19 +410,19 @@ void SingleSource::onSubscribe(const std::shared_ptr<SingleSourceSubscriptionCtx
  * Used by both value and property subscriptions, this function will get and return the database value to the monitor.
  *
  * @param subscriptionContext the subscription context
- * @param pTriggeringDbChannel the channel that triggered this subscription update
- * @param eventsRemaining the number of events remaining
+ * @param getOperationType the operation this callback serves
  * @param pDbFieldLog the database field log
  */
 void SingleSource::subscriptionCallback(SingleSourceSubscriptionCtx* subscriptionContext,
-		struct dbChannel* pTriggeringDbChannel, struct db_field_log* pDbFieldLog) {
+		const GetOperationType getOperationType, struct db_field_log* pDbFieldLog) {
+
 	// Get the current value of this subscription
 	// We simply merge new field changes onto this value as events occur
 	auto currentValue = subscriptionContext->currentValue;
 
-	bool forValue = (subscriptionContext->pValueChannel.get() == pTriggeringDbChannel);
-	auto& pDbChannel = forValue ? subscriptionContext->pValueChannel : subscriptionContext->pPropertiesChannel;
-	IOCSource::get(pDbChannel.get(), currentValue, forValue, !forValue, pDbFieldLog);
+	IOCSource::get(subscriptionContext->pValueChannel.get(),
+			((getOperationType == FOR_PROPERTIES) ? subscriptionContext->pPropertiesChannel.get() : nullptr),
+			currentValue, getOperationType, pDbFieldLog);
 
 	// Make sure that the initial subscription update has occurred on both channels before continuing
 	// As we make two initial updates when opening a new subscription, we need both to have completed before continuing
@@ -434,33 +434,30 @@ void SingleSource::subscriptionCallback(SingleSourceSubscriptionCtx* subscriptio
 }
 
 /**
- * This callback handles notifying of updates to subscribed-to pv properties.  The macro addSubscriptionEvent(...)
- * creates the call to this function, so your IDE may mark it as unused (don't believe it :) )
- *
- * @param userArg the user argument passed to the callback function from the framework: the subscriptionContext
- * @param pDbChannel pointer to the channel whose properties have been updated
- * @param pDbFieldLog the database field log containing the changes to notify
- */
-void SingleSource::subscriptionPropertiesCallback(void* userArg, struct dbChannel* pDbChannel, int,
-		struct db_field_log* pDbFieldLog) {
-	auto subscriptionContext = (SingleSourceSubscriptionCtx*)userArg;
-	subscriptionContext->hadPropertyEvent = true;
-	subscriptionCallback(subscriptionContext, pDbChannel, pDbFieldLog);
-}
-
-/**
  * This callback handles notifying of updates to subscribed-to pv values.  The macro addSubscriptionEvent(...)
  * creates the call to this function, so your IDE may mark it as unused (don't believe it :) )
  *
  * @param userArg the user argument passed to the callback function from the framework: the subscriptionContext
- * @param pDbChannel pointer to the channel whose value has been updated
  * @param pDbFieldLog the database field log containing the changes to notify
  */
-void SingleSource::subscriptionValueCallback(void* userArg, struct dbChannel* pDbChannel, int,
-		struct db_field_log* pDbFieldLog) {
+void SingleSource::subscriptionValueCallback(void* userArg, struct dbChannel*, int, struct db_field_log* pDbFieldLog) {
 	auto subscriptionContext = (SingleSourceSubscriptionCtx*)userArg;
 	subscriptionContext->hadValueEvent = true;
-	subscriptionCallback(subscriptionContext, pDbChannel, pDbFieldLog);
+	subscriptionCallback(subscriptionContext, FOR_VALUE, pDbFieldLog);
+}
+
+/**
+ * This callback handles notifying of updates to subscribed-to pv properties.  The macro addSubscriptionEvent(...)
+ * creates the call to this function, so your IDE may mark it as unused (don't believe it :) )
+ *
+ * @param userArg the user argument passed to the callback function from the framework: the subscriptionContext
+ * @param pDbFieldLog the database field log containing the changes to notify
+ */
+void SingleSource::subscriptionPropertiesCallback(void* userArg, struct dbChannel*, int,
+		struct db_field_log* pDbFieldLog) {
+	auto subscriptionContext = (SingleSourceSubscriptionCtx*)userArg;
+	subscriptionContext->hadPropertyEvent = true;
+	subscriptionCallback(subscriptionContext, FOR_PROPERTIES, pDbFieldLog);
 }
 
 } // ioc

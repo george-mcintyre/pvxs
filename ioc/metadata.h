@@ -16,14 +16,14 @@
 #include <dbCommon.h>
 #include <dbAccess.h>
 
-// Options when retrieving metadata for values and alarms
+// Options when retrieving values: value, time and alarm only
 #define IOC_VALUE_OPTIONS ( \
+    DBR_TIME | \
     DBR_STATUS | \
     DBR_AMSG | \
-    DBR_TIME | \
     DBR_UTAG )
 
-// Options when retrieving metadata for properties
+// Options when retrieving properties:
 #define IOC_PROPERTIES_OPTIONS ( \
     DBR_UNITS | \
     DBR_PRECISION | \

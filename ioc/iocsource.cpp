@@ -36,18 +36,19 @@ namespace ioc {
  *
  * @param pDbChannel the channel to get the data from
  * @param valuePrototype the value prototype to use to determine the shape of the data
- * @param forValues the flag to denote that value is to be retrieved from the database
- * @param forProperties the flag to denote that properties are to be retrieved from the database
+ * @param getOperationType for values, for properties or for metadata
+ * @param pDbFieldLog the field log of changes if this comes from a subscription
  */
-void IOCSource::get(dbChannel* pDbChannel, Value& valuePrototype, const bool forValues, const bool forProperties,
+void IOCSource::get(dbChannel* pDbValueChannel, dbChannel* pDbPropertiesChannel, Value& valuePrototype,
+		const GetOperationType getOperationType,
 		db_field_log* pDbFieldLog) {
 	// Assumes this is the leaf node in a group, or is a simple db record.field reference
 	Value value = valuePrototype; // The value that will be returned, if compound then metadata is set here
 	Value valueTarget = valuePrototype; // The part of value that will be retrieved from the database value field
 	bool isCompound = false;
-	if (forValues && value.type() == TypeCode::Any) {
-		auto type = fromDbrType(pDbChannel->final_type);
-		if (pDbChannel->final_no_elements != 1) {
+	if (getOperationType <= FOR_VALUE && value.type() == TypeCode::Any) {
+		auto type = fromDbrType(pDbValueChannel->final_type);
+		if (pDbValueChannel->final_no_elements != 1) {
 			type = type.arrayOf();
 		}
 		value = valueTarget = TypeDef(type).create();
@@ -59,49 +60,62 @@ void IOCSource::get(dbChannel* pDbChannel, Value& valuePrototype, const bool for
 
 	// options bit mask LSB to MSB
 	uint32_t options = 0;
-	if (isCompound && forValues) {
+	if (isCompound && getOperationType <= FOR_METADATA) {
 		options = IOC_VALUE_OPTIONS;
 	}
-	if (isCompound && forProperties) {
+	if (isCompound && (getOperationType == FOR_VALUE_AND_PROPERTIES ||
+			getOperationType == FOR_PROPERTIES)) {
 		options |= IOC_PROPERTIES_OPTIONS;
 	}
 
-	if (!forValues && !forProperties) {
-		throw std::runtime_error("call to `get` but neither values nor properties requested");
-	}
-
-	if (pDbChannel->addr.no_elements == 1) {
-		getScalar(pDbChannel, value, valueTarget, options, pDbFieldLog, forValues);
+	if (pDbValueChannel->addr.no_elements == 1) {
+		getScalar(pDbValueChannel, pDbPropertiesChannel, value, valueTarget, options, getOperationType, pDbFieldLog);
 	} else {
-		getArray(pDbChannel, value, valueTarget, options, pDbFieldLog, forValues);
+		getArray(pDbValueChannel, pDbPropertiesChannel, value, valueTarget, options, getOperationType, pDbFieldLog);
 	}
 }
 
 /**
  * Get a scalar value from the database
- * @param pDbChannel the database channel to get the value from
+ * @param pDbValueChannel the database channel to get the value from
+ * @param pDbPropertiesChannel the database channel to get the properties from
  * @param value the value to set including metadata if this is a compound value
  * @param valueTarget where to store the "value" part of the scalar within value
  * @param requestedOptions the options defining what metadata to get
+ * @param getOperationType for values, for properties or for metadata
+ * @param pDbFieldLog the field log of changes if this comes from a subscription
  */
-void IOCSource::getScalar(dbChannel* pDbChannel, Value& value, Value& valueTarget, uint32_t& requestedOptions,
-		db_field_log* pDbFieldLog, const bool forValue) {
+void IOCSource::getScalar(dbChannel* pDbValueChannel, dbChannel* pDbPropertiesChannel, Value& value, Value& valueTarget,
+		uint32_t& requestedOptions, const GetOperationType getOperationType, db_field_log* pDbFieldLog) {
 	ValueBuffer valueBuffer{}; // Enough for metadata and 1 scalar
 	void* pValueBuffer = &valueBuffer;
-	long nElements = forValue ? 1 : 0;
+	long nElements = (getOperationType <= FOR_VALUE) ? 1 : 0;
 	long actualOptions = requestedOptions;
 
-	// Get metadata and field value
+	// Get metadata/properties and field value
 	// Note that metadata will precede the value in the buffer and will be laid out in the options order
-	DBErrorMessage dbErrorMessage(
-			dbChannelGet(pDbChannel, pDbChannel->final_type, pValueBuffer, &actualOptions, &nElements, pDbFieldLog));
+	DBErrorMessage dbErrorMessage;
+	if (getOperationType <= FOR_METADATA) {
+		dbErrorMessage =
+				dbChannelGet(pDbValueChannel, pDbValueChannel->final_type, pValueBuffer, &actualOptions, &nElements,
+						pDbFieldLog);
+	} else {
+		dbErrorMessage =
+				dbChannelGet(pDbPropertiesChannel, pDbPropertiesChannel->final_type, pValueBuffer, &actualOptions,
+						&nElements,
+						pDbFieldLog);
+	}
+
 	if (dbErrorMessage) {
 		throw std::runtime_error(dbErrorMessage.c_str());
 	}
-	// Get metadata from buffer if any have been requested
+
+	// Get metadata/properties from buffer if any have been requested
 	getMetadata(value, pValueBuffer, requestedOptions, actualOptions);
-	if (forValue) {
-		if (pDbChannel->final_type == DBR_ENUM && valueTarget.type() == TypeCode::Struct) {
+
+	// Get the value if it has been requested
+	if (getOperationType <= FOR_VALUE) {
+		if (pDbValueChannel->final_type == DBR_ENUM && valueTarget.type() == TypeCode::Struct) {
 			valueTarget["index"] = *(uint16_t*)(pValueBuffer);
 		} else {
 			getValueFromBuffer(valueTarget, pValueBuffer);
@@ -112,35 +126,51 @@ void IOCSource::getScalar(dbChannel* pDbChannel, Value& value, Value& valueTarge
 /**
  * Get an array value from the database
  *
- * @param pDbChannel the database channel to get the value from
+ * @param pDbValueChannel the database channel to get the value from
+ * @param pDbPropertiesChannel the database channel to get the properties from
  * @param value the value to set including metadata if this is a compound value
  * @param valueTarget where to store the "value" part of the array within value
  * @param requestedOptions the options defining what metadata to get
+ * @param getOperationType for values, for properties or for metadata
+ * @param pDbFieldLog the field log of changes if this comes from a subscription
  */
-void IOCSource::getArray(dbChannel* pDbChannel, Value& value, Value& valueTarget, uint32_t& requestedOptions,
-		db_field_log* pDbFieldLog, const bool forValues) {
+void IOCSource::getArray(dbChannel* pDbValueChannel, dbChannel* pDbPropertiesChannel, Value& value, Value& valueTarget,
+		uint32_t& requestedOptions, const GetOperationType getOperationType, db_field_log* pDbFieldLog) {
 	// value buffer to store the field we will get from the database including metadata.
 	std::vector<char> valueBuffer;
-	auto nElements = forValues ? (long)pDbChannel->addr.no_elements : 0; // maximal number of elements
+	auto nElements = (getOperationType <= FOR_VALUE) ? (long)pDbValueChannel->addr.no_elements
+	                                                 : 0; // maximal number of elements
 	// Initialize the buffer to the maximal size including metadata and zero it out
-	valueBuffer.resize(nElements * pDbChannel->addr.field_size + MAX_METADATA_SIZE, '\0');
+	valueBuffer.resize(nElements * pDbValueChannel->addr.field_size + MAX_METADATA_SIZE, '\0');
 	void* pValueBuffer = &valueBuffer[0];
 	long actualOptions = requestedOptions;
 
-	// Get the metadata and value into this buffer
+	// Get the metadata/properties and value into this buffer
 	// Note that metadata will precede the array value in the buffer and will be laid out in the options order
-	DBErrorMessage dbErrorMessage(dbChannelGet(pDbChannel, pDbChannel->final_type,
-			pValueBuffer, &actualOptions, &nElements, pDbFieldLog));
+	DBErrorMessage dbErrorMessage;
+	if (getOperationType <= FOR_METADATA) {
+		dbErrorMessage =
+				dbChannelGet(pDbValueChannel, pDbValueChannel->final_type, pValueBuffer, &actualOptions, &nElements,
+						pDbFieldLog);
+	} else {
+		dbErrorMessage =
+				dbChannelGet(pDbPropertiesChannel, pDbPropertiesChannel->final_type, pValueBuffer, &actualOptions,
+						&nElements,
+						pDbFieldLog);
+	}
+
 	if (dbErrorMessage) {
 		throw std::runtime_error(dbErrorMessage.c_str());
 	}
-	// Get metadata from buffer if any have been requested
+
+	// Get metadata/properties from buffer if any have been requested
 	getMetadata(value, pValueBuffer, requestedOptions, actualOptions);
 
-	if (forValues) {
+	// Get the value array if it has been requested
+	if (getOperationType <= FOR_VALUE) {
 		// Get the array value from the updated buffer pointer
-		// Note: nElements has been updated with the number of elements in the array
-		if (pDbChannel->final_type == DBR_ENUM && valueTarget.type() == TypeCode::Struct) {
+		// Note: nElements will have been updated with the number of actual elements in the array
+		if (pDbValueChannel->final_type == DBR_ENUM && valueTarget.type() == TypeCode::Struct) {
 			shared_array<uint16_t> values(nElements);
 			for (auto i = 0; i < nElements; i++) {
 				values[i] = ((uint16_t*)pValueBuffer)[i];
@@ -397,7 +427,7 @@ void IOCSource::setValueInBuffer(const Value& valueSource, char* pValueBuffer, l
 	auto valueType(valueSource.type());
 	if (valueType == TypeCode::StringA) {
 		auto sharedValueArray = valueSource.as<shared_array<const Value>>();
-                for (auto i = 0u; i < sharedValueArray.size(); i++, pValueBuffer += MAX_STRING_SIZE) {
+		for (auto i = 0u; i < sharedValueArray.size(); i++, pValueBuffer += MAX_STRING_SIZE) {
 			setStringValueInBuffer(sharedValueArray[i], pValueBuffer);
 		}
 	} else {

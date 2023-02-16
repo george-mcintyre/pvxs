@@ -32,16 +32,16 @@ Credentials::Credentials(const server::ClientCredentials& clientCredentials) {
 	if (clientCredentials.method == "ca") {
 		pos = clientCredentials.account.find_last_of('/');
 		if (pos == std::string::npos) {
-			cred.push_back(clientCredentials.account);
+			cred.emplace_back(clientCredentials.account);
 		} else {
-			cred.push_back(clientCredentials.account.substr(pos + 1));
+			cred.emplace_back(clientCredentials.account.substr(pos + 1));
 		}
 	} else {
-		cred.push_back(SB() << clientCredentials.method << '/' << clientCredentials.account);
+		cred.emplace_back(SB() << clientCredentials.method << '/' << clientCredentials.account);
 	}
 
 	for (const auto& role: clientCredentials.roles()) {
-		cred.push_back(SB() << "role/" << role);
+		cred.emplace_back(SB() << "role/" << role);
 	}
 }
 } // pvxs

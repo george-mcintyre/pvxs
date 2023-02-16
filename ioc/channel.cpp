@@ -27,10 +27,9 @@ Channel::Channel(const std::string& name)
 				dbChannelDelete(ch);
 			}
 		})) {
-	if (!pDbChannel) {
-		throw std::invalid_argument(SB() << "invalid group channel name: " << name);
+	if (pDbChannel) {
+		prepare();
 	}
-	prepare();
 }
 
 /**

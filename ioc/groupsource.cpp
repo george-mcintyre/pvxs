@@ -174,26 +174,20 @@ void GroupSource::groupGet(Group& group, const std::function<void(Value&)>& retu
 
 	// For each field, get the value
 	for (auto& field: group.fields) {
+		// ignore all zero length fields that are not meta
+		if (field.name.empty() && !field.isMeta) {
+			continue;
+		}
+
 		// find the leaf node in which to set the value
 		auto leafNode = field.findIn(returnValue);
 
 		if (leafNode) {
 			try {
-				// If channels are same then get both values and props
-				if (field.value.channel == field.properties.channel) {
-					// If field name is not set then only props
-					if (field.name.empty()) {
-						IOCSource::get(field.properties.channel, leafNode, false, true);
-					} else {
-						IOCSource::get(field.value.channel, leafNode, true, true);
-					}
-					// else get both values and props separately
-				} else {
-					// If field name is not set then only props
-					if (!field.name.empty()) {
-						IOCSource::get(field.value.channel, leafNode, true, false);
-					}
-					IOCSource::get(field.properties.channel, leafNode, false, true);
+				if (field.isMeta) {
+					IOCSource::get(field.value.channel, nullptr, leafNode, FOR_METADATA);
+				} else if (field.value.channel) {
+					IOCSource::get(field.value.channel, nullptr, leafNode, FOR_VALUE_AND_PROPERTIES);
 				}
 			} catch (std::exception& e) {
 				std::stringstream errorString;
@@ -287,7 +281,7 @@ void GroupSource::onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>&
 	groupSubscriptionCtx->subscriptionControl = subscriptionOperation
 			->connect(groupSubscriptionCtx->group.valueTemplate);
 
-	// Initialise the field subscription contexts.  One for each group field
+	// Initialise the field subscription contexts.  One for each group field.
 	// This is stored in the group context
 	groupSubscriptionCtx->fieldSubscriptionContexts.reserve(groupSubscriptionCtx->group.fields.size());
 	for (auto& field: groupSubscriptionCtx->group.fields) {
@@ -295,8 +289,13 @@ void GroupSource::onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>&
 		auto& fieldSubscriptionContext = groupSubscriptionCtx->fieldSubscriptionContexts.back();
 
 		// Two subscription are made for each group channel for pvxs
-		fieldSubscriptionContext
-				.subscribeField(eventContext.get(), subscriptionValueCallback, DBE_VALUE | DBE_ALARM | DBE_ARCHIVE);
+		if (field.isMeta) {
+			fieldSubscriptionContext
+					.subscribeField(eventContext.get(), subscriptionValueCallback, DBE_ALARM);
+		} else {
+			fieldSubscriptionContext
+					.subscribeField(eventContext.get(), subscriptionValueCallback, DBE_VALUE | DBE_ALARM | DBE_ARCHIVE);
+		}
 		fieldSubscriptionContext
 				.subscribeField(eventContext.get(), subscriptionPropertiesCallback, DBE_PROPERTY, false);
 	}
@@ -445,10 +444,11 @@ void GroupSource::putField(const Value& value, const Field& field, dbChannel* pD
  * to the monitor.  It is called whenever a field subscription event is received.
  *
  * @param fieldSubscriptionCtx the field subscription context
+ * @param getOperationType the operation this callback serves
  * @param pDbFieldLog the database field log
  */
 void GroupSource::subscriptionCallback(FieldSubscriptionCtx* fieldSubscriptionCtx,
-		dbChannel*, int, struct db_field_log* pDbFieldLog, bool forValues) {
+		const GetOperationType getOperationType, struct db_field_log* pDbFieldLog) {
 
 	// Find the group subscription context from the field subscription context
 	auto& pGroupCtx = fieldSubscriptionCtx->pGroupCtx;
@@ -460,25 +460,18 @@ void GroupSource::subscriptionCallback(FieldSubscriptionCtx* fieldSubscriptionCt
 	auto currentValue = pGroupCtx->currentValue;
 
 	// Lock only fields triggered by this field
-	DBManyLocker G(forValues ? field->value.lock : field->properties.lock);
+	DBManyLocker G(getOperationType <= FOR_METADATA ? field->value.lock : field->properties.lock);
 
 	// for all triggered fields get the values.  Assumes that self has been added to triggered list
 	for (auto& pTriggeredField: field->triggers) {
-		dbChannel* pFinalChannel = forValues ? pTriggeredField->value.channel : pTriggeredField->properties.channel;
-		if (!pFinalChannel) {
-			// Skip if trigger not defined for this
-			continue;
-		}
-
 		// Find leaf node within the current value.  This will be a reference into the currentValue.
 		// So that if we assign the leafNode with the value we `get()` back, then currentValue will be updated
 		auto leafNode = pTriggeredField->findIn(currentValue);
-		if (leafNode && !(pTriggeredField->isMeta && forValues)) {
-			if (pTriggeredField == field) {
-				IOCSource::get(pFinalChannel, leafNode, forValues, !forValues, pDbFieldLog);
-			} else {
-				IOCSource::get(pFinalChannel, leafNode, forValues, !forValues);
-			}
+		if (leafNode) {
+			auto pDbFieldLogToUse = (pTriggeredField == field) ? pDbFieldLog : nullptr;
+			IOCSource::get(pTriggeredField->value.channel,
+					((getOperationType == FOR_PROPERTIES) ? pTriggeredField->properties.channel : nullptr),
+					leafNode, getOperationType, pDbFieldLogToUse);
 		}
 	}
 
@@ -503,39 +496,36 @@ void GroupSource::subscriptionCallback(FieldSubscriptionCtx* fieldSubscriptionCt
 }
 
 /**
- * This callback handles notifying of updates to subscribed-to pv properties.
- *
- * @param userArg the user argument passed to the callback function from the framework: a FieldSubscriptionCtx
- * @param pDbChannel the channel that property change notification came from
- * @param eventsRemaining the remaining number of events to process
- * @param pDbFieldLog the database field log containing the changes being notified
- */
-void GroupSource::subscriptionPropertiesCallback(void* userArg, dbChannel* pDbChannel, int eventsRemaining,
-		struct db_field_log* pDbFieldLog) {
-	auto subscriptionContext = (FieldSubscriptionCtx*)userArg;
-	{
-		epicsGuard<epicsMutex> G((subscriptionContext->pGroupCtx)->eventLock);
-		subscriptionContext->hadPropertyEvent = true;
-	}
-	subscriptionCallback(subscriptionContext, pDbChannel, eventsRemaining, pDbFieldLog, FOR_PROPERTIES);
-}
-
-/**
  * This callback handles notifying of updates to subscribed-to pv values.
  *
  * @param userArg the user argument passed to the callback function from the framework: a FieldSubscriptionCtx
- * @param pDbChannel the channel that value change notification came from
- * @param eventsRemaining the remaining number of events to process
  * @param pDbFieldLog the database field log containing the changes being notified
  */
-void GroupSource::subscriptionValueCallback(void* userArg, dbChannel* pDbChannel, int eventsRemaining,
-		struct db_field_log* pDbFieldLog) {
+void GroupSource::subscriptionValueCallback(void* userArg, dbChannel*, int, struct db_field_log* pDbFieldLog) {
 	auto subscriptionContext = (FieldSubscriptionCtx*)userArg;
 	{
 		epicsGuard<epicsMutex> G((subscriptionContext->pGroupCtx)->eventLock);
 		subscriptionContext->hadValueEvent = true;
 	}
-	subscriptionCallback(subscriptionContext, pDbChannel, eventsRemaining, pDbFieldLog, FOR_VALUES);
+	subscriptionCallback(subscriptionContext,
+			subscriptionContext->field->isMeta ? FOR_METADATA : FOR_VALUE, pDbFieldLog);
+}
+
+/**
+ * This callback handles notifying of updates to subscribed-to pv properties.
+ *
+ * @param userArg the user argument passed to the callback function from the framework: a FieldSubscriptionCtx
+ * @param pDbFieldLog the database field log containing the changes being notified
+ */
+void GroupSource::subscriptionPropertiesCallback(void* userArg, dbChannel*, int, struct db_field_log* pDbFieldLog) {
+	auto subscriptionContext = (FieldSubscriptionCtx*)userArg;
+	{
+		epicsGuard<epicsMutex> G((subscriptionContext->pGroupCtx)->eventLock);
+		subscriptionContext->hadPropertyEvent = true;
+	}
+	if (!subscriptionContext->field->isMeta) {
+		subscriptionCallback(subscriptionContext, FOR_PROPERTIES, pDbFieldLog);
+	}
 }
 
 } // ioc

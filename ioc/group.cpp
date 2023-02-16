@@ -44,9 +44,15 @@ void Group::show(int level) const {
 					suffix = "<meta>";
 				} else if (field.allowProc) {
 					suffix = "<proc>";
+				} else if (!field.value.channel) {
+					suffix = "<id>";
 				}
 				field.fieldName.show(suffix);
-				printf(" <-> %s\n", dbChannelName(field.value.channel));
+				if (field.value.channel) {
+					printf(" <-> %s\n", dbChannelName(field.value.channel));
+				} else {
+					printf(" <-> \"%s\"\n", field.id.c_str());
+				}
 			}
 		}
 	}

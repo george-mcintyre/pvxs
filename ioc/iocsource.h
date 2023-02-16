@@ -20,9 +20,6 @@
 #include "securitylogger.h"
 #include "securityclient.h"
 
-#define FOR_VALUES true
-#define FOR_PROPERTIES false
-
 struct AllMetadataSize {
     DBRstatus
     DBRamsg
@@ -42,6 +39,14 @@ struct AllMetadataSize {
 namespace pvxs {
 namespace ioc {
 
+// To specify the get desired operation
+typedef enum {
+	FOR_VALUE_AND_PROPERTIES,
+	FOR_VALUE,
+	FOR_METADATA,
+	FOR_PROPERTIES,
+} GetOperationType;
+
 // For alignment, we need this kind of union as the basis for our buffer
 typedef union {
 	double _scalar;
@@ -57,7 +62,8 @@ typedef struct {
 
 class IOCSource {
 public:
-	static void get(dbChannel* pDbChannel, Value& valuePrototype, bool forValues, bool forProperties,
+	static void get(dbChannel* pDbValueChannel, dbChannel* pDbPropertiesChannel, Value& valuePrototype,
+			GetOperationType getOperationType,
 			db_field_log* pDbFieldLog = nullptr);
 	static void put(dbChannel* pDbChannel, const Value& value);
 	static void putScalar(dbChannel* pDbChannel, const Value& value);
@@ -102,10 +108,10 @@ public:
 	//////////////////////////////
 	// Utility function to get the TypeCode that the given database channel is configured for
 	static TypeCode getChannelValueType(const dbChannel* pDbChannel, bool errOnLinks = false);
-	static void getScalar(dbChannel* pDbChannel, Value& value, Value& valueTarget, uint32_t& requestedOptions,
-			db_field_log* pDbFieldLog, bool forValue);
-	static void getArray(dbChannel* pDbChannel, Value& value, Value& valueTarget, uint32_t& requestedOptions,
-			db_field_log* pDbFieldLog, bool forValues);
+	static void getScalar(dbChannel* pDbValueChannel, dbChannel* pDbPropertiesChannel, Value& value, Value& valueTarget,
+			uint32_t& requestedOptions, const GetOperationType getOperationType, db_field_log* pDbFieldLog);
+	static void getArray(dbChannel* pDbValueChannel, dbChannel* pDbPropertiesChannel, Value& value, Value& valueTarget,
+			uint32_t& requestedOptions, const GetOperationType getOperationType, db_field_log* pDbFieldLog);
 	static void getMetadata(Value& valuePrototype, void*& pValueBuffer, const uint32_t& requestedOptions,
 			const uint32_t& actualOptions);
 	static void

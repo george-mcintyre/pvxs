@@ -62,8 +62,8 @@ private:
 	subscriptionPropertiesCallback(void* userArg, dbChannel* pDbChannel, int eventsRemaining,
 			db_field_log* pDbFieldLog);
 	static void
-	subscriptionCallback(FieldSubscriptionCtx* fieldSubscriptionCtx, dbChannel* pDbChannel, int eventsRemaining,
-			struct db_field_log* pDbFieldLog, bool forValues = FOR_VALUES);
+	subscriptionCallback(FieldSubscriptionCtx* fieldSubscriptionCtx,
+			GetOperationType getOperationType, struct db_field_log* pDbFieldLog);
 	static void onDisableSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx);
 	static void onStartSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx);
 	void onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx,
