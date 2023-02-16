@@ -72,7 +72,7 @@ static std::initializer_list<void (*)()> tests = {
 			testdbReadDatabase("image.db", nullptr, "N=tst");
 			testOkB(true, R"(testdbReadDatabase("testiocg.db", nullptr, "user=test"))");
 		},
-		[]() { testOkB(!pvxs::ioc::dbLoadGroup("testioc.json"), R"(dbLoadGroup("testioc.json"))"); },
+		[]() { testOkB(!pvxs::ioc::dbLoadGroup("../testioc.json"), R"(dbLoadGroup("testioc.json"))"); },
 		[]() { pvxsTestIocInitOk(); },
 		[]() { testdbGetFieldEqualB("test:aiExample", DBR_DOUBLE, 42.2); },
 		[]() { testdbGetFieldEqualB("test:stringExample", DBR_STRING, "Some random value"); },
