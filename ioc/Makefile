@@ -52,6 +52,7 @@ pvxsIoc_SRCS += imagedemo.c
 pvxsIoc_SRCS += iochooks.cpp
 pvxsIoc_SRCS += iocserver.cpp
 pvxsIoc_SRCS += iocsource.cpp
+pvxsIoc_SRCS += localfieldlog.cpp
 pvxsIoc_SRCS += securityclient.cpp
 pvxsIoc_SRCS += securitylogger.cpp
 pvxsIoc_SRCS += singlesource.cpp

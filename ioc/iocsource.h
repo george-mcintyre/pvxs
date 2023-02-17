@@ -64,7 +64,7 @@ class IOCSource {
 public:
 	static void get(dbChannel* pDbValueChannel, dbChannel* pDbPropertiesChannel, Value& valuePrototype,
 			GetOperationType getOperationType,
-			db_field_log* pDbFieldLog = nullptr);
+			db_field_log* pDbFieldLog);
 	static void put(dbChannel* pDbChannel, const Value& value);
 	static void putScalar(dbChannel* pDbChannel, const Value& value);
 	static void putArray(dbChannel* pDbChannel, const Value& value);

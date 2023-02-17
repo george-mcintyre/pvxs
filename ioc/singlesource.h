@@ -52,7 +52,7 @@ private:
 	// Get
 	//////////////////////////////
 	// Handle the get operation
-	static void get(dbChannel* channel, std::unique_ptr<server::ExecOp>& getOperation,
+	static void get(dbChannel* pDbChannel, std::unique_ptr<server::ExecOp>& getOperation,
 			const Value& valuePrototype);
 
 	//////////////////////////////

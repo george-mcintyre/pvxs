@@ -33,6 +33,7 @@
 #include "securitylogger.h"
 #include "securityclient.h"
 #include "typeutils.h"
+#include "localfieldlog.h"
 
 namespace pvxs {
 namespace ioc {
@@ -181,15 +182,19 @@ Value SingleSource::getValuePrototype(const std::shared_ptr<dbChannel>& dbChanne
 /**
  * Handle the get operation
  *
- * @param channel the channel that the request comes in on
+ * @param pDbChannel the channel that the request comes in on
  * @param getOperation the current executing operation
  * @param valuePrototype a value prototype that is made based on the expected type to be returned
  */
-void SingleSource::get(dbChannel* channel, std::unique_ptr<server::ExecOp>& getOperation,
+void SingleSource::get(dbChannel* pDbChannel, std::unique_ptr<server::ExecOp>& getOperation,
 		const Value& valuePrototype) {
 	try {
 		auto returnValue = valuePrototype.cloneEmpty();
-		IOCSource::get(channel, nullptr, returnValue, FOR_VALUE_AND_PROPERTIES);
+		{
+			DBLocker F(pDbChannel->addr.precord); // lock
+			LocalFieldLog localFieldLog(pDbChannel);
+			IOCSource::get(pDbChannel, nullptr, returnValue, FOR_VALUE_AND_PROPERTIES, localFieldLog.pFieldLog);
+		}
 		getOperation->reply(returnValue);
 	} catch (const std::exception& getException) {
 		getOperation->error(getException.what());

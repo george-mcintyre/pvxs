@@ -122,6 +122,12 @@ static std::initializer_list<void (*)()> tests = {
 			testArrEqB(arrayExample, expected);
 		},
 		[]() {
+			auto val = clientContext.get("test:arrayExample.[1:2]").exec()->wait(5.0);
+			shared_array<double> expected({ 2.0, 3.0 });
+			auto arrayExample = val["value"].as<shared_array<const double>>();
+			testArrEqB(arrayExample, expected);
+		},
+		[]() {
 			shared_array<double> array({});
 			testdbPutArrFieldOkB("test:arrayExample", DBR_DOUBLE, array.size(), array.data());
 		},

@@ -28,6 +28,7 @@
 #include "iocsource.h"
 #include "securitylogger.h"
 #include "securityclient.h"
+#include "localfieldlog.h"
 
 namespace pvxs {
 namespace ioc {
@@ -184,11 +185,9 @@ void GroupSource::groupGet(Group& group, const std::function<void(Value&)>& retu
 
 		if (leafNode) {
 			try {
-				if (field.isMeta) {
-					IOCSource::get(field.value.channel, nullptr, leafNode, FOR_METADATA);
-				} else if (field.value.channel) {
-					IOCSource::get(field.value.channel, nullptr, leafNode, FOR_VALUE_AND_PROPERTIES);
-				}
+				LocalFieldLog localFieldLog(field.value.channel);
+				IOCSource::get(field.value.channel, nullptr, leafNode,
+						field.isMeta ? FOR_METADATA : FOR_VALUE_AND_PROPERTIES, localFieldLog.pFieldLog);
 			} catch (std::exception& e) {
 				std::stringstream errorString;
 				errorString << "Error retrieving value for pvName: " << group.name << (field.name.empty() ? "/" : ".")
@@ -468,10 +467,12 @@ void GroupSource::subscriptionCallback(FieldSubscriptionCtx* fieldSubscriptionCt
 		// So that if we assign the leafNode with the value we `get()` back, then currentValue will be updated
 		auto leafNode = pTriggeredField->findIn(currentValue);
 		if (leafNode) {
-			auto pDbFieldLogToUse = (pTriggeredField == field) ? pDbFieldLog : nullptr;
+			dbChannel* channelToUse = (getOperationType == FOR_PROPERTIES) ? pTriggeredField->properties.channel
+			                                                               : pTriggeredField->value.channel;
+			LocalFieldLog localFieldLog(channelToUse, (pTriggeredField == field) ? pDbFieldLog : nullptr);
 			IOCSource::get(pTriggeredField->value.channel,
 					((getOperationType == FOR_PROPERTIES) ? pTriggeredField->properties.channel : nullptr),
-					leafNode, getOperationType, pDbFieldLogToUse);
+					leafNode, getOperationType, localFieldLog.pFieldLog);
 		}
 	}
 
