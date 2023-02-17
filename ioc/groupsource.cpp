@@ -470,8 +470,7 @@ void GroupSource::subscriptionCallback(FieldSubscriptionCtx* fieldSubscriptionCt
 			dbChannel* channelToUse = (getOperationType == FOR_PROPERTIES) ? pTriggeredField->properties.channel
 			                                                               : pTriggeredField->value.channel;
 			LocalFieldLog localFieldLog(channelToUse, (pTriggeredField == field) ? pDbFieldLog : nullptr);
-			IOCSource::get(pTriggeredField->value.channel,
-					((getOperationType == FOR_PROPERTIES) ? pTriggeredField->properties.channel : nullptr),
+			IOCSource::get(pTriggeredField->value.channel, pTriggeredField->properties.channel,
 					leafNode, getOperationType, localFieldLog.pFieldLog);
 		}
 	}
