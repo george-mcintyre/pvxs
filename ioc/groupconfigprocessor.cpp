@@ -8,7 +8,6 @@
  */
 
 #include <fstream>
-#include <iostream>
 #include <map>
 #include <string>
 
@@ -52,8 +51,8 @@ void GroupConfigProcessor::loadConfigFromDb() {
 				try {
 					parseConfigString(jsonGroupDefinition, dbRecordName);
 					if (!groupProcessingWarnings.empty()) {
-						std::cerr << dbRecordName << ": warning(s) from info(\"Q:group\", ..." << std::endl
-						          << groupProcessingWarnings.c_str();
+                        fprintf(stderr, "%s: warning(s) from info(\"Q:group\", ...\n%s", dbRecordName,
+                                groupProcessingWarnings.c_str());
 					}
 				} catch (std::exception& e) {
 					fprintf(stderr, "%s: Error parsing info(\"Q:group\", ...\n%s", dbRecordName, e.what());

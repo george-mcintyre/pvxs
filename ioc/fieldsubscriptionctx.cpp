@@ -7,8 +7,6 @@
  *
  */
 
-#include <iostream>
-
 #include "fieldsubscriptionctx.h"
 
 namespace pvxs {

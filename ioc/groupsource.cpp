@@ -7,7 +7,6 @@
  *
  */
 
-#include <iostream>
 #include <string>
 
 #include <dbEvent.h>

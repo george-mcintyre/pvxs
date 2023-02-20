@@ -9,7 +9,6 @@
 
 #include <string>
 #include <algorithm>
-#include <iostream>
 
 #include <special.h>
 #include <epicsTime.h>
