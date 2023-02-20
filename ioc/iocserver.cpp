@@ -12,7 +12,7 @@
 namespace pvxs {
 namespace ioc {
 IOCServer::IOCServer(const server::Config& config)
-		:pvxs::server::Server(config) {
+        :pvxs::server::Server(config) {
 }
 } // pvxs
 } // ioc

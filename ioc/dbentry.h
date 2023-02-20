@@ -19,12 +19,12 @@ namespace ioc {
  * Wrapper class for DBENTRY that is a type that encapsulates an IOC database entry.
  */
 class DBEntry {
-	DBENTRY ent{};
+    DBENTRY ent{};
 public:
-	DBEntry();
-	~DBEntry();
-	operator DBENTRY*();
-	DBENTRY* operator->();
+    DBEntry();
+    ~DBEntry();
+    operator DBENTRY*();
+    DBENTRY* operator->();
 };
 
 } // ioc

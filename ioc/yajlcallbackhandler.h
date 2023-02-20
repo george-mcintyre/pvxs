@@ -18,11 +18,11 @@ namespace pvxs {
 namespace ioc {
 
 class YajlCallbackHandler {
-	yajl_handle handle;
+    yajl_handle handle;
 public:
-	explicit YajlCallbackHandler(yajl_handle yajlHandler);
-	~YajlCallbackHandler();
-	operator yajl_handle(); // NOLINT(google-explicit-constructor)
+    explicit YajlCallbackHandler(yajl_handle yajlHandler);
+    ~YajlCallbackHandler();
+    operator yajl_handle(); // NOLINT(google-explicit-constructor)
 };
 
 } // pvxs

@@ -83,30 +83,30 @@ namespace pvxs {
 namespace ioc {
 
 struct CommonMetadata {
-	DBRstatus
-	DBRamsg
-	DBRtime
-	DBRutag
+    DBRstatus
+    DBRamsg
+    DBRtime
+    DBRutag
 
-	enum {
-		mask = DBR_STATUS | DBR_AMSG | DBR_TIME | DBR_UTAG
-	};
+    enum {
+        mask = DBR_STATUS | DBR_AMSG | DBR_TIME | DBR_UTAG
+    };
 };
 
 /**
  * structure to store metadata
  */
 struct Metadata {
-	CommonMetadata metadata{};
-	const char* pUnits{};
-	const dbr_precision* pPrecision{};
-	const dbr_enumStrs* enumStrings{};
-	const struct dbr_grDouble* graphicsDouble{};
-	const struct dbr_grLong* graphicsLong{};
-	const struct dbr_ctrlDouble* controlDouble{};
-	const struct dbr_ctrlLong* controlLong{};
-	const struct dbr_alDouble* alarmDouble{};
-	const struct dbr_alLong* alarmLong{};
+    CommonMetadata metadata{};
+    const char* pUnits{};
+    const dbr_precision* pPrecision{};
+    const dbr_enumStrs* enumStrings{};
+    const struct dbr_grDouble* graphicsDouble{};
+    const struct dbr_grLong* graphicsLong{};
+    const struct dbr_ctrlDouble* controlDouble{};
+    const struct dbr_ctrlLong* controlLong{};
+    const struct dbr_alDouble* alarmDouble{};
+    const struct dbr_alLong* alarmLong{};
 };
 
 } // ioc

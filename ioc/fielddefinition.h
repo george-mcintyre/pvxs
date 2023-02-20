@@ -28,18 +28,18 @@ typedef std::set<std::string> TriggerNames;
  */
 class FieldDefinition {
 public:
-	std::string name;                       // Field's name
-	std::string channel;                    // Database record name aka channel
-	std::string structureId;                // Field's Normative Type structure ID or any other arbitrary string if not a normative type
-	std::string type;                       // Database field type
-	TriggerNames triggerNames;                  // Fields in this group which are posted on events from channel
-	int64_t putOrder;                       // Order to serialise the field for put operations
+    std::string name;                       // Field's name
+    std::string channel;                    // Database record name aka channel
+    std::string structureId;                // Field's Normative Type structure ID or any other arbitrary string if not a normative type
+    std::string type;                       // Database field type
+    TriggerNames triggerNames;                  // Fields in this group which are posted on events from channel
+    int64_t putOrder;                       // Order to serialise the field for put operations
 
-	FieldDefinition(const FieldConfig& fieldConfig, const std::string& fieldName);
+    FieldDefinition(const FieldConfig& fieldConfig, const std::string& fieldName);
 
-	bool operator<(const FieldDefinition& o) const {
-		return putOrder < o.putOrder;
-	}
+    bool operator<(const FieldDefinition& o) const {
+        return putOrder < o.putOrder;
+    }
 };
 
 typedef std::vector<FieldDefinition> FieldDefinitions;

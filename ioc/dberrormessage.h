@@ -19,13 +19,13 @@ namespace ioc {
  * Wrapper class for status returned from base IOC database commands.
  */
 class DBErrorMessage {
-	long status = 0;
-	char message[MAX_STRING_SIZE]{};
+    long status = 0;
+    char message[MAX_STRING_SIZE]{};
 public:
-	explicit DBErrorMessage(const long& dbStatus = 0);
-	DBErrorMessage& operator=(const long& dbStatus);
-	explicit operator bool() const;
-	const char* c_str() const;
+    explicit DBErrorMessage(const long& dbStatus = 0);
+    DBErrorMessage& operator=(const long& dbStatus);
+    explicit operator bool() const;
+    const char* c_str() const;
 };
 
 } // ioc

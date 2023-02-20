@@ -21,15 +21,15 @@ namespace ioc {
  * @param name the db channel name
  */
 Channel::Channel(const std::string& name)
-		:pDbChannel(std::shared_ptr<dbChannel>(dbChannelCreate(name.c_str()),
-		[](dbChannel* ch) {
-			if (ch) {
-				dbChannelDelete(ch);
-			}
-		})) {
-	if (pDbChannel) {
-		prepare();
-	}
+        :pDbChannel(std::shared_ptr<dbChannel>(dbChannelCreate(name.c_str()),
+        [](dbChannel* ch) {
+            if (ch) {
+                dbChannelDelete(ch);
+            }
+        })) {
+    if (pDbChannel) {
+        prepare();
+    }
 }
 
 /**
@@ -38,13 +38,13 @@ Channel::Channel(const std::string& name)
  * @param other other Channel
  */
 Channel::Channel(Channel&& other) noexcept
-		:pDbChannel(std::move(other.pDbChannel)) {
+        :pDbChannel(std::move(other.pDbChannel)) {
 }
 
 Channel& Channel::operator=(Channel&& other) noexcept {
-	pDbChannel = std::move(other.pDbChannel);
-	other.pDbChannel = nullptr;
-	return *this;
+    pDbChannel = std::move(other.pDbChannel);
+    other.pDbChannel = nullptr;
+    return *this;
 }
 
 /**
@@ -56,12 +56,12 @@ Channel::~Channel() = default;
  * Internal function to prepare the dbChannel for operation by opening it
  */
 void Channel::prepare() {
-	if (!pDbChannel) {
-		throw std::invalid_argument(SB() << "NULL channel while opening group channel");
-	}
-	if (dbChannelOpen(pDbChannel.get())) {
-		throw std::invalid_argument(SB() << "Failed to open group channel " << dbChannelName(pDbChannel));
-	}
+    if (!pDbChannel) {
+        throw std::invalid_argument(SB() << "NULL channel while opening group channel");
+    }
+    if (dbChannelOpen(pDbChannel.get())) {
+        throw std::invalid_argument(SB() << "Failed to open group channel " << dbChannelName(pDbChannel));
+    }
 }
 
 /**
@@ -70,14 +70,14 @@ void Channel::prepare() {
  * @return the pDbChannel member
  */
 Channel::operator dbChannel*() const {
-	return pDbChannel.get();
+    return pDbChannel.get();
 }
 /**
  * Const pointer indirection operator
  * @return pointer to the dbChannel associated with this group channel
  */
 const dbChannel* Channel::operator->() const {
-	return pDbChannel.get();
+    return pDbChannel.get();
 }
 
 } // pvxs

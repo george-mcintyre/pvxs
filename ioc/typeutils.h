@@ -60,9 +60,9 @@ namespace ioc {
  * Tristate value for status flags
  */
 typedef enum {
-	Unset,
-	True,
-	False
+    Unset,
+    True,
+    False
 } TriState;
 
 }

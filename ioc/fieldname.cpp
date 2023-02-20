@@ -28,43 +28,43 @@ static void pad(std::string& stringToPad, size_t padLength);
  * @param fieldName
  */
 FieldName::FieldName(const std::string& fieldName) {
-	if (!fieldName.empty()) {
-		// Split field name on periods
-		std::stringstream splitter(fieldName);
-		std::string fieldNamePart;
-		while (std::getline(splitter, fieldNamePart, '.')) {
-			if (fieldNamePart.empty()) {
-				throw std::runtime_error("Empty field component in: " + fieldName);
-			}
+    if (!fieldName.empty()) {
+        // Split field name on periods
+        std::stringstream splitter(fieldName);
+        std::string fieldNamePart;
+        while (std::getline(splitter, fieldNamePart, '.')) {
+            if (fieldNamePart.empty()) {
+                throw std::runtime_error("Empty field component in: " + fieldName);
+            }
 
-			// If this is an array reference then extract the index
-			auto endArraySpecifier = fieldNamePart.size();
-			if (fieldNamePart[endArraySpecifier - 1] == ']') {
-				const size_t startArraySpecifier = fieldNamePart.find_last_of('[');
-				if (startArraySpecifier == std::string::npos) {
-					throw std::runtime_error("Invalid field array sub-script in : " + fieldName);
-				}
+            // If this is an array reference then extract the index
+            auto endArraySpecifier = fieldNamePart.size();
+            if (fieldNamePart[endArraySpecifier - 1] == ']') {
+                const size_t startArraySpecifier = fieldNamePart.find_last_of('[');
+                if (startArraySpecifier == std::string::npos) {
+                    throw std::runtime_error("Invalid field array sub-script in : " + fieldName);
+                }
 
-				auto arrayIndex = fieldNamePart.substr(startArraySpecifier + 1);
-				long index = 0;
-				char* endScan;
-				index = strtol(arrayIndex.c_str(), &endScan, 10);
-				if (*endScan != ']') {
-					throw std::runtime_error("Invalid field array sub-script in : " + fieldName);
-				}
+                auto arrayIndex = fieldNamePart.substr(startArraySpecifier + 1);
+                long index = 0;
+                char* endScan;
+                index = strtol(arrayIndex.c_str(), &endScan, 10);
+                if (*endScan != ']') {
+                    throw std::runtime_error("Invalid field array sub-script in : " + fieldName);
+                }
 
-				fieldNameComponents.emplace_back(fieldNamePart.substr(0, startArraySpecifier), index);
-			} else {
-				// Otherwise this is a regular field part
-				fieldNameComponents.emplace_back(fieldNamePart);
-			}
-		}
+                fieldNameComponents.emplace_back(fieldNamePart.substr(0, startArraySpecifier), index);
+            } else {
+                // Otherwise this is a regular field part
+                fieldNameComponents.emplace_back(fieldNamePart);
+            }
+        }
 
-		// If empty then throw an error
-		if (fieldNameComponents.empty()) {
-			throw std::runtime_error("Empty field name");
-		}
-	}
+        // If empty then throw an error
+        if (fieldNameComponents.empty()) {
+            throw std::runtime_error("Empty field name");
+        }
+    }
 }
 
 /**
@@ -73,25 +73,25 @@ FieldName::FieldName(const std::string& fieldName) {
  * @param padLength the amount of padding to add, defaults to none
  */
 std::string FieldName::to_string(size_t padLength) const {
-	std::string fieldName;
-	if (fieldNameComponents.empty()) {
-		fieldName = "/";
-	} else {
-		bool first = true;
-		for (const auto& fieldNameComponent: fieldNameComponents) {
-			if (!first) {
-				fieldName += ".";
-			} else {
-				first = false;
-			}
-			fieldName += fieldNameComponent.name;
-			if (fieldNameComponent.isArray()) {
-				fieldName += "[" + std::to_string((unsigned)fieldNameComponent.index) + "]";
-			}
-		}
-	}
-	pad(fieldName, padLength);
-	return fieldName;
+    std::string fieldName;
+    if (fieldNameComponents.empty()) {
+        fieldName = "/";
+    } else {
+        bool first = true;
+        for (const auto& fieldNameComponent: fieldNameComponents) {
+            if (!first) {
+                fieldName += ".";
+            } else {
+                first = false;
+            }
+            fieldName += fieldNameComponent.name;
+            if (fieldNameComponent.isArray()) {
+                fieldName += "[" + std::to_string((unsigned)fieldNameComponent.index) + "]";
+            }
+        }
+    }
+    pad(fieldName, padLength);
+    return fieldName;
 }
 
 /**
@@ -100,7 +100,7 @@ std::string FieldName::to_string(size_t padLength) const {
  * @param suffix the suffix to add to the field name, defaults to none
  */
 void FieldName::show(const std::string& suffix) const {
-	printf("%s%s", to_string(PADDING_WIDTH - suffix.size()).c_str(), suffix.c_str());
+    printf("%s%s", to_string(PADDING_WIDTH - suffix.size()).c_str(), suffix.c_str());
 }
 
 /**
@@ -109,7 +109,7 @@ void FieldName::show(const std::string& suffix) const {
  * @param o
  */
 void FieldName::swap(FieldName& o) {
-	fieldNameComponents.swap(o.fieldNameComponents);
+    fieldNameComponents.swap(o.fieldNameComponents);
 }
 
 /**
@@ -118,7 +118,7 @@ void FieldName::swap(FieldName& o) {
  * @return
  */
 bool FieldName::empty() const {
-	return fieldNameComponents.empty() || (fieldNameComponents.size() == 1 && fieldNameComponents[0].name.empty());
+    return fieldNameComponents.empty() || (fieldNameComponents.size() == 1 && fieldNameComponents[0].name.empty());
 }
 
 /**
@@ -127,7 +127,7 @@ bool FieldName::empty() const {
  * @return
  */
 size_t FieldName::size() const {
-	return fieldNameComponents.size();
+    return fieldNameComponents.size();
 }
 
 /**
@@ -136,7 +136,7 @@ size_t FieldName::size() const {
  * @return
  */
 const FieldNameComponent& FieldName::back() const {
-	return fieldNameComponents.back();
+    return fieldNameComponents.back();
 }
 
 /**
@@ -146,7 +146,7 @@ const FieldNameComponent& FieldName::back() const {
  * @return
  */
 const FieldNameComponent& FieldName::operator[](size_t i) const {
-	return fieldNameComponents[i];
+    return fieldNameComponents[i];
 }
 
 /**
@@ -155,7 +155,7 @@ const FieldNameComponent& FieldName::operator[](size_t i) const {
  * @return the leaf field name
  */
 const std::string& FieldName::leafFieldName() const {
-	return fieldNameComponents[fieldNameComponents.size() - 1].name;
+    return fieldNameComponents[fieldNameComponents.size() - 1].name;
 }
 
 /**
@@ -165,9 +165,9 @@ const std::string& FieldName::leafFieldName() const {
  * @param padLength the amount of spaces to pad with
  */
 static void pad(std::string& stringToPad, const size_t padLength) {
-	if (padLength > stringToPad.size()) {
-		stringToPad.insert(stringToPad.size(), padLength - stringToPad.size(), PADDING_CHARACTER);
-	}
+    if (padLength > stringToPad.size()) {
+        stringToPad.insert(stringToPad.size(), padLength - stringToPad.size(), PADDING_CHARACTER);
+    }
 }
 
 } // pvxs

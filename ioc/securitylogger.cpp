@@ -17,19 +17,19 @@ namespace pvxs {
 namespace ioc {
 
 SecurityLogger::~SecurityLogger() {
-	asTrapWriteAfterWrite(pvt);
+    asTrapWriteAfterWrite(pvt);
 }
 
 void SecurityLogger::swap(SecurityLogger& o) {
-	std::swap(pvt, o.pvt);
+    std::swap(pvt, o.pvt);
 }
 
 SecurityLogger::SecurityLogger(void* pvt)
-		:pvt(pvt) {
+        :pvt(pvt) {
 }
 
 SecurityLogger::SecurityLogger()
-		:pvt(nullptr) {
+        :pvt(nullptr) {
 }
 
 } // pvxs

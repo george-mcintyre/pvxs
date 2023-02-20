@@ -24,25 +24,25 @@ namespace ioc {
  */
 
 Credentials::Credentials(const server::ClientCredentials& clientCredentials) {
-	// Extract host name part (or whole thing if no colon present)
-	auto pos = clientCredentials.peer.find_first_of(':');
-	host = clientCredentials.peer.substr(0, pos);
+    // Extract host name part (or whole thing if no colon present)
+    auto pos = clientCredentials.peer.find_first_of(':');
+    host = clientCredentials.peer.substr(0, pos);
 
-	// "ca" style credentials
-	if (clientCredentials.method == "ca") {
-		pos = clientCredentials.account.find_last_of('/');
-		if (pos == std::string::npos) {
-			cred.emplace_back(clientCredentials.account);
-		} else {
-			cred.emplace_back(clientCredentials.account.substr(pos + 1));
-		}
-	} else {
-		cred.emplace_back(SB() << clientCredentials.method << '/' << clientCredentials.account);
-	}
+    // "ca" style credentials
+    if (clientCredentials.method == "ca") {
+        pos = clientCredentials.account.find_last_of('/');
+        if (pos == std::string::npos) {
+            cred.emplace_back(clientCredentials.account);
+        } else {
+            cred.emplace_back(clientCredentials.account.substr(pos + 1));
+        }
+    } else {
+        cred.emplace_back(SB() << clientCredentials.method << '/' << clientCredentials.account);
+    }
 
-	for (const auto& role: clientCredentials.roles()) {
-		cred.emplace_back(SB() << "role/" << role);
-	}
+    for (const auto& role: clientCredentials.roles()) {
+        cred.emplace_back(SB() << "role/" << role);
+    }
 }
 } // pvxs
 } // ioc

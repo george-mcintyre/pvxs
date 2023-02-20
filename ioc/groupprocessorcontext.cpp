@@ -18,9 +18,9 @@ namespace ioc {
  * Throw an exception if not
  */
 void GroupProcessorContext::canAssign() const {
-	if (depth < 2 || depth > 3) {
-		throw std::runtime_error("Can't assign value in this context");
-	}
+    if (depth < 2 || depth > 3) {
+        throw std::runtime_error("Can't assign value in this context");
+    }
 }
 
 /**
@@ -30,47 +30,47 @@ void GroupProcessorContext::canAssign() const {
  * @param value the value to assign
  */
 void GroupProcessorContext::assign(const Value& value) {
-	canAssign();
-	auto& groupPvConfig = groupConfigProcessor->groupConfigMap[groupName];
+    canAssign();
+    auto& groupPvConfig = groupConfigProcessor->groupConfigMap[groupName];
 
-	if (depth == 2) {
-		if (field == "+atomic") {
-			groupPvConfig.atomic = value.as<bool>();
-			groupPvConfig.atomicIsSet = true;
+    if (depth == 2) {
+        if (field == "+atomic") {
+            groupPvConfig.atomic = value.as<bool>();
+            groupPvConfig.atomicIsSet = true;
 
-		} else if (field == "+id") {
-			groupPvConfig.structureId = value.as<std::string>();
+        } else if (field == "+id") {
+            groupPvConfig.structureId = value.as<std::string>();
 
-		} else {
-			groupConfigProcessor->groupProcessingWarnings += "Unknown group option ";
-			groupConfigProcessor->groupProcessingWarnings += field;
-		}
-		field.clear();
+        } else {
+            groupConfigProcessor->groupProcessingWarnings += "Unknown group option ";
+            groupConfigProcessor->groupProcessingWarnings += field;
+        }
+        field.clear();
 
-	} else if (depth == 3) {
-		auto& groupField = groupPvConfig.fieldConfigMap[field];
+    } else if (depth == 3) {
+        auto& groupField = groupPvConfig.fieldConfigMap[field];
 
-		if (key == "+type") {
-			groupField.type = value.as<std::string>();
+        if (key == "+type") {
+            groupField.type = value.as<std::string>();
 
-		} else if (key == "+channel") {
-			groupField.channel = channelPrefix + value.as<std::string>();
+        } else if (key == "+channel") {
+            groupField.channel = channelPrefix + value.as<std::string>();
 
-		} else if (key == "+id") {
-			groupField.structureId = value.as<std::string>();
+        } else if (key == "+id") {
+            groupField.structureId = value.as<std::string>();
 
-		} else if (key == "+trigger") {
-			groupField.trigger = value.as<std::string>();
+        } else if (key == "+trigger") {
+            groupField.trigger = value.as<std::string>();
 
-		} else if (key == "+putorder") {
-			groupField.putOrder = value.as<int64_t>();
+        } else if (key == "+putorder") {
+            groupField.putOrder = value.as<int64_t>();
 
-		} else {
-			groupConfigProcessor->groupProcessingWarnings += "Unknown group field option ";
-			groupConfigProcessor->groupProcessingWarnings += field + ":" + key;
-		}
-		key.clear();
-	}
+        } else {
+            groupConfigProcessor->groupProcessingWarnings += "Unknown group field option ";
+            groupConfigProcessor->groupProcessingWarnings += field + ":" + key;
+        }
+        key.clear();
+    }
 }
 
 } // pvxs

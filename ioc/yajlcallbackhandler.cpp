@@ -18,21 +18,21 @@ namespace ioc {
  * @param yajlHandler the allocated handler to set
  */
 YajlCallbackHandler::YajlCallbackHandler(yajl_handle yajlHandler)
-		:handle(yajlHandler) {
-	if (!handle) {
-		throw std::runtime_error("Failed to allocate yajl handle");
-	}
+        :handle(yajlHandler) {
+    if (!handle) {
+        throw std::runtime_error("Failed to allocate yajl handle");
+    }
 }
 
 /**
  * Destructor for the callback handler
  */
 YajlCallbackHandler::~YajlCallbackHandler() {
-	yajl_free(handle);
+    yajl_free(handle);
 }
 
 YajlCallbackHandler::operator yajl_handle() {
-	return handle;
+    return handle;
 }
 
 } // pvxs

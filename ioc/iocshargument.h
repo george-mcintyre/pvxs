@@ -37,11 +37,11 @@ struct IOCShFunctionArgument;
  * @tparam T for `int` variadic parameters
  */
 template<> struct IOCShFunctionArgument<int> {
-	static constexpr iocshArgType
-			code = iocshArgInt;
-	static int get(const iocshArgBuf& buf) {
-		return buf.ival;
-	}
+    static constexpr iocshArgType
+            code = iocshArgInt;
+    static int get(const iocshArgBuf& buf) {
+        return buf.ival;
+    }
 };
 
 /**
@@ -50,11 +50,11 @@ template<> struct IOCShFunctionArgument<int> {
  * @tparam T for `double` variadic parameters
  */
 template<> struct IOCShFunctionArgument<double> {
-	static constexpr iocshArgType
-			code = iocshArgDouble;
-	static double get(const iocshArgBuf& buf) {
-		return buf.dval;
-	}
+    static constexpr iocshArgType
+            code = iocshArgDouble;
+    static double get(const iocshArgBuf& buf) {
+        return buf.dval;
+    }
 };
 
 /**
@@ -63,11 +63,11 @@ template<> struct IOCShFunctionArgument<double> {
  * @tparam T for `const char*` variadic parameters
  */
 template<> struct IOCShFunctionArgument<const char*> {
-	static constexpr iocshArgType
-			code = iocshArgString;
-	static const char* get(const iocshArgBuf& buf) {
-		return buf.sval;
-	}
+    static constexpr iocshArgType
+            code = iocshArgString;
+    static const char* get(const iocshArgBuf& buf) {
+        return buf.sval;
+    }
 };
 
 /**

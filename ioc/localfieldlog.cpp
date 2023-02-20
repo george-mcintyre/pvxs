@@ -13,20 +13,20 @@ namespace pvxs {
 namespace ioc {
 
 LocalFieldLog::LocalFieldLog(dbChannel* pDbChannel, db_field_log* existingFieldLog)
-		:pFieldLog(existingFieldLog) {
-	if (!pFieldLog && (ellCount(&pDbChannel->pre_chain) != 0 || ellCount(&pDbChannel->pre_chain) == 0)) {
-		pFieldLog = db_create_read_log(pDbChannel);
-		if (pFieldLog) {
-			pFieldLog = dbChannelRunPreChain(pDbChannel, pFieldLog);
-			if (pFieldLog) {
-				pFieldLog = dbChannelRunPostChain(pDbChannel, pFieldLog);
-			}
-		}
-	}
+        :pFieldLog(existingFieldLog) {
+    if (!pFieldLog && (ellCount(&pDbChannel->pre_chain) != 0 || ellCount(&pDbChannel->pre_chain) == 0)) {
+        pFieldLog = db_create_read_log(pDbChannel);
+        if (pFieldLog) {
+            pFieldLog = dbChannelRunPreChain(pDbChannel, pFieldLog);
+            if (pFieldLog) {
+                pFieldLog = dbChannelRunPostChain(pDbChannel, pFieldLog);
+            }
+        }
+    }
 }
 
 LocalFieldLog::~LocalFieldLog() {
-	db_delete_field_log(pFieldLog);
+    db_delete_field_log(pFieldLog);
 }
 
 } // pvxs

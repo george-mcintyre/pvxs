@@ -32,17 +32,17 @@ class GroupSourceSubscriptionCtx;
  */
 class FieldSubscriptionCtx : public SubscriptionCtx {
 public:
-	GroupSourceSubscriptionCtx* pGroupCtx;
-	Field* field;
+    GroupSourceSubscriptionCtx* pGroupCtx;
+    Field* field;
 
-	// Map channel to field index in group.fields
-	void subscribeField(dbEventCtx pEventCtx, EVENTFUNC (* subscriptionCallback),
-			unsigned int selectOptions, bool forValues = true);
+    // Map channel to field index in group.fields
+    void subscribeField(dbEventCtx pEventCtx, EVENTFUNC (* subscriptionCallback),
+            unsigned int selectOptions, bool forValues = true);
 
-	explicit FieldSubscriptionCtx(Field& field, GroupSourceSubscriptionCtx* groupSourceSubscriptionCtx);
-	FieldSubscriptionCtx(FieldSubscriptionCtx&&) = default;
+    explicit FieldSubscriptionCtx(Field& field, GroupSourceSubscriptionCtx* groupSourceSubscriptionCtx);
+    FieldSubscriptionCtx(FieldSubscriptionCtx&&) = default;
 
-	FieldSubscriptionCtx(const FieldSubscriptionCtx&) = delete;
+    FieldSubscriptionCtx(const FieldSubscriptionCtx&) = delete;
 };
 
 } // pvcs

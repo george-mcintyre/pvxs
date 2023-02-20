@@ -29,15 +29,15 @@ namespace ioc {
  */
 class DBLocker {
 public:
-	dbCommon* const lock;
-	explicit DBLocker(dbCommon* L)
-			:lock(L) {
-		dbScanLock(lock);
-	}
+    dbCommon* const lock;
+    explicit DBLocker(dbCommon* L)
+            :lock(L) {
+        dbScanLock(lock);
+    }
 
-	~DBLocker() {
-		dbScanUnlock(lock);
-	}
+    ~DBLocker() {
+        dbScanUnlock(lock);
+    }
 };
 
 } // pvxs

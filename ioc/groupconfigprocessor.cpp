@@ -552,10 +552,10 @@ void GroupConfigProcessor::addTemplatesForDefinedFields(std::vector<Member>& gro
  */
 void GroupConfigProcessor::parseConfigString(const char* jsonGroupDefinition, const char* dbRecordName) {
 #ifndef EPICS_YAJL_VERSION
-	yajl_parser_config parserConfig;
-	memset(&parserConfig, 0, sizeof(parserConfig));
-	parserConfig.allowComments = 1;
-	parserConfig.checkUTF8 = 1;
+    yajl_parser_config parserConfig;
+    memset(&parserConfig, 0, sizeof(parserConfig));
+    parserConfig.allowComments = 1;
+    parserConfig.checkUTF8 = 1;
 #endif
 
 	// Convert the json string to a stream to be passed to the json parser
@@ -1003,10 +1003,10 @@ bool GroupConfigProcessor::yajlParseHelper(std::istream& jsonGroupDefinitionStre
 		linenum++;
 
 #ifndef EPICS_YAJL_VERSION
-		if(done) {
-			check_trailing(line);
-			continue;
-		}
+        if(done) {
+            check_trailing(line);
+            continue;
+        }
 #endif
 
 		// Parse the next line from the json group definition
@@ -1028,9 +1028,9 @@ bool GroupConfigProcessor::yajlParseHelper(std::istream& jsonGroupDefinitionStre
 		case yajl_status_client_canceled:
 			return false;
 #ifndef EPICS_YAJL_VERSION
-			case yajl_status_insufficient_data:
-			// continue with next line
-			break;
+            case yajl_status_insufficient_data:
+            // continue with next line
+            break;
 #endif
 		case yajl_status_error: {
 			std::ostringstream errorMessage;
@@ -1057,8 +1057,8 @@ bool GroupConfigProcessor::yajlParseHelper(std::istream& jsonGroupDefinitionStre
 		throw std::runtime_error(msg.str());
 
 #ifndef EPICS_YAJL_VERSION
-		} else if(!done) {
-		switch(yajl_parse_complete(handle)) {
+        } else if(!done) {
+        switch(yajl_parse_complete(handle)) {
 #else
 	} else {
 		switch (yajl_complete_parse(handle)) {
@@ -1068,8 +1068,8 @@ bool GroupConfigProcessor::yajlParseHelper(std::istream& jsonGroupDefinitionStre
 		case yajl_status_client_canceled:
 			return false;
 #ifndef EPICS_YAJL_VERSION
-			case yajl_status_insufficient_data:
-			throw std::runtime_error("unexpected end of input");
+            case yajl_status_insufficient_data:
+            throw std::runtime_error("unexpected end of input");
 #endif
 		case yajl_status_error:
 			throw std::runtime_error("Error while completing parsing");

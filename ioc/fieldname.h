@@ -30,19 +30,19 @@ namespace ioc {
 class FieldName {
 private:
 public:
-	FieldNameComponents fieldNameComponents;
-	bool empty() const;
-	size_t size() const;
+    FieldNameComponents fieldNameComponents;
+    bool empty() const;
+    size_t size() const;
 
-	explicit FieldName(const std::string& fieldName);
+    explicit FieldName(const std::string& fieldName);
 
-	void swap(FieldName& o);
-	const FieldNameComponent& operator[](size_t i) const;
-	const FieldNameComponent& back() const;
-	std::string to_string(size_t padLength = 0) const;
-	const std::string& leafFieldName() const;
+    void swap(FieldName& o);
+    const FieldNameComponent& operator[](size_t i) const;
+    const FieldNameComponent& back() const;
+    std::string to_string(size_t padLength = 0) const;
+    const std::string& leafFieldName() const;
 
-	void show(const std::string& suffix = {}) const;
+    void show(const std::string& suffix = {}) const;
 };
 
 } // pvxs

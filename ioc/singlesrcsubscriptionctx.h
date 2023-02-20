@@ -25,16 +25,16 @@ namespace ioc {
 class SingleSourceSubscriptionCtx : public SubscriptionCtx {
 
 public:
-	explicit SingleSourceSubscriptionCtx(const std::shared_ptr<dbChannel>& dbChannelSharedPtr);
+    explicit SingleSourceSubscriptionCtx(const std::shared_ptr<dbChannel>& dbChannelSharedPtr);
 // For locking access to subscription context
-	std::shared_ptr<dbChannel> pValueChannel;
-	std::shared_ptr<dbChannel> pPropertiesChannel;
+    std::shared_ptr<dbChannel> pValueChannel;
+    std::shared_ptr<dbChannel> pPropertiesChannel;
 
-	// This is used to store the current value.  Each subscription event simply merges
-	// new fields into this value
-	Value currentValue{};
-	epicsMutex eventLock{};
-	std::unique_ptr<server::MonitorControlOp> subscriptionControl{};
+    // This is used to store the current value.  Each subscription event simply merges
+    // new fields into this value
+    Value currentValue{};
+    epicsMutex eventLock{};
+    std::unique_ptr<server::MonitorControlOp> subscriptionControl{};
 };
 
 } // ioc

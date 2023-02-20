@@ -19,7 +19,7 @@ namespace ioc {
  * Construct an simple Field name component holder.  -1 means not a structure array
  */
 FieldNameComponent::FieldNameComponent()
-		:index((uint32_t)-1) {
+        :index((uint32_t)-1) {
 }
 
 /**
@@ -30,7 +30,7 @@ FieldNameComponent::FieldNameComponent()
  *              that index will only ever be specified in configuration if this is an array of structures.
  */
 FieldNameComponent::FieldNameComponent(std::string name, uint32_t index)
-		:name(std::move(name)), index(index) {
+        :name(std::move(name)), index(index) {
 }
 
 /**
@@ -41,7 +41,7 @@ FieldNameComponent::FieldNameComponent(std::string name, uint32_t index)
  * @return true if this is an array of structures
  */
 bool FieldNameComponent::isArray() const {
-	return index != (uint32_t)-1;
+    return index != (uint32_t)-1;
 }
 
 } // pvxs

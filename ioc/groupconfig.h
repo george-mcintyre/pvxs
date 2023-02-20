@@ -23,12 +23,12 @@ namespace ioc {
  */
 class GroupConfig {
 public:
-	bool atomic, atomicIsSet;
-	std::string structureId;
-	FieldConfigMap fieldConfigMap;
-	GroupConfig()
-			:atomic(true), atomicIsSet(false) {
-	}
+    bool atomic, atomicIsSet;
+    std::string structureId;
+    FieldConfigMap fieldConfigMap;
+    GroupConfig()
+            :atomic(true), atomicIsSet(false) {
+    }
 };
 
 // A map of group name to GroupConfig

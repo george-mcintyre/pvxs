@@ -34,10 +34,10 @@ class GroupConfigProcessor {
 	GroupDefinitionMap groupDefinitionMap;
 
 	/**
-	 * These are the callbacks designated by yajl for its parser functions
-	 * They must be defined in this order.
-	 * Note that we don't use number, or arrays
-	 */
+     * These are the callbacks designated by yajl for its parser functions
+     * They must be defined in this order.
+     * Note that we don't use number, or arrays
+     */
 	yajl_callbacks yajlParserCallbacks{
 			&parserCallbackNull,
 			&parserCallbackBoolean,

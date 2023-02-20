@@ -26,17 +26,17 @@ namespace ioc {
  * An array of structures is an array whose elements are themselves structures.
  */
 class FieldNameComponent {
-	// If this component is an array this is the index into the array
-	FieldNameComponent();
+    // If this component is an array this is the index into the array
+    FieldNameComponent();
 public:
-	explicit FieldNameComponent(std::string name, uint32_t index = (uint32_t)-1);
-	bool isArray() const;
+    explicit FieldNameComponent(std::string name, uint32_t index = (uint32_t)-1);
+    bool isArray() const;
 
-	// the name of this field component
-	std::string name;
-	// If this is a structure array then this is the index that is referred to by this field name component.
-	// -1 means that it is not a structure array
-	uint32_t index;
+    // the name of this field component
+    std::string name;
+    // If this is a structure array then this is the index that is referred to by this field name component.
+    // -1 means that it is not a structure array
+    uint32_t index;
 };
 
 typedef std::vector<FieldNameComponent> FieldNameComponents;

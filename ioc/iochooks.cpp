@@ -46,7 +46,7 @@ std::atomic<IOCServer*> pvxsServer{};
  * @return the pvxs server instance
  */
 server::Server& server() {
-	return iocServer();
+    return iocServer();
 }
 
 /**
@@ -55,11 +55,11 @@ server::Server& server() {
  * @return the pvxs server instance
  */
 IOCServer& iocServer() {
-	if (auto pPvxsServer = pvxsServer.load()) {
-		return *pPvxsServer;
-	} else {
-		throw std::logic_error("No Instance");
-	}
+    if (auto pPvxsServer = pvxsServer.load()) {
+        return *pPvxsServer;
+    } else {
+        throw std::logic_error("No Instance");
+    }
 }
 
 /**
@@ -71,20 +71,20 @@ IOCServer& iocServer() {
  */
 void
 runOnServer(const std::function<void(IOCServer*)>& function, const char* method, const char* context) {
-	try {
-		if (auto pPvxsServer = pvxsServer.load()) {
-			function(pPvxsServer);
-		}
-	} catch (std::exception& e) {
-		if (context) {
-			fprintf(stderr, "%s: ", context);
-		}
-		if (method) {
-			fprintf(stderr, "Error in %s: ", method);
-		}
-		fprintf(stderr, "%s\n", e.what());
-		throw e;
-	}
+    try {
+        if (auto pPvxsServer = pvxsServer.load()) {
+            function(pPvxsServer);
+        }
+    } catch (std::exception& e) {
+        if (context) {
+            fprintf(stderr, "%s: ", context);
+        }
+        if (method) {
+            fprintf(stderr, "Error in %s: ", method);
+        }
+        fprintf(stderr, "%s\n", e.what());
+        throw e;
+    }
 }
 
 /**
@@ -95,14 +95,14 @@ runOnServer(const std::function<void(IOCServer*)>& function, const char* method,
  * @param pep - The pointer to the exit parameter list - unused
  */
 void pvxsAtExit(void* pep) {
-	runOnPvxsServerWhile_("In IOC exit event handler", [](IOCServer* pPvxsServer) {
-		if (pvxsServer.compare_exchange_strong(pPvxsServer, nullptr)) {
-			// take ownership
-			std::unique_ptr<IOCServer> serverInstance(pPvxsServer);
-			serverInstance->stop();
-			log_debug_printf(_logname, "Stopped Server%s", "\n");
-		}
-	});
+    runOnPvxsServerWhile_("In IOC exit event handler", [](IOCServer* pPvxsServer) {
+        if (pvxsServer.compare_exchange_strong(pPvxsServer, nullptr)) {
+            // take ownership
+            std::unique_ptr<IOCServer> serverInstance(pPvxsServer);
+            serverInstance->stop();
+            log_debug_printf(_logname, "Stopped Server%s", "\n");
+        }
+    });
 }
 
 ////////////////////////////////////
@@ -117,12 +117,12 @@ void pvxsAtExit(void* pep) {
  * @param detail
  */
 void pvxsr(int detail) {
-	runOnPvxsServer([&detail](IOCServer* pPvxsServer) {
-		std::ostringstream strm;
-		Detailed D(strm, detail);
-		strm << *pPvxsServer;
-		printf("%s", strm.str().c_str());
-	});
+    runOnPvxsServer([&detail](IOCServer* pPvxsServer) {
+        std::ostringstream strm;
+        Detailed D(strm, detail);
+        strm << *pPvxsServer;
+        printf("%s", strm.str().c_str());
+    });
 }
 
 /**
@@ -138,13 +138,13 @@ void pvxsr(int detail) {
  *  - EPICS PVA environment variable settings
  */
 void pvxsi() {
-	try {
-		std::ostringstream capture;
-		target_information(capture);
-		printf("%s", capture.str().c_str());
-	} catch (std::exception& e) {
-		fprintf(stderr, "Error in %s : %s\n", __func__, e.what());
-	}
+    try {
+        std::ostringstream capture;
+        target_information(capture);
+        printf("%s", capture.str().c_str());
+    } catch (std::exception& e) {
+        fprintf(stderr, "Error in %s : %s\n", __func__, e.what());
+    }
 }
 
 /**
@@ -157,33 +157,33 @@ void pvxsi() {
  * @param theInitHookState the initHook state to respond to
  */
 void pvxsInitHook(initHookState theInitHookState) {
-	// iocBuild()
-	if (theInitHookState == initHookAfterInitDatabase) {
-		// function to run before exitDatabase
+    // iocBuild()
+    if (theInitHookState == initHookAfterInitDatabase) {
+        // function to run before exitDatabase
 #ifndef USE_DEINIT_HOOKS
-		epicsAtExit(&pvxsAtExit, nullptr);
+        epicsAtExit(&pvxsAtExit, nullptr);
 #endif
-	} else
-		// iocRun()
-	if (theInitHookState == initHookAfterCaServerRunning) {
-		runOnPvxsServer([](IOCServer* pPvxsServer) {
-			pPvxsServer->start();
-			log_debug_printf(_logname, "Started Server %p", pPvxsServer);
-		});
-	} else
-		// iocPause()
-	if (theInitHookState == initHookAfterCaServerPaused) {
-		runOnPvxsServer([](IOCServer* pPvxsServer) {
-			pPvxsServer->stop();
-			log_debug_printf(_logname, "Stopped Server %p", pPvxsServer);
-		});
-	} else
+    } else
+        // iocRun()
+    if (theInitHookState == initHookAfterCaServerRunning) {
+        runOnPvxsServer([](IOCServer* pPvxsServer) {
+            pPvxsServer->start();
+            log_debug_printf(_logname, "Started Server %p", pPvxsServer);
+        });
+    } else
+        // iocPause()
+    if (theInitHookState == initHookAfterCaServerPaused) {
+        runOnPvxsServer([](IOCServer* pPvxsServer) {
+            pPvxsServer->stop();
+            log_debug_printf(_logname, "Stopped Server %p", pPvxsServer);
+        });
+    } else
 
 #ifdef USE_DEINIT_HOOKS
-		// iocShutdown()  (called from exitDatabase() at exit, and testIocShutdownOk() )
-	if (theInitHookState == initHookAtShutdown) {
-		pvxsAtExit(nullptr);
-	}
+        // iocShutdown()  (called from exitDatabase() at exit, and testIocShutdownOk() )
+    if (theInitHookState == initHookAtShutdown) {
+        pvxsAtExit(nullptr);
+    }
 #endif
 }
 
@@ -204,20 +204,20 @@ void pvxsBaseRegistrar();
  * Create the pvxs server instance.  We use the global pvxsServer atomic
  */
 void initialisePvxsServer() {
-	using namespace pvxs::server;
-	auto serv = pvxsServer.load();
-	if (!serv) {
-		std::unique_ptr<IOCServer> temp(new IOCServer(Config::from_env()));
+    using namespace pvxs::server;
+    auto serv = pvxsServer.load();
+    if (!serv) {
+        std::unique_ptr<IOCServer> temp(new IOCServer(Config::from_env()));
 
-		if (pvxsServer.compare_exchange_strong(serv, temp.get())) {
-			log_debug_printf(_logname, "Installing Server %p\n", temp.get());
-			(void)temp.release();
-		} else {
-			log_crit_printf(_logname, "Race installing Server? %p\n", serv);
-		}
-	} else {
-		log_err_printf(_logname, "Stale Server? %p\n", serv);
-	}
+        if (pvxsServer.compare_exchange_strong(serv, temp.get())) {
+            log_debug_printf(_logname, "Installing Server %p\n", temp.get());
+            (void)temp.release();
+        } else {
+            log_crit_printf(_logname, "Race installing Server? %p\n", serv);
+        }
+    } else {
+        log_err_printf(_logname, "Stale Server? %p\n", serv);
+    }
 }
 
 /**
@@ -231,23 +231,23 @@ void initialisePvxsServer() {
  * 3. Lastly register your hook handler to handle any state hooks that you want to implement
  */
 void pvxsBaseRegistrar() {
-	try {
-		pvxs::logger_config_env();
+    try {
+        pvxs::logger_config_env();
 
-		IOCShCommand<int>("pvxsr", "[show_detailed_information?]", "PVXS Server Report.  "
-		                                                           "Shows information about server config (level==0)\n"
-		                                                           "or about connected clients (level>0).\n")
-				.implementation<&pvxsr>();
-		IOCShCommand<>("pvxsi", "Show detailed server information\n").implementation<&pvxsi>();
+        IOCShCommand<int>("pvxsr", "[show_detailed_information?]", "PVXS Server Report.  "
+                                                                   "Shows information about server config (level==0)\n"
+                                                                   "or about connected clients (level>0).\n")
+                .implementation<&pvxsr>();
+        IOCShCommand<>("pvxsi", "Show detailed server information\n").implementation<&pvxsi>();
 
-		// Initialise the PVXS Server
-		initialisePvxsServer();
+        // Initialise the PVXS Server
+        initialisePvxsServer();
 
-		// Register our hook handler to intercept certain state changes
-		initHookRegister(&pvxsInitHook);
-	} catch (std::exception& e) {
-		fprintf(stderr, "Error in %s : %s\n", __func__, e.what());
-	}
+        // Register our hook handler to intercept certain state changes
+        initHookRegister(&pvxsInitHook);
+    } catch (std::exception& e) {
+        fprintf(stderr, "Error in %s : %s\n", __func__, e.what());
+    }
 }
 } // namespace
 

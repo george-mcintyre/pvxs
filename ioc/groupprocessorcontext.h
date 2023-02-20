@@ -23,19 +23,19 @@ namespace ioc {
  * Object to store contextual information while parsing the group configuration
  */
 class GroupProcessorContext {
-	const std::string channelPrefix;
-	GroupConfigProcessor* groupConfigProcessor;
+    const std::string channelPrefix;
+    GroupConfigProcessor* groupConfigProcessor;
 
 public:
-	std::string groupName, field, key;
-	unsigned depth; // number of '{'s
-	std::string errorMessage;
+    std::string groupName, field, key;
+    unsigned depth; // number of '{'s
+    std::string errorMessage;
 
-	GroupProcessorContext(std::string &channelPrefix, GroupConfigProcessor* groupConfigProcessor)
-			:channelPrefix(channelPrefix), groupConfigProcessor(groupConfigProcessor), depth(0u) {
-	}
-	void canAssign() const;
-	void assign(const Value& value);
+    GroupProcessorContext(std::string& channelPrefix, GroupConfigProcessor* groupConfigProcessor)
+            :channelPrefix(channelPrefix), groupConfigProcessor(groupConfigProcessor), depth(0u) {
+    }
+    void canAssign() const;
+    void assign(const Value& value);
 
 };
 

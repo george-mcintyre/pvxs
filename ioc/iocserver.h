@@ -22,12 +22,12 @@ namespace ioc {
 class IOCServer : public server::Server {
 
 public:
-	explicit IOCServer(const server::Config& config);
-	GroupMap groupMap;
-	std::list<std::string> groupConfigFiles;
+    explicit IOCServer(const server::Config& config);
+    GroupMap groupMap;
+    std::list<std::string> groupConfigFiles;
 
-	// For locking access to groupMap
-	epicsMutex groupMapMutex{};
+    // For locking access to groupMap
+    epicsMutex groupMapMutex{};
 };
 
 IOCServer& iocServer();

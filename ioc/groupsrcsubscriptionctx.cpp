@@ -13,7 +13,7 @@ namespace pvxs {
 namespace ioc {
 
 GroupSourceSubscriptionCtx::GroupSourceSubscriptionCtx(Group& subscribedGroup)
-		:group(subscribedGroup), currentValue(subscribedGroup.valueTemplate.cloneEmpty()) {
+        :group(subscribedGroup), currentValue(subscribedGroup.valueTemplate.cloneEmpty()) {
 }
 
 } // pvxs

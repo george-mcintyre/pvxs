@@ -17,9 +17,9 @@ namespace ioc {
 
 class LocalFieldLog {
 public:
-	db_field_log* pFieldLog;
-	explicit LocalFieldLog(dbChannel* pDbChannel, db_field_log* existingFieldLog = nullptr);
-	~LocalFieldLog();
+    db_field_log* pFieldLog;
+    explicit LocalFieldLog(dbChannel* pDbChannel, db_field_log* existingFieldLog = nullptr);
+    ~LocalFieldLog();
 };
 
 } // pvxs

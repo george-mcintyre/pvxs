@@ -16,19 +16,19 @@ namespace pvxs {
 namespace ioc {
 
 DBEntry::DBEntry() {
-	dbInitEntry(pdbbase, &ent);
+    dbInitEntry(pdbbase, &ent);
 }
 
 DBEntry::~DBEntry() {
-	dbFinishEntry(&ent);
+    dbFinishEntry(&ent);
 }
 
 DBEntry::operator DBENTRY*() {
-	return &ent;
+    return &ent;
 }
 
 DBENTRY* DBEntry::operator->() {
-	return &ent;
+    return &ent;
 }
 
 } // ioc

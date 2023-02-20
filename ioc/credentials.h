@@ -26,11 +26,11 @@ namespace ioc {
  */
 class Credentials {
 public:
-	std::vector<std::string> cred;
-	std::string host;
-	explicit Credentials(const server::ClientCredentials& clientCredentials);
-	Credentials(const Credentials&) = delete;
-	Credentials(Credentials&&) = default;
+    std::vector<std::string> cred;
+    std::string host;
+    explicit Credentials(const server::ClientCredentials& clientCredentials);
+    Credentials(const Credentials&) = delete;
+    Credentials(Credentials&&) = default;
 };
 
 } // pvxs

@@ -29,48 +29,48 @@ namespace ioc {
  * @param pShowDetails if "yes", "YES", "true","TRUE", "1" then show details, otherwise don't show details
  */
 void pvxsl(const char* pShowDetails) {
-	runOnPvxsServer([&pShowDetails](IOCServer* pPvxsServer) {
-		auto showDetails = false;
+    runOnPvxsServer([&pShowDetails](IOCServer* pPvxsServer) {
+        auto showDetails = false;
 
-		if (pShowDetails) {
-			std::string showDetailsValue(pShowDetails);
-			std::transform(showDetailsValue.begin(), showDetailsValue.end(), showDetailsValue.begin(),
-					[](unsigned char c) { return std::tolower(c); });
-			if (showDetailsValue == "yes" || showDetailsValue == "true" || showDetailsValue == "1") {
-				showDetails = true;
-			}
-		}
+        if (pShowDetails) {
+            std::string showDetailsValue(pShowDetails);
+            std::transform(showDetailsValue.begin(), showDetailsValue.end(), showDetailsValue.begin(),
+                    [](unsigned char c) { return std::tolower(c); });
+            if (showDetailsValue == "yes" || showDetailsValue == "true" || showDetailsValue == "1") {
+                showDetails = true;
+            }
+        }
 
-		// For each registered source/IOID pair print a line of either detailed or regular information
-		for (auto& pair: pPvxsServer->listSource()) {
-			auto& record = pair.first;
-			auto& ioId = pair.second;
+        // For each registered source/IOID pair print a line of either detailed or regular information
+        for (auto& pair: pPvxsServer->listSource()) {
+            auto& record = pair.first;
+            auto& ioId = pair.second;
 
-			auto source = pPvxsServer->getSource(record, ioId);
-			if (!source) {
-				// if the source is not yet available in the server then we're in a race condition
-				// silently skip source
-				continue;
-			}
+            auto source = pPvxsServer->getSource(record, ioId);
+            if (!source) {
+                // if the source is not yet available in the server then we're in a race condition
+                // silently skip source
+                continue;
+            }
 
-			auto list = source->onList();
+            auto list = source->onList();
 
-			if (list.names && !list.names->empty()) {
-				if (showDetails) {
-					printf("------------------\n");
-					printf("SOURCE: %s@%d%s\n", record.c_str(), pair.second, (list.dynamic ? " [dynamic]" : ""));
-					printf("------------------\n");
-					printf("RECORDS: \n");
-				}
-				for (auto& name: *list.names) {
-					if (showDetails) {
-						printf("  ");
-					}
-					printf("%s\n", name.c_str());
-				}
-			}
-		}
-	});
+            if (list.names && !list.names->empty()) {
+                if (showDetails) {
+                    printf("------------------\n");
+                    printf("SOURCE: %s@%d%s\n", record.c_str(), pair.second, (list.dynamic ? " [dynamic]" : ""));
+                    printf("------------------\n");
+                    printf("RECORDS: \n");
+                }
+                for (auto& name: *list.names) {
+                    if (showDetails) {
+                        printf("  ");
+                    }
+                    printf("%s\n", name.c_str());
+                }
+            }
+        }
+    });
 }
 
 }
@@ -86,9 +86,9 @@ namespace {
  * @param theInitHookState the initHook state - we only want to trigger on the initHookAfterIocBuilt state - ignore all others
  */
 void qsrvSingleSourceInit(initHookState theInitHookState) {
-	if (theInitHookState == initHookAfterIocBuilt) {
-		pvxs::ioc::iocServer().addSource("qsrvSingle", std::make_shared<pvxs::ioc::SingleSource>(), 0);
-	}
+    if (theInitHookState == initHookAfterIocBuilt) {
+        pvxs::ioc::iocServer().addSource("qsrvSingle", std::make_shared<pvxs::ioc::SingleSource>(), 0);
+    }
 }
 
 /**
@@ -104,13 +104,13 @@ void qsrvSingleSourceInit(initHookState theInitHookState) {
  * after which point the `initHookAfterIocBuilt` handlers are called and will register all the defined records.
  */
 void pvxsSingleSourceRegistrar() {
-	// Register commands to be available in the IOC shell
-	IOCShCommand<const char*>("pvxsl", "[show_detailed_information?]", "Single Sources list.\n"
-	                                                                   "List record/field names.\n"
-	                                                                   "If `show_detailed_information?` flag is `yes`, `true` or `1` then show detailed information.\n")
-			.implementation<&pvxsl>();
+    // Register commands to be available in the IOC shell
+    IOCShCommand<const char*>("pvxsl", "[show_detailed_information?]", "Single Sources list.\n"
+                                                                       "List record/field names.\n"
+                                                                       "If `show_detailed_information?` flag is `yes`, `true` or `1` then show detailed information.\n")
+            .implementation<&pvxsl>();
 
-	initHookRegister(&qsrvSingleSourceInit);
+    initHookRegister(&qsrvSingleSourceInit);
 }
 
 } // namespace

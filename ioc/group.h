@@ -22,27 +22,27 @@ namespace ioc {
 
 class ChannelLocks {
 public:
-	std::vector<dbCommon*> channels;
-	DBManyLock lock;
-	ChannelLocks() = default;
+    std::vector<dbCommon*> channels;
+    DBManyLock lock;
+    ChannelLocks() = default;
 };
 
 class Group {
 private:
 public:
-	std::string name;
-	Fields fields;
-	bool atomicPutGet, atomicMonitor;
-	Value valueTemplate;
-	ChannelLocks value;
-	ChannelLocks properties;
+    std::string name;
+    Fields fields;
+    bool atomicPutGet, atomicMonitor;
+    Value valueTemplate;
+    ChannelLocks value;
+    ChannelLocks properties;
 
-	Group();
-	virtual ~Group();
-	virtual void show(int level) const;
-	Field& operator[](const std::string& fieldName);
+    Group();
+    virtual ~Group();
+    virtual void show(int level) const;
+    Field& operator[](const std::string& fieldName);
 
-	Group(const Group&) = delete;
+    Group(const Group&) = delete;
 };
 
 // A map of group name to Group

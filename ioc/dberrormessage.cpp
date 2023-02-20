@@ -21,7 +21,7 @@ namespace ioc {
  * @param dbStatus database command status code
  */
 DBErrorMessage::DBErrorMessage(const long& dbStatus) {
-	(*this) = dbStatus;
+    (*this) = dbStatus;
 }
 
 /**
@@ -31,14 +31,14 @@ DBErrorMessage::DBErrorMessage(const long& dbStatus) {
  * @return updated  DBErrorMessage object
  */
 DBErrorMessage& DBErrorMessage::operator=(const long& dbStatus) {
-	status = dbStatus;
-	if (!dbStatus) {
-		message[0] = '\0';
-	} else {
-		errSymLookup(dbStatus, message, sizeof(message));
-		message[sizeof(message) - 1] = '\0';
-	}
-	return *this;
+    status = dbStatus;
+    if (!dbStatus) {
+        message[0] = '\0';
+    } else {
+        errSymLookup(dbStatus, message, sizeof(message));
+        message[sizeof(message) - 1] = '\0';
+    }
+    return *this;
 }
 
 /**
@@ -47,7 +47,7 @@ DBErrorMessage& DBErrorMessage::operator=(const long& dbStatus) {
  * @return returns true if the status indicates a failure
  */
 DBErrorMessage::operator bool() const {
-	return status;
+    return status;
 }
 
 /**
@@ -56,7 +56,7 @@ DBErrorMessage::operator bool() const {
  * @return the text of the database status as a string pointer
  */
 const char* DBErrorMessage::c_str() const {
-	return message;
+    return message;
 }
 
 } // ioc

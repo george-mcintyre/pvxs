@@ -14,16 +14,16 @@ namespace pvxs {
 namespace ioc {
 
 class SecurityLogger {
-	void* pvt;
+    void* pvt;
 public:
-	SecurityLogger();
-	explicit SecurityLogger(void* pvt);
-	~SecurityLogger();
+    SecurityLogger();
+    explicit SecurityLogger(void* pvt);
+    ~SecurityLogger();
 
-	void swap(SecurityLogger& o);
+    void swap(SecurityLogger& o);
 
-	SecurityLogger(const SecurityLogger&) = delete;
-	SecurityLogger& operator=(const SecurityLogger&) = delete;
+    SecurityLogger(const SecurityLogger&) = delete;
+    SecurityLogger& operator=(const SecurityLogger&) = delete;
 };
 
 } // pvxs

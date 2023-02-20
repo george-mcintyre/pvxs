@@ -21,7 +21,7 @@ namespace ioc {
  * @param groupSourceSubscriptionCtx the group subscription context this is a part of
  */
 FieldSubscriptionCtx::FieldSubscriptionCtx(Field& field, GroupSourceSubscriptionCtx* groupSourceSubscriptionCtx)
-		:pGroupCtx(groupSourceSubscriptionCtx), field(&field) {
+        :pGroupCtx(groupSourceSubscriptionCtx), field(&field) {
 };
 
 /**
@@ -35,24 +35,24 @@ FieldSubscriptionCtx::FieldSubscriptionCtx(Field& field, GroupSourceSubscription
  * @param forValues true if this should monitor value changes, false for property changes.
  */
 void FieldSubscriptionCtx::subscribeField(dbEventCtx pEventCtx, EVENTFUNC (* subscriptionCallback),
-		unsigned int selectOptions, bool forValues) {
-	auto& pDbChannel = (forValues ? field->value.channel : field->properties.channel).shared_ptr();
-	auto& pEventSubscription = forValues ? pValueEventSubscription : pPropertiesEventSubscription;
-	pEventSubscription.reset(
-			db_add_event(
-					pEventCtx,
-					pDbChannel.get(),
-					subscriptionCallback,
-					this, selectOptions),
-			[](dbEventSubscription pEventSub) {
-				if (pEventSub) {
-					db_cancel_event(pEventSub);
-				}
-			});
+        unsigned int selectOptions, bool forValues) {
+    auto& pDbChannel = (forValues ? field->value.channel : field->properties.channel).shared_ptr();
+    auto& pEventSubscription = forValues ? pValueEventSubscription : pPropertiesEventSubscription;
+    pEventSubscription.reset(
+            db_add_event(
+                    pEventCtx,
+                    pDbChannel.get(),
+                    subscriptionCallback,
+                    this, selectOptions),
+            [](dbEventSubscription pEventSub) {
+                if (pEventSub) {
+                    db_cancel_event(pEventSub);
+                }
+            });
 
-	if (!pEventSubscription) {
-		throw std::runtime_error("Failed to create db subscription");
-	}
+    if (!pEventSubscription) {
+        throw std::runtime_error("Failed to create db subscription");
+    }
 }
 
 } // pvcs

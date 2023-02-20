@@ -26,20 +26,20 @@ namespace ioc {
 class DBManyLock {
 
 public:
-	dbLocker* pLocker{};
+    dbLocker* pLocker{};
 
-	explicit DBManyLock(const std::vector<dbCommon*>& channels, unsigned flags = 0);
+    explicit DBManyLock(const std::vector<dbCommon*>& channels, unsigned flags = 0);
 
-	DBManyLock();
-	DBManyLock(DBManyLock&& other) noexcept;
-	~DBManyLock();
+    DBManyLock();
+    DBManyLock(DBManyLock&& other) noexcept;
+    ~DBManyLock();
 
-	explicit operator dbLocker*() const;
-	DBManyLock& operator=(DBManyLock&& other) noexcept;
+    explicit operator dbLocker*() const;
+    DBManyLock& operator=(DBManyLock&& other) noexcept;
 
-	// Prevent copy construction and assignment
-	DBManyLock(const DBManyLock&) = delete;
-	DBManyLock& operator=(const DBManyLock& other) = delete;
+    // Prevent copy construction and assignment
+    DBManyLock(const DBManyLock&) = delete;
+    DBManyLock& operator=(const DBManyLock& other) = delete;
 };
 
 /**
@@ -59,14 +59,14 @@ public:
  */
 class DBManyLocker {
 public:
-	const DBManyLock& lock;
-	explicit DBManyLocker(DBManyLock& L)
-			:lock(L) {
-		dbScanLockMany(lock.pLocker);
-	}
-	~DBManyLocker() {
-		dbScanUnlockMany(lock.pLocker);
-	}
+    const DBManyLock& lock;
+    explicit DBManyLocker(DBManyLock& L)
+            :lock(L) {
+        dbScanLockMany(lock.pLocker);
+    }
+    ~DBManyLocker() {
+        dbScanUnlockMany(lock.pLocker);
+    }
 };
 
 } // pvxs

@@ -22,12 +22,12 @@ namespace ioc {
  * @param fieldName the name of the field
  */
 FieldDefinition::FieldDefinition(const FieldConfig& fieldConfig, const std::string& fieldName)
-		:putOrder(0) {
-	channel = fieldConfig.channel;
-	name = fieldName;
-	structureId = fieldConfig.structureId;
-	putOrder = fieldConfig.putOrder;
-	type = fieldConfig.type;
+        :putOrder(0) {
+    channel = fieldConfig.channel;
+    name = fieldName;
+    structureId = fieldConfig.structureId;
+    putOrder = fieldConfig.putOrder;
+    type = fieldConfig.type;
 }
 
 }

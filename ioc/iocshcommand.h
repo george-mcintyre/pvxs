@@ -45,51 +45,51 @@ using IOCShFunction = void (*)(IOCShFunctionArgumentTypes...);
 template<typename ...IOCShFunctionArgumentTypes>
 class IOCShCommand {
 public:
-	const char* const name;
-	const char* const argumentNames[1 + sizeof...(IOCShFunctionArgumentTypes)];
-	const char* const usage = nullptr;
+    const char* const name;
+    const char* const argumentNames[1 + sizeof...(IOCShFunctionArgumentTypes)];
+    const char* const usage = nullptr;
 
 // Construct a new IOC shell command with a name and description
-	constexpr explicit IOCShCommand(const char* name, ConstString<IOCShFunctionArgumentTypes>... argumentDescriptions)
-			:name(name), argumentNames{ argumentDescriptions..., 0 } {
-	}
+    constexpr explicit IOCShCommand(const char* name, ConstString<IOCShFunctionArgumentTypes>... argumentDescriptions)
+            :name(name), argumentNames{ argumentDescriptions..., 0 } {
+    }
 
 // Construct a new IOC shell command with a name and description
-	constexpr explicit IOCShCommand(const char* name, ConstString<IOCShFunctionArgumentTypes>... argumentDescriptions,
-			const char* usage)
-			:name(name), argumentNames{ argumentDescriptions..., 0 }, usage(usage) {
-	}
+    constexpr explicit IOCShCommand(const char* name, ConstString<IOCShFunctionArgumentTypes>... argumentDescriptions,
+            const char* usage)
+            :name(name), argumentNames{ argumentDescriptions..., 0 }, usage(usage) {
+    }
 
 // Create an implementation for this IOC command
-	template<IOCShFunction<IOCShFunctionArgumentTypes ...> function>
-	void implementation() {
-		implement<function>(make_index_sequence<sizeof...(IOCShFunctionArgumentTypes)>{});
-	}
+    template<IOCShFunction<IOCShFunctionArgumentTypes ...> function>
+    void implementation() {
+        implement<function>(make_index_sequence<sizeof...(IOCShFunctionArgumentTypes)>{});
+    }
 
 // Implement the command by registering the callback with EPICS iocshRegister()
-	template<IOCShFunction<IOCShFunctionArgumentTypes ...> function, size_t... Idxs>
-	void implement(index_sequence<Idxs...>) {
-		static const iocshArg argstack[1 + sizeof...(IOCShFunctionArgumentTypes)] = {
-				{ argumentNames[Idxs], IOCShFunctionArgument<IOCShFunctionArgumentTypes>::code }... };
-		static const iocshArg* const arguments[] = { &argstack[Idxs]..., 0 };
-		static const iocshFuncDef functionDefinition = { name, sizeof...(IOCShFunctionArgumentTypes), arguments,
-		                                                 usage };
+    template<IOCShFunction<IOCShFunctionArgumentTypes ...> function, size_t... Idxs>
+    void implement(index_sequence<Idxs...>) {
+        static const iocshArg argstack[1 + sizeof...(IOCShFunctionArgumentTypes)] = {
+                { argumentNames[Idxs], IOCShFunctionArgument<IOCShFunctionArgumentTypes>::code }... };
+        static const iocshArg* const arguments[] = { &argstack[Idxs]..., 0 };
+        static const iocshFuncDef functionDefinition = { name, sizeof...(IOCShFunctionArgumentTypes), arguments,
+                                                         usage };
 
-		iocshRegister(&functionDefinition, &call < function, Idxs... >);
-	}
+        iocshRegister(&functionDefinition, &call < function, Idxs... >);
+    }
 
 // The actual callback that is executed for the registered command
 // The function is called with a variadic argument list of heterogeneous types based on the
 // declared registration template types
 // by calling the appropriate get methods on the templated Arg(s)
-	template<IOCShFunction<IOCShFunctionArgumentTypes ...> function, size_t... Idxs>
-	static void call(const iocshArgBuf* iocShArgumentsBuffer) {
-		(*function)(IOCShFunctionArgument<IOCShFunctionArgumentTypes>::get(iocShArgumentsBuffer[Idxs])...);
-	}
+    template<IOCShFunction<IOCShFunctionArgumentTypes ...> function, size_t... Idxs>
+    static void call(const iocshArgBuf* iocShArgumentsBuffer) {
+        (*function)(IOCShFunctionArgument<IOCShFunctionArgumentTypes>::get(iocShArgumentsBuffer[Idxs])...);
+    }
 };
 
 void runOnServer(const std::function<void(IOCServer*)>& function, const char* method = nullptr,
-		const char* context = nullptr);
+        const char* context = nullptr);
 
 } // pvxs
 } // ioc

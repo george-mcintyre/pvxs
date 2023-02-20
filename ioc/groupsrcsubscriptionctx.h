@@ -25,17 +25,17 @@ namespace ioc {
 
 class GroupSourceSubscriptionCtx {
 public:
-	Group& group;
-	epicsMutex eventLock{};
-	bool eventsPrimed = false, firstEvent = true;
-	std::unique_ptr<server::MonitorControlOp> subscriptionControl{};
+    Group& group;
+    epicsMutex eventLock{};
+    bool eventsPrimed = false, firstEvent = true;
+    std::unique_ptr<server::MonitorControlOp> subscriptionControl{};
 
-	// This is as a special case for storing the initial value prior to both initial subscription events returning
-	// This is so that we can merge this with the subsequent values that come in before all initial events are in
-	Value currentValue;
+    // This is as a special case for storing the initial value prior to both initial subscription events returning
+    // This is so that we can merge this with the subsequent values that come in before all initial events are in
+    Value currentValue;
 
-	std::vector<FieldSubscriptionCtx> fieldSubscriptionContexts{};
-	explicit GroupSourceSubscriptionCtx(Group& group);
+    std::vector<FieldSubscriptionCtx> fieldSubscriptionContexts{};
+    explicit GroupSourceSubscriptionCtx(Group& group);
 };
 
 } // pvxs

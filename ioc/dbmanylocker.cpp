@@ -19,7 +19,7 @@ namespace ioc {
  * Empty lock
  */
 DBManyLock::DBManyLock()
-		:pLocker(nullptr) {
+        :pLocker(nullptr) {
 }
 
 /**
@@ -29,43 +29,43 @@ DBManyLock::DBManyLock()
  * @param flags the lock flags to be passed on to dbLockerAlloc()
  */
 DBManyLock::DBManyLock(const std::vector<dbCommon*>& channels, unsigned flags) {
-	dbCommon** recordsArray = nullptr;
-	if (!channels.empty()) {
-		recordsArray = reinterpret_cast<dbCommon**>(((dbCommon**)&channels)[0]);
-	}
+    dbCommon** recordsArray = nullptr;
+    if (!channels.empty()) {
+        recordsArray = reinterpret_cast<dbCommon**>(((dbCommon**)&channels)[0]);
+    }
 
-	pLocker = dbLockerAlloc(recordsArray, channels.size(), flags);
-	if (!pLocker) {
-		throw std::invalid_argument("Failed to create locker");
-	}
+    pLocker = dbLockerAlloc(recordsArray, channels.size(), flags);
+    if (!pLocker) {
+        throw std::invalid_argument("Failed to create locker");
+    }
 }
 
 /**
  * When the lock goes out of scope, then free the lock
  */
 DBManyLock::~DBManyLock() {
-	if (pLocker) {
-		dbLockerFree(pLocker);
-		pLocker = nullptr;
-	}
+    if (pLocker) {
+        dbLockerFree(pLocker);
+        pLocker = nullptr;
+    }
 }
 
 DBManyLock::operator dbLocker*() const {
-	return pLocker;
+    return pLocker;
 }
 
 DBManyLock::DBManyLock(DBManyLock&& other) noexcept
-		:pLocker(other.pLocker) {
-	other.pLocker = nullptr;
+        :pLocker(other.pLocker) {
+    other.pLocker = nullptr;
 }
 
 DBManyLock& DBManyLock::operator=(DBManyLock&& other) noexcept {
-	if (pLocker) {
-		dbLockerFree(pLocker);
-	}
-	pLocker = other.pLocker;
-	other.pLocker = nullptr;
-	return *this;
+    if (pLocker) {
+        dbLockerFree(pLocker);
+    }
+    pLocker = other.pLocker;
+    other.pLocker = nullptr;
+    return *this;
 }
 //
 

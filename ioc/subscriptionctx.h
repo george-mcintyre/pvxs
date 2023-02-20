@@ -46,10 +46,10 @@ namespace ioc {
 class SubscriptionCtx {
 public:
 // For locking access to subscription context
-	std::shared_ptr<void> pValueEventSubscription{};
-	std::shared_ptr<void> pPropertiesEventSubscription{};
-	bool hadValueEvent = false;
-	bool hadPropertyEvent = false;
+    std::shared_ptr<void> pValueEventSubscription{};
+    std::shared_ptr<void> pPropertiesEventSubscription{};
+    bool hadValueEvent = false;
+    bool hadPropertyEvent = false;
 };
 
 } // ioc

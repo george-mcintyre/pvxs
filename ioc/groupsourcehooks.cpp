@@ -30,9 +30,9 @@ namespace ioc {
  * @param jsonFileName
  */
 void dbLoadGroupCmd(const char* jsonFileName) {
-	(void)dbLoadGroup(jsonFileName);
-	auto gp = GroupConfigProcessor();
-	gp.loadConfigFiles();
+    (void)dbLoadGroup(jsonFileName);
+    auto gp = GroupConfigProcessor();
+    gp.loadConfigFiles();
 }
 
 /**
@@ -43,35 +43,35 @@ void dbLoadGroupCmd(const char* jsonFileName) {
  * @param pattern optionally only show records matching the regex pattern
  */
 void pvxsgl(int level, const char* pattern) {
-	runOnPvxsServer(([level, &pattern](IOCServer* pPvxsServer) {
-		try {
-			// Default pattern to match everything
-			if (!pattern) {
-				pattern = "";
-			}
+    runOnPvxsServer(([level, &pattern](IOCServer* pPvxsServer) {
+        try {
+            // Default pattern to match everything
+            if (!pattern) {
+                pattern = "";
+            }
 
-			{
-				epicsGuard<epicsMutex> G(pPvxsServer->groupMapMutex);
+            {
+                epicsGuard<epicsMutex> G(pPvxsServer->groupMapMutex);
 
-				// For each group
-				for (auto& mapEntry: pPvxsServer->groupMap) {
-					auto& groupName = mapEntry.first;
-					auto& group = mapEntry.second;
-					// if no pattern specified or the pattern matches
-					if (!pattern[0] || !!epicsStrGlobMatch(groupName.c_str(), pattern)) {
-						// Print the group name
-						printf("%s\n", groupName.c_str());
-						// print sub-levels if required
-						if (level > 0) {
-							group.show(level);
-						}
-					}
-				}
-			}
-		} catch (std::exception& e) {
-			fprintf(stderr, "%s\n", e.what());
-		}
-	}));
+                // For each group
+                for (auto& mapEntry: pPvxsServer->groupMap) {
+                    auto& groupName = mapEntry.first;
+                    auto& group = mapEntry.second;
+                    // if no pattern specified or the pattern matches
+                    if (!pattern[0] || !!epicsStrGlobMatch(groupName.c_str(), pattern)) {
+                        // Print the group name
+                        printf("%s\n", groupName.c_str());
+                        // print sub-levels if required
+                        if (level > 0) {
+                            group.show(level);
+                        }
+                    }
+                }
+            }
+        } catch (std::exception& e) {
+            fprintf(stderr, "%s\n", e.what());
+        }
+    }));
 }
 
 /**
@@ -85,32 +85,32 @@ void pvxsgl(int level, const char* pattern) {
  * @return 0 for success, 1 for failure
  */
 long dbLoadGroup(const char* jsonFilename) {
-	try {
-		if (!jsonFilename || !jsonFilename[0]) {
-			printf("dbLoadGroup(\"file.json\")\n"
-			       "Load additional DB group definitions from file.\n");
-			fprintf(stderr, "Missing filename\n");
-			return 1;
-		}
+    try {
+        if (!jsonFilename || !jsonFilename[0]) {
+            printf("dbLoadGroup(\"file.json\")\n"
+                   "Load additional DB group definitions from file.\n");
+            fprintf(stderr, "Missing filename\n");
+            return 1;
+        }
 
-		runOnPvxsServer([&jsonFilename](IOCServer* pPvxsServer) {
-			if (jsonFilename[0] == '-') {
-				jsonFilename++;
-				if (jsonFilename[0] == '*' && jsonFilename[1] == '\0') {
-					pPvxsServer->groupConfigFiles.clear();
-				} else {
-					pPvxsServer->groupConfigFiles.remove(jsonFilename);
-				}
-			} else {
-				pPvxsServer->groupConfigFiles.remove(jsonFilename);
-				pPvxsServer->groupConfigFiles.emplace_back(jsonFilename);
-			}
-		});
-		return 0;
-	} catch (std::exception& e) {
-		fprintf(stderr, "Error: %s\n", e.what());
-		return 1;
-	}
+        runOnPvxsServer([&jsonFilename](IOCServer* pPvxsServer) {
+            if (jsonFilename[0] == '-') {
+                jsonFilename++;
+                if (jsonFilename[0] == '*' && jsonFilename[1] == '\0') {
+                    pPvxsServer->groupConfigFiles.clear();
+                } else {
+                    pPvxsServer->groupConfigFiles.remove(jsonFilename);
+                }
+            } else {
+                pPvxsServer->groupConfigFiles.remove(jsonFilename);
+                pPvxsServer->groupConfigFiles.emplace_back(jsonFilename);
+            }
+        });
+        return 0;
+    } catch (std::exception& e) {
+        fprintf(stderr, "Error: %s\n", e.what());
+        return 1;
+    }
 }
 
 }
@@ -127,26 +127,26 @@ using namespace pvxs;
  * @param theInitHookState the initHook state - we only want to trigger on the initHookAfterIocBuilt state - ignore all others
  */
 void qsrvGroupSourceInit(initHookState theInitHookState) {
-	if (theInitHookState == initHookAfterInitDatabase) {
-		GroupConfigProcessor processor;
-		// Parse all info(Q:Group... records to configure groups
-		processor.loadConfigFromDb();
+    if (theInitHookState == initHookAfterInitDatabase) {
+        GroupConfigProcessor processor;
+        // Parse all info(Q:Group... records to configure groups
+        processor.loadConfigFromDb();
 
-		// Load group configuration files
-		processor.loadConfigFiles();
+        // Load group configuration files
+        processor.loadConfigFiles();
 
-		// Configure groups
-		processor.defineGroups();
+        // Configure groups
+        processor.defineGroups();
 
-		// Resolve triggers
-		processor.resolveTriggerReferences();
+        // Resolve triggers
+        processor.resolveTriggerReferences();
 
-		// Create Server Groups
-		processor.createGroups();
-	} else if (theInitHookState == initHookAfterIocBuilt) {
-		// Load group configuration from parsed groups in iocServer
-		pvxs::ioc::iocServer().addSource("qsrvGroup", std::make_shared<pvxs::ioc::GroupSource>(), 1);
-	}
+        // Create Server Groups
+        processor.createGroups();
+    } else if (theInitHookState == initHookAfterIocBuilt) {
+        // Load group configuration from parsed groups in iocServer
+        pvxs::ioc::iocServer().addSource("qsrvGroup", std::make_shared<pvxs::ioc::GroupSource>(), 1);
+    }
 }
 
 /**
@@ -161,20 +161,20 @@ void qsrvGroupSourceInit(initHookState theInitHookState) {
  * after which point the `initHookAfterIocBuilt` handlers are called and will register all the defined records.
  */
 void pvxsGroupSourceRegistrar() {
-	// Register commands to be available in the IOC shell
-	IOCShCommand<int, const char*>("pvxsgl", "[level, [pattern]]", "Group Sources list.\n"
-	                                                               "List record/field names.\n"
-	                                                               "If `level` is set then show only down to that level.\n"
-	                                                               "If `pattern` is set then show records that match the pattern.")
-			.implementation<&pvxsgl>();
+    // Register commands to be available in the IOC shell
+    IOCShCommand<int, const char*>("pvxsgl", "[level, [pattern]]", "Group Sources list.\n"
+                                                                   "List record/field names.\n"
+                                                                   "If `level` is set then show only down to that level.\n"
+                                                                   "If `pattern` is set then show records that match the pattern.")
+            .implementation<&pvxsgl>();
 
-	IOCShCommand<const char*>("dbLoadGroup", "jsonDefinitionFile", "Load Group Record Definition from given file.\n"
-	                                                               "'-' or '-*' to remove previous files.\n"
-	                                                               "'-<jsonDefinitionFile>' to remove the file from the list.\n"
-	                                                               "otherwise add the file to the list of files to load.\n")
-			.implementation<&dbLoadGroupCmd>();
+    IOCShCommand<const char*>("dbLoadGroup", "jsonDefinitionFile", "Load Group Record Definition from given file.\n"
+                                                                   "'-' or '-*' to remove previous files.\n"
+                                                                   "'-<jsonDefinitionFile>' to remove the file from the list.\n"
+                                                                   "otherwise add the file to the list of files to load.\n")
+            .implementation<&dbLoadGroupCmd>();
 
-	initHookRegister(&qsrvGroupSourceInit);
+    initHookRegister(&qsrvGroupSourceInit);
 }
 
 } // namespace

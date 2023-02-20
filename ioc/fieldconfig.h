@@ -22,8 +22,8 @@ namespace ioc {
  */
 class FieldConfig {
 public:
-	std::string type, channel, trigger, structureId;
-	int64_t putOrder;
+    std::string type, channel, trigger, structureId;
+    int64_t putOrder;
 };
 
 typedef std::map<std::string, FieldConfig> FieldConfigMap;
