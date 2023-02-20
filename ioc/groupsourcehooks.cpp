@@ -11,7 +11,6 @@
 
 #include <epicsExport.h>
 #include <epicsString.h>
-#include <epicsStdio.h>
 
 #include <initHooks.h>
 
@@ -22,6 +21,8 @@
 #include "groupconfigprocessor.h"
 #include "iocshcommand.h"
 
+// must include after log.h has been included to avoid clash with printf macro
+#include <epicsStdio.h>
 namespace pvxs {
 namespace ioc {
 

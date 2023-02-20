@@ -12,12 +12,14 @@
 
 #include <initHooks.h>
 #include <epicsExport.h>
-#include <epicsStdio.h>
 
 #include <pvxs/source.h>
 
 #include "iocshcommand.h"
 #include "singlesource.h"
+
+// must include after log.h has been included to avoid clash with printf macro
+#include <epicsStdio.h>
 
 namespace pvxs {
 namespace ioc {

@@ -17,7 +17,6 @@
 #include <stdexcept>
 
 #include <epicsExport.h>
-#include <epicsStdio.h>
 #include <initHooks.h>
 #include <iocsh.h>
 
@@ -28,6 +27,9 @@
 
 #include "iocserver.h"
 #include "iocshcommand.h"
+
+// must include after log.h has been included to avoid clash with printf macro
+#include <epicsStdio.h>
 
 #if EPICS_VERSION_INT >= VERSION_INT(7, 0, 4, 0)
 #  define USE_DEINIT_HOOKS
