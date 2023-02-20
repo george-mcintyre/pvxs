@@ -11,8 +11,6 @@ include $(TOP)/configure/CONFIG_PVXS_VERSION
 
 # access to private headers
 USR_CPPFLAGS += -I$(TOP)/src
-# EPICS_BASE macro for our location
-USR_CPPFLAGS += -DEPICS_BASE="\"$(FINAL_LOCATION)\""
 
 PROD_LIBS = pvxs Com
 
@@ -117,7 +115,7 @@ TESTPROD_HOST += testioc
 testioc_SRCS += testioc.cpp
 testioc_SRCS += testioc_registerRecordDeviceDriver.cpp
 testioc_LIBS = pvxsIoc pvxs $(EPICS_BASE_IOC_LIBS)
-TESTFILES += testioc.db testiocg.db
+TESTFILES += testioc.db testiocg.db image.db ntenum.db
 TESTFILES += testioc.json
 TESTS += testioc
 
