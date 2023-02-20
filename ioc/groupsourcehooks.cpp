@@ -11,6 +11,7 @@
 
 #include <epicsExport.h>
 #include <epicsString.h>
+#include <epicsStdio.h>
 
 #include <initHooks.h>
 

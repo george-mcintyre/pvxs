@@ -12,6 +12,7 @@
 
 #include <initHooks.h>
 #include <epicsExport.h>
+#include <epicsStdio.h>
 
 #include <pvxs/source.h>
 

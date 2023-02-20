@@ -17,6 +17,7 @@
 #include <stdexcept>
 
 #include <epicsExport.h>
+#include <epicsStdio.h>
 #include <initHooks.h>
 #include <iocsh.h>
 
