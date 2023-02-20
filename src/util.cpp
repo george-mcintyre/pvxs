@@ -47,16 +47,17 @@ DEFINE_LOGGER(log, "pvxs.util");
 
 const char *version_str()
 {
-    return "PVXS "
-            stringify(PVXS_MAJOR_VERSION)
-            "."
-            stringify(PVXS_MINOR_VERSION)
-            "."
-            stringify(PVXS_MAINTENANCE_VERSION)
-#ifdef PVXS_VCS_VERSION
-            " (" PVXS_VCS_VERSION ")"
+	(void)log;
+	return "PVXS "
+	       stringify(PVXS_MAJOR_VERSION)
+	       "."
+	       stringify(PVXS_MINOR_VERSION)
+	       "."
+	       stringify(PVXS_MAINTENANCE_VERSION)
+	       #ifdef PVXS_VCS_VERSION
+	       " (" PVXS_VCS_VERSION ")"
 #endif
-            ;
+			;
 }
 
 unsigned long version_int()

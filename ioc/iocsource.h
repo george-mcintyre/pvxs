@@ -109,9 +109,9 @@ public:
 	// Utility function to get the TypeCode that the given database channel is configured for
 	static TypeCode getChannelValueType(const dbChannel* pDbChannel, bool errOnLinks = false);
 	static void getScalar(dbChannel* pDbValueChannel, dbChannel* pDbPropertiesChannel, Value& value, Value& valueTarget,
-			uint32_t& requestedOptions, const GetOperationType getOperationType, db_field_log* pDbFieldLog);
+			uint32_t& requestedOptions, GetOperationType getOperationType, db_field_log* pDbFieldLog);
 	static void getArray(dbChannel* pDbValueChannel, dbChannel* pDbPropertiesChannel, Value& value, Value& valueTarget,
-			uint32_t& requestedOptions, const GetOperationType getOperationType, db_field_log* pDbFieldLog);
+			uint32_t& requestedOptions, GetOperationType getOperationType, db_field_log* pDbFieldLog);
 	static void getMetadata(Value& valuePrototype, void*& pValueBuffer, const uint32_t& requestedOptions,
 			const uint32_t& actualOptions);
 	static void

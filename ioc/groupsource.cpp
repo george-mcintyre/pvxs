@@ -376,11 +376,11 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
 			DBManyLocker G(group.value.lock);
 			// Loop through all fields
 			for (auto& field: group.fields) {
-				auto pDbChannel = (dbChannel*)field.value.channel;
+				dbChannel* pDbChannel = field.value.channel;
 				// Put the field
 				putField(value, field, pDbChannel, groupSecurityCache.securityClients[fieldIndex]);
 				// Do processing if required
-				IOCSource::doPostProcessing((dbChannel*)field.value.channel, groupSecurityCache.forceProcessing);
+				IOCSource::doPostProcessing(field.value.channel, groupSecurityCache.forceProcessing);
 				fieldIndex++;
 			}
 
@@ -392,13 +392,13 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
 
 			// Loop through all fields
 			for (auto& field: group.fields) {
-				auto pDbChannel = (dbChannel*)field.value.channel;
+				dbChannel* pDbChannel = field.value.channel;
 				// Lock this field
 				DBLocker F(pDbChannel->addr.precord);
 				// Put the field
 				putField(value, field, pDbChannel, groupSecurityCache.securityClients[fieldIndex]);
 				// Do processing if required
-				IOCSource::doPostProcessing((dbChannel*)field.value.channel, groupSecurityCache.forceProcessing);
+				IOCSource::doPostProcessing(field.value.channel, groupSecurityCache.forceProcessing);
 				// Unlock this field when locker goes out of scope
 				fieldIndex++;
 			}
@@ -434,7 +434,7 @@ void GroupSource::putField(const Value& value, const Field& field, dbChannel* pD
 	if (leafNode && leafNode.isMarked()) {
 		SecurityLogger securityLogger;
 		IOCSource::doFieldPreProcessing(securityClient); // pre-process field
-		IOCSource::put((dbChannel*)field.value.channel, leafNode);
+		IOCSource::put(field.value.channel, leafNode);
 	}
 }
 

@@ -522,7 +522,7 @@ void GroupConfigProcessor::addTemplatesForDefinedFields(std::vector<Member>& gro
 		} else {
 			auto& type = fieldDefinition.type;
 
-			auto pDbChannel = (dbChannel*)field.value.channel;
+			dbChannel* pDbChannel = field.value.channel;
 			if (type == "meta") {
 				field.isMeta = true;
 				addMembersForMetaData(groupMembers, field);
