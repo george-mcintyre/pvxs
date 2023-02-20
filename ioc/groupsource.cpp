@@ -358,7 +358,8 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
                 IOCSource::doPreProcessing(pDbChannel,
                         securityLoggers[fieldIndex], *groupSecurityCache.credentials,
                         groupSecurityCache.securityClients[fieldIndex]);
-                if (pDbChannel->addr.field_type >= DBF_INLINK && pDbChannel->addr.field_type <= DBF_FWDLINK) {
+                if (dbChannelFinalFieldType(pDbChannel) >= DBF_INLINK
+                        && dbChannelFinalFieldType(pDbChannel) <= DBF_FWDLINK) {
                     throw std::runtime_error("Links not supported for put");
                 }
             }

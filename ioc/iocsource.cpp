@@ -47,8 +47,8 @@ void IOCSource::get(dbChannel* pDbValueChannel, dbChannel* pDbPropertiesChannel,
     Value valueTarget = valuePrototype; // The part of value that will be retrieved from the database value field
     bool isCompound = false;
     if (getOperationType <= FOR_VALUE && value.type() == TypeCode::Any) {
-        auto type = fromDbrType(pDbValueChannel->final_type);
-        if (pDbValueChannel->final_no_elements != 1) {
+        auto type = fromDbrType(dbChannelFinalFieldType(pDbValueChannel));
+        if (dbChannelFinalElements(pDbValueChannel) != 1) {
             type = type.arrayOf();
         }
         value = valueTarget = TypeDef(type).create();
@@ -68,7 +68,7 @@ void IOCSource::get(dbChannel* pDbValueChannel, dbChannel* pDbPropertiesChannel,
         options |= IOC_PROPERTIES_OPTIONS;
     }
 
-    if (pDbValueChannel->addr.no_elements == 1) {
+    if (dbChannelFinalElements(pDbValueChannel) == 1) {
         getScalar(pDbValueChannel, pDbPropertiesChannel, value, valueTarget, options, getOperationType, pDbFieldLog);
     } else {
         getArray(pDbValueChannel, pDbPropertiesChannel, value, valueTarget, options, getOperationType, pDbFieldLog);
@@ -97,7 +97,8 @@ void IOCSource::getScalar(dbChannel* pDbValueChannel, dbChannel* pDbPropertiesCh
     DBErrorMessage dbErrorMessage;
     if (getOperationType <= FOR_METADATA) {
         dbErrorMessage =
-                dbChannelGet(pDbValueChannel, pDbValueChannel->final_type, pValueBuffer, &actualOptions, &nElements,
+                dbChannelGet(pDbValueChannel, dbChannelFinalFieldType(pDbValueChannel), pValueBuffer, &actualOptions,
+                        &nElements,
                         pDbFieldLog);
     } else {
         dbErrorMessage =
@@ -115,7 +116,7 @@ void IOCSource::getScalar(dbChannel* pDbValueChannel, dbChannel* pDbPropertiesCh
 
     // Get the value if it has been requested
     if (getOperationType <= FOR_VALUE) {
-        if (pDbValueChannel->final_type == DBR_ENUM && valueTarget.type() == TypeCode::Struct) {
+        if (dbChannelFinalFieldType(pDbValueChannel) == DBR_ENUM && valueTarget.type() == TypeCode::Struct) {
             valueTarget["index"] = *(uint16_t*)(pValueBuffer);
         } else {
             getValueFromBuffer(valueTarget, pValueBuffer);
@@ -138,7 +139,7 @@ void IOCSource::getArray(dbChannel* pDbValueChannel, dbChannel* pDbPropertiesCha
         uint32_t& requestedOptions, const GetOperationType getOperationType, db_field_log* pDbFieldLog) {
     // value buffer to store the field we will get from the database including metadata.
     std::vector<char> valueBuffer;
-    auto nElements = (getOperationType <= FOR_VALUE) ? (long)pDbValueChannel->addr.no_elements
+    auto nElements = (getOperationType <= FOR_VALUE) ? (long)dbChannelFinalElements(pDbValueChannel)
                                                      : 0; // maximal number of elements
     // Initialize the buffer to the maximal size including metadata and zero it out
     valueBuffer.resize(nElements * pDbValueChannel->addr.field_size + MAX_METADATA_SIZE, '\0');
@@ -150,7 +151,8 @@ void IOCSource::getArray(dbChannel* pDbValueChannel, dbChannel* pDbPropertiesCha
     DBErrorMessage dbErrorMessage;
     if (getOperationType <= FOR_METADATA) {
         dbErrorMessage =
-                dbChannelGet(pDbValueChannel, pDbValueChannel->final_type, pValueBuffer, &actualOptions, &nElements,
+                dbChannelGet(pDbValueChannel, dbChannelFinalFieldType(pDbValueChannel), pValueBuffer, &actualOptions,
+                        &nElements,
                         pDbFieldLog);
     } else {
         dbErrorMessage =
@@ -170,7 +172,7 @@ void IOCSource::getArray(dbChannel* pDbValueChannel, dbChannel* pDbPropertiesCha
     if (getOperationType <= FOR_VALUE) {
         // Get the array value from the updated buffer pointer
         // Note: nElements will have been updated with the number of actual elements in the array
-        if (pDbValueChannel->final_type == DBR_ENUM && valueTarget.type() == TypeCode::Struct) {
+        if (dbChannelFinalFieldType(pDbValueChannel) == DBR_ENUM && valueTarget.type() == TypeCode::Struct) {
             shared_array<uint16_t> values(nElements);
             for (auto i = 0; i < nElements; i++) {
                 values[i] = ((uint16_t*)pValueBuffer)[i];
@@ -197,7 +199,7 @@ void IOCSource::put(dbChannel* pDbChannel, const Value& value) {
         valueSource = sourceCandidate;
     }
 
-    if (pDbChannel->addr.no_elements == 1) {
+    if (dbChannelFinalElements(pDbChannel) == 1) {
         putScalar(pDbChannel, valueSource);
     } else {
         putArray(pDbChannel, valueSource);
@@ -214,7 +216,7 @@ void IOCSource::putScalar(dbChannel* pDbChannel, const Value& value) {
     ScalarValueBuffer valueBuffer{};
     auto pValueBuffer = (char*)&valueBuffer;
 
-    if (pDbChannel->final_type == DBR_ENUM) {
+    if (dbChannelFinalFieldType(pDbChannel) == DBR_ENUM) {
         *(uint16_t*)(pValueBuffer) = (value)["index"].as<uint16_t>();
     } else {
         setValueInBuffer(value, pValueBuffer, pDbChannel);
@@ -222,9 +224,9 @@ void IOCSource::putScalar(dbChannel* pDbChannel, const Value& value) {
 
     long status;
     if (dbChannelFieldType(pDbChannel) >= DBF_INLINK && dbChannelFieldType(pDbChannel) <= DBF_FWDLINK) {
-        status = dbChannelPutField(pDbChannel, pDbChannel->final_type, pValueBuffer, 1);
+        status = dbChannelPutField(pDbChannel, dbChannelFinalFieldType(pDbChannel), pValueBuffer, 1);
     } else {
-        status = dbChannelPut(pDbChannel, pDbChannel->final_type, pValueBuffer, 1);
+        status = dbChannelPut(pDbChannel, dbChannelFinalFieldType(pDbChannel), pValueBuffer, 1);
     }
     DBErrorMessage dbErrorMessage(status);
     if (dbErrorMessage) {
@@ -245,7 +247,7 @@ void IOCSource::putArray(dbChannel* pDbChannel, const Value& value) {
     long nElements = (long)valueArray.size();
     std::vector<char> stringValueBuffer;
 
-    if (pDbChannel->final_type == DBR_STRING) {
+    if (dbChannelFinalFieldType(pDbChannel) == DBR_STRING) {
         stringValueBuffer.resize(MAX_STRING_SIZE * valueArray.size(), '\0');
         char* pCurrent = stringValueBuffer.data();
         auto stringArray = valueArray.castTo<const std::string>();
@@ -262,9 +264,9 @@ void IOCSource::putArray(dbChannel* pDbChannel, const Value& value) {
 
     long status;
     if (dbChannelFieldType(pDbChannel) >= DBF_INLINK && dbChannelFieldType(pDbChannel) <= DBF_FWDLINK) {
-        status = dbChannelPutField(pDbChannel, pDbChannel->final_type, pValueBuffer, nElements);
+        status = dbChannelPutField(pDbChannel, dbChannelFinalFieldType(pDbChannel), pValueBuffer, nElements);
     } else {
-        status = dbChannelPut(pDbChannel, pDbChannel->final_type, pValueBuffer, nElements);
+        status = dbChannelPut(pDbChannel, dbChannelFinalFieldType(pDbChannel), pValueBuffer, nElements);
     }
     DBErrorMessage dbErrorMessage(status);
     if (dbErrorMessage) {
@@ -293,8 +295,8 @@ IOCSource::doPreProcessing(dbChannel* pDbChannel, SecurityLogger& securityLogger
                     credentials.cred[0].c_str(),         // The user is the first element
                     credentials.host.c_str(),
                     pDbChannel,
-                    pDbChannel->final_type,
-                    pDbChannel->final_no_elements,
+                    dbChannelFinalFieldType(pDbChannel),
+                    dbChannelFinalElements(pDbChannel),
                     nullptr
             )
     );
@@ -327,7 +329,7 @@ void IOCSource::doPostProcessing(dbChannel* pDbChannel, TriState forceProcessing
             (forceProcessing == True) ||
             (pDbChannel->addr.pfldDes->process_passive &&
                     pDbChannel->addr.precord->scan == 0 &&
-                    pDbChannel->addr.field_type < DBR_PUT_ACKT &&
+                    dbChannelFinalFieldSize(pDbChannel) < DBR_PUT_ACKT &&
                     forceProcessing == Unset)) {
         if (pDbChannel->addr.precord->pact) {
             if (dbAccessDebugPUTF && pDbChannel->addr.precord->tpro) {
@@ -408,7 +410,7 @@ void IOCSource::setValueInBuffer(const Value& valueSource, char* pValueBuffer, d
     if (valueType == TypeCode::String) {
         setStringValueInBuffer(valueSource, pValueBuffer);
     } else if (valueType == TypeCode::Any || valueType == TypeCode::Union) {
-        SwitchTypeCodeForTemplatedCall(fromDbrType(pDbChannel->final_type), setValueInBuffer,
+        SwitchTypeCodeForTemplatedCall(fromDbrType(dbChannelFinalFieldType(pDbChannel)), setValueInBuffer,
                 (valueSource, pValueBuffer));
     } else {
         SwitchTypeCodeForTemplatedCall(valueType, setValueInBuffer, (valueSource, pValueBuffer));
