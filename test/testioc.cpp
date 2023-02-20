@@ -16,11 +16,6 @@
 #include <pvxs/server.h>
 #include <pvxs/unittest.h>
 
-#ifndef EPICS_BASE
-#define EPICS_BASE ""
-#error -DEPICS_BASE=<path-to-epics-base> required while building this test
-#endif
-
 extern "C" {
 extern int testioc_registerRecordDeviceDriver(struct dbBase*);
 }
