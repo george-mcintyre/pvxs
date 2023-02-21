@@ -20,13 +20,16 @@ LocalFieldLog::LocalFieldLog(dbChannel* pDbChannel, db_field_log* existingFieldL
             pFieldLog = dbChannelRunPreChain(pDbChannel, pFieldLog);
             if (pFieldLog) {
                 pFieldLog = dbChannelRunPostChain(pDbChannel, pFieldLog);
+                owned = true;
             }
         }
     }
 }
 
 LocalFieldLog::~LocalFieldLog() {
-    db_delete_field_log(pFieldLog);
+    if (owned) {
+        db_delete_field_log(pFieldLog);
+    }
 }
 
 } // pvxs

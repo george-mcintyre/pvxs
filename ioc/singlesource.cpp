@@ -424,9 +424,12 @@ void SingleSource::subscriptionCallback(SingleSourceSubscriptionCtx* subscriptio
     // We simply merge new field changes onto this value as events occur
     auto currentValue = subscriptionContext->currentValue;
 
-    IOCSource::get(subscriptionContext->pValueChannel.get(),
-            ((getOperationType == FOR_PROPERTIES) ? subscriptionContext->pPropertiesChannel.get() : nullptr),
-            currentValue, getOperationType, pDbFieldLog);
+    {
+        DBLocker F(dbChannelRecord(subscriptionContext->pValueChannel.get()));
+        IOCSource::get(subscriptionContext->pValueChannel.get(),
+                ((getOperationType == FOR_PROPERTIES) ? subscriptionContext->pPropertiesChannel.get() : nullptr),
+                currentValue, getOperationType, pDbFieldLog);
+    }
 
     // Make sure that the initial subscription update has occurred on both channels before continuing
     // As we make two initial updates when opening a new subscription, we need both to have completed before continuing

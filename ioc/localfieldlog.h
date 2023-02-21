@@ -18,6 +18,7 @@ namespace ioc {
 class LocalFieldLog {
 public:
     db_field_log* pFieldLog;
+    bool owned = false;
     explicit LocalFieldLog(dbChannel* pDbChannel, db_field_log* existingFieldLog = nullptr);
     ~LocalFieldLog();
 };
