@@ -172,34 +172,85 @@ void GroupSource::groupGet(Group& group, const std::function<void(Value&)>& retu
     // Make an empty value to return
     auto returnValue(group.valueTemplate.cloneEmpty());
 
-    // For each field, get the value
-    for (auto& field: group.fields) {
-        // ignore all zero length fields that are not meta
-        if (field.name.empty() && !field.isMeta) {
-            continue;
+    // If the group is configured for an atomic get operation,
+    // then we need to get all the fields at once, so we lock them all together
+    // and do the operation in one go
+    if (group.atomicPutGet) {
+        // Lock all the fields
+        DBManyLocker G(group.value.lock);
+        // Loop through all fields
+        for (auto& field: group.fields) {
+            // ignore all zero length named fields that are not meta
+            if (field.name.empty() && !field.isMeta) {
+                continue;
+            }
+
+            // find the leaf node in which to set the value
+            auto leafNode = field.findIn(returnValue);
+
+            if (leafNode) {
+                if (!getGroupField(field, leafNode, group.name, errorFn)) {
+                    return;
+                }
+            }
         }
 
-        // find the leaf node in which to set the value
-        auto leafNode = field.findIn(returnValue);
+        // Unlock the all group fields when the locker goes out of scope
 
-        if (leafNode) {
-            try {
-                LocalFieldLog localFieldLog(field.value.channel);
-                IOCSource::get(field.value.channel, nullptr, leafNode,
-                        field.isMeta ? FOR_METADATA : FOR_VALUE_AND_PROPERTIES, localFieldLog.pFieldLog);
-            } catch (std::exception& e) {
-                std::stringstream errorString;
-                errorString << "Error retrieving value for pvName: " << group.name << (field.name.empty() ? "/" : ".")
-                            << field.fullName << " : "
-                            << e.what();
-                errorFn(errorString.str().c_str());
-                return;
+    } else {
+        // Otherwise, this is a non-atomic operation, and we need to `put` each field individually,
+        // locking each of them independently of each other.
+
+        // Loop through all fields
+        for (auto& field: group.fields) {
+            // ignore all zero length fields that are not meta
+            if (field.name.empty() && !field.isMeta) {
+                continue;
+            }
+
+            // find the leaf node in which to set the value
+            auto leafNode = field.findIn(returnValue);
+
+            if (leafNode) {
+                // Lock this field
+                dbChannel* pDbChannel = field.value.channel;
+                DBLocker F(pDbChannel->addr.precord);
+                if (!getGroupField(field, leafNode, group.name, errorFn)) {
+                    return;
+                }
             }
         }
     }
 
     // Send reply
     returnFn(returnValue);
+}
+
+/**
+ * Get a group field into the specified Value target object.  The group name is provided in case there are errors
+ * to better identify the location of the error when the error function is called with the error text
+ *
+ * @param field the field to get
+ * @param valueTarget the place to store the value retrieved
+ * @param groupName the name of the group that the field is a part of
+ * @param errorFn the function to call if errors occur
+ * @return true if retrieved successfully, false otherwise
+ */
+bool GroupSource::getGroupField(const Field& field, Value valueTarget, const std::string& groupName,
+        const std::function<void(const char*)>& errorFn) {
+    try {
+        LocalFieldLog localFieldLog(field.value.channel);
+        IOCSource::get(field.value.channel, nullptr, valueTarget,
+                field.isMeta ? FOR_METADATA : FOR_VALUE_AND_PROPERTIES, localFieldLog.pFieldLog);
+    } catch (std::exception& e) {
+        std::stringstream errorString;
+        errorString << "Error retrieving value for pvName: " << groupName << (field.name.empty() ? "/" : ".")
+                    << field.fullName << " : "
+                    << e.what();
+        errorFn(errorString.str().c_str());
+        return false;
+    }
+    return true;
 }
 
 /**

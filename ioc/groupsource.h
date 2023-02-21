@@ -35,26 +35,28 @@ private:
 
 	// Create request and subscription handlers for single record sources
 	void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& channelControl,
-			Group& group);
-	// Handles all get, put and subscribe requests
-	static void onOp(Group& group, std::unique_ptr<server::ConnectOp>&& channelConnectOperation);
+            Group& group);
+    // Handles all get, put and subscribe requests
+    static void onOp(Group& group, std::unique_ptr<server::ConnectOp>&& channelConnectOperation);
 
-	//////////////////////////////
-	// Get
-	//////////////////////////////
-	static void get(Group& group, std::unique_ptr<server::ExecOp>& getOperation);
-	static void groupGet(Group& group, const std::function<void(Value&)>& returnFn,
-			const std::function<void(const char*)>& errorFn);
+    //////////////////////////////
+    // Get
+    //////////////////////////////
+    static void get(Group& group, std::unique_ptr<server::ExecOp>& getOperation);
+    static void groupGet(Group& group, const std::function<void(Value&)>& returnFn,
+            const std::function<void(const char*)>& errorFn);
+    static bool getGroupField(const Field& field, Value valueTarget, const std::string& groupName,
+            const std::function<void(const char*)>& errorFn);
 
-	//////////////////////////////
-	// Put
-	//////////////////////////////
-	static void putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOperation, const Value& value,
-			const GroupSecurityCache& groupSecurityCache);
+    //////////////////////////////
+    // Put
+    //////////////////////////////
+    static void putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOperation, const Value& value,
+            const GroupSecurityCache& groupSecurityCache);
 
-	//////////////////////////////
-	// Subscriptions
-	//////////////////////////////
+    //////////////////////////////
+    // Subscriptions
+    //////////////////////////////
 	// Called when values are requested by a subscription
 	static void
 	subscriptionValueCallback(void* userArg, dbChannel* pDbChannel, int eventsRemaining, db_field_log* pDbFieldLog);
