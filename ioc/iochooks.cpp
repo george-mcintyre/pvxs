@@ -168,7 +168,7 @@ void pvxsInitHook(initHookState theInitHookState) {
 #endif
     } else
         // iocRun()
-    if (theInitHookState == initHookAfterCaServerRunning) {
+    if (theInitHookState == initHookAfterCaServerRunning || theInitHookState == initHookAfterIocRunning) {
         runOnPvxsServer([](IOCServer* pPvxsServer) {
             pPvxsServer->start();
             log_debug_printf(_logname, "Started Server %p", pPvxsServer);

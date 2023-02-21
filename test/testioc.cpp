@@ -35,9 +35,6 @@ namespace {
 #define testdbGetArrFieldEqualB(__pv, __dbfType, __nRequest, __pbufcnt, __pbuf) boxLeft(); testdbGetArrFieldEqual(__pv, __dbfType, __nRequest, __pbufcnt, __pbuf)
 #define testThrowsB(__lambda) boxLeft(); testThrows<std::logic_error>(__lambda)
 
-static dbEventCtx testEvtCtx;
-static void pvxsTestIocInitOk();
-static void pvxsTestIocShutdownOk();
 static void boxLeft();
 
 static pvxs::client::Context clientContext;
@@ -58,27 +55,27 @@ static std::initializer_list<void (*)()> tests = {
 		[]() {
 			testdbReadDatabase("testioc.db", nullptr, "user=test");
 			testOkB(true, R"(testdbReadDatabase("testioc.db", nullptr, "user=test"))");
-		},
-		[]() {
-			testdbReadDatabase("testiocg.db", nullptr, "user=test");
-			testOkB(true, R"(testdbReadDatabase("testiocg.db", nullptr, "user=test"))");
-		},
-		[]() {
-			testdbReadDatabase("image.db", nullptr, "N=tst");
-			testOkB(true, R"(testdbReadDatabase("testiocg.db", nullptr, "user=test"))");
-		},
-		[]() { testOkB(!pvxs::ioc::dbLoadGroup("../testioc.json"), R"(dbLoadGroup("testioc.json"))"); },
-		[]() { pvxsTestIocInitOk(); },
-		[]() { testdbGetFieldEqualB("test:aiExample", DBR_DOUBLE, 42.2); },
-		[]() { testdbGetFieldEqualB("test:stringExample", DBR_STRING, "Some random value"); },
-		[]() {
-			shared_array<double> expected({ 1.0, 2.0, 3.0 });
-			testdbGetArrFieldEqualB("test:arrayExample", DBR_DOUBLE, 3, expected.size(), expected.data());
-		},
-		[]() { testdbGetFieldEqualB("test:longExample", DBR_LONG, 102042); },
-		[]() { testdbGetFieldEqualB("test:enumExample", DBR_ENUM, 2); },
-		[]() {
-			char expected[MAX_STRING_SIZE * 2]{ 0 };
+        },
+        []() {
+            testdbReadDatabase("testiocg.db", nullptr, "user=test");
+            testOkB(true, R"(testdbReadDatabase("testiocg.db", nullptr, "user=test"))");
+        },
+        []() {
+            testdbReadDatabase("image.db", nullptr, "N=tst");
+            testOkB(true, R"(testdbReadDatabase("testiocg.db", nullptr, "user=test"))");
+        },
+        []() { testOkB(!pvxs::ioc::dbLoadGroup("../testioc.json"), R"(dbLoadGroup("testioc.json"))"); },
+        []() { testIocInitOk(); },
+        []() { testdbGetFieldEqualB("test:aiExample", DBR_DOUBLE, 42.2); },
+        []() { testdbGetFieldEqualB("test:stringExample", DBR_STRING, "Some random value"); },
+        []() {
+            shared_array<double> expected({ 1.0, 2.0, 3.0 });
+            testdbGetArrFieldEqualB("test:arrayExample", DBR_DOUBLE, 3, expected.size(), expected.data());
+        },
+        []() { testdbGetFieldEqualB("test:longExample", DBR_LONG, 102042); },
+        []() { testdbGetFieldEqualB("test:enumExample", DBR_ENUM, 2); },
+        []() {
+            char expected[MAX_STRING_SIZE * 2]{ 0 };
 			std::string first("Column A");
 			std::string second("Column B");
 			first.copy(&expected[0], MAX_STRING_SIZE - 1);
@@ -298,37 +295,10 @@ MAIN(testioc) {
 	}
 	printf("#└──────────────────────────────────────────────────────────────────────┘");
 
-	pvxsTestIocShutdownOk();
-	testdbCleanup();
+    testIocShutdownOk();
+    testdbCleanup();
 
 	return testDone();
-}
-
-/**
- * Test IocInit() functionality for pvxs
- */
-static void pvxsTestIocInitOk() {
-	if (iocBuild() || iocRun()) {
-		testAbort("Failed to start up test database");
-	}
-	if (!(testEvtCtx = db_init_events())) {
-		testAbort("Failed to initialize test dbEvent context");
-	}
-	if (DB_EVENT_OK != db_start_events(testEvtCtx, "CAS-test", nullptr, nullptr, epicsThreadPriorityCAServerLow)) {
-		testAbort("Failed to start test dbEvent context");
-	}
-	testOk(true, "IocInit()");
-}
-
-/**
- * Test IocShutdown() functionality for pvxs
- */
-static void pvxsTestIocShutdownOk() {
-	db_close_events(testEvtCtx);
-	testEvtCtx = nullptr;
-	if (iocShutdown()) {
-		testAbort("Failed to shutdown test database");
-	}
 }
 
 //static void testDbLoadGroupOk(const char* file) {
