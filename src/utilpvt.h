@@ -49,6 +49,9 @@
 
 namespace pvxs {namespace impl {
 
+PVXS_API
+bool inUnitTest();
+
 //! in-line string builder (eg. for exception messages)
 //! eg. @code throw std::runtime_error(SB()<<"Some message"<<42); @endcode
 struct SB {
