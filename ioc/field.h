@@ -34,7 +34,9 @@ public:
     std::vector<dbCommon*> references;
     DBManyLock lock;
 
-    explicit ChannelAndLock(const std::string& stringChannelName);
+    explicit ChannelAndLock(const std::string& stringChannelName)
+            :channel(stringChannelName) {
+    }
 };
 
 class Field {

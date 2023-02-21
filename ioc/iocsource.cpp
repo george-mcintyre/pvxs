@@ -33,7 +33,8 @@ namespace ioc {
  * When the data has been retrieved the provided returnFn is called with the value, otherwise the an
  * exception is thrown
  *
- * @param pDbChannel the channel to get the data from
+ * @param pDbValueChannel the channel to get the value from
+ * @param pDbPropertiesChannel the channel to get the properties from
  * @param valuePrototype the value prototype to use to determine the shape of the data
  * @param getOperationType for values, for properties or for metadata
  * @param pDbFieldLog the field log of changes if this comes from a subscription
@@ -278,8 +279,9 @@ void IOCSource::putArray(dbChannel* pDbChannel, const Value& value) {
  * Do necessary preprocessing before put operations.  Check if put is allowed.
  *
  * @param pDbChannel channel to do preprocessing for
+ * @param securityLogger the logger that will audit security events
  * @param credentials client credentials that are applied to this execution context
- * @param securityLogger the security logger.  Keep in scope around the put operation
+ * @param securityClient the security client.  Keep in scope around the put operation
  */
 void
 IOCSource::doPreProcessing(dbChannel* pDbChannel, SecurityLogger& securityLogger, const Credentials& credentials,
@@ -323,6 +325,7 @@ void IOCSource::doFieldPreProcessing(const SecurityClient& securityClient) {
  * Note: Only called when dbPutField() is not called.
  *
  * @param pDbChannel channel to do post processing for
+ * @param forceProcessing whether to force processing, True, False
  */
 void IOCSource::doPostProcessing(dbChannel* pDbChannel, TriState forceProcessing) {
     if (pDbChannel->addr.pfield == &pDbChannel->addr.precord->proc ||
@@ -347,6 +350,12 @@ void IOCSource::doPostProcessing(dbChannel* pDbChannel, TriState forceProcessing
     }
 }
 
+/**
+ * Set a flag that will force processing of record in the specified security control object
+ *
+ * @param pvRequest the request
+ * @param securityControlObject the security control object to update
+ */
 void IOCSource::setForceProcessingFlag(const Value& pvRequest,
         const std::shared_ptr<SecurityControlObject>& securityControlObject) {
     pvRequest["record._options.process"]
@@ -422,7 +431,6 @@ void IOCSource::setValueInBuffer(const Value& valueSource, char* pValueBuffer, d
  *
  * @param valueSource the value to put into the buffer
  * @param pValueBuffer the database buffer to put it in
- * @param pDbChannel the db channel
  * @param nElements the number of elements to put into the buffer
  */
 void IOCSource::setValueInBuffer(const Value& valueSource, char* pValueBuffer, long nElements) {
@@ -474,7 +482,14 @@ void IOCSource::getValueFromBuffer(Value& valueTarget, const void* pValueBuffer,
     valueTarget = values.freeze().template castTo<const void>();
 }
 
-// Get the value into the given database value buffer (templated)
+/**
+ * Get the value into the given database value buffer (templated)
+ *
+ * @tparam valueType the type of the scalars stored in this array.  One of the supported types
+ * @param valueSource the value to put into the buffer
+ * @param pValueBuffer the database buffer to put it in
+ * @param nElements the number of elements to put into the buffer
+ */
 template<typename valueType>
 void IOCSource::setValueInBuffer(const Value& valueSource, void* pValueBuffer, long nElements) {
     auto valueArray = valueSource.as<shared_array<const valueType>>();

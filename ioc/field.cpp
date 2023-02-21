@@ -15,10 +15,6 @@
 namespace pvxs {
 namespace ioc {
 
-ChannelAndLock::ChannelAndLock(const std::string& stringChannelName)
-        :channel(stringChannelName) {
-}
-
 /**
  * Construct a Field from a field name and channel name
  *

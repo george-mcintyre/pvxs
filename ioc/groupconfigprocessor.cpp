@@ -885,17 +885,23 @@ void GroupConfigProcessor::addMembersForMetaData(std::vector<Member>& groupMembe
 	setFieldTypeDefinition(groupMembers, groupField.fieldName, newMetaMembers, false);
 }
 
-TypeDef GroupConfigProcessor::getTypeDefForChannel(const dbChannel* pDbChannel) {// Get the type for the leaf
-	auto leafCode(IOCSource::getChannelValueType(pDbChannel, true));
-	TypeDef leaf;
+/**
+ * Get the type definition to use for a given channel.  This must only be used for Normative Types.
+ * @param pDbChannel the channel to define the type definition for
+ * @return the TypeDef for the channel
+ */
+TypeDef GroupConfigProcessor::getTypeDefForChannel(const dbChannel* pDbChannel) {
+    // Get the type for the leaf
+    auto leafCode(IOCSource::getChannelValueType(pDbChannel, true));
+    TypeDef leaf;
 
-	// Create the leaf
-	auto dbfType = dbChannelFinalFieldType(pDbChannel);
-	if (dbfType == DBF_ENUM || dbfType == DBF_MENU) {
-		leaf = nt::NTEnum{}.build();
-	} else {
-		bool display = true;
-		bool control = true;
+    // Create the leaf
+    auto dbfType = dbChannelFinalFieldType(pDbChannel);
+    if (dbfType == DBF_ENUM || dbfType == DBF_MENU) {
+        leaf = nt::NTEnum{}.build();
+    } else {
+        bool display = true;
+        bool control = true;
 		bool valueAlarm = (dbfType != DBF_STRING);
 		leaf = nt::NTScalar{ leafCode, display, control, valueAlarm }.build();
 	}

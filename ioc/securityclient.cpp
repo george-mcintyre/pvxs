@@ -17,42 +17,39 @@ namespace pvxs {
 namespace ioc {
 
 void SecurityClient::update(dbChannel* ch, Credentials& cred) {
-	SecurityClient temp;
-	temp.cli.resize(cred.cred.size(), nullptr);
+    SecurityClient temp;
+    temp.cli.resize(cred.cred.size(), nullptr);
 
-	for (size_t i = 0, N = temp.cli.size(); i < N; i++) {
-		/* asAddClient() fails secure to no-permission */
-		(void)asAddClient(&temp.cli[i],
-				dbChannelRecord(ch)->asp,
-				dbChannelFldDes(ch)->as_level,
-				cred.cred[i].c_str(),
-				// TODO switch to vector of char to accommodate inplace modifications to string
-				const_cast<char*>(cred.host.data()));
-	}
+    for (size_t i = 0, N = temp.cli.size(); i < N; i++) {
+        /* asAddClient() fails secure to no-permission */
+        (void)asAddClient(&temp.cli[i],
+                dbChannelRecord(ch)->asp,
+                dbChannelFldDes(ch)->as_level,
+                cred.cred[i].c_str(),
+                // TODO switch to vector of char to accommodate inplace modifications to string
+                const_cast<char*>(cred.host.data()));
+    }
 
-	cli.swap(temp.cli);
+    cli.swap(temp.cli);
 }
 
 SecurityClient::~SecurityClient() {
-	for (auto asc: cli) {
-		asRemoveClient(&asc);
-	}
+    for (auto asc: cli) {
+        asRemoveClient(&asc);
+    }
 }
 
 bool SecurityClient::canWrite() const {
-	for (auto asc: cli) {
-		if (!asCheckPut(asc)) {
-			return false;
-		};
-	}
-	return true;
+    return std::all_of(cli.begin(), cli.end(), [](ASCLIENTPVT asc) {
+        return asCheckPut(asc);
+    });
 }
 
 PutOperationCache::~PutOperationCache() {
-	// To avoid bug epics-base: unchecked access to notify.chan
-	if (notify.chan) {
-		dbNotifyCancel(&notify);
-	}
+    // To avoid bug epics-base: unchecked access to notify.chan
+    if (notify.chan) {
+        dbNotifyCancel(&notify);
+    }
 }
 } // pvxs
 } // ioc
