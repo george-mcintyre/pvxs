@@ -19,6 +19,7 @@ record(ai, "$(user):aiExample")
     field(SEVR, "2")
     field(STAT, "1")
     field(VAL, "42.2")
+    field(FLNK,"$(user):structExampleSave")
 }
 record(calc, "$(user):calcExample")
 {
@@ -80,6 +81,10 @@ record(mbbi, "$(user):enumExample") {
   field(ONVL, "0")
   field(TWVL, "3")
   info(Q:time:tag, "nsec:lsb:4")
+}
+record(longout, "$(user):structExampleSave") {
+    field(MDEL, "-1") # ensure we always trigger group monitor
+    field(TPRO, "1")
 }
 record(longin, "$(user):roLongExample") {
   field(VAL, "204084")

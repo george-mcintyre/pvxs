@@ -107,7 +107,6 @@ record("*", "$(user):enumExample") {
 }
 
 record(longout, "$(user):structExampleSave") {
-    field(MDEL, "-1") # ensure we always trigger group monitor
     info(Q:group, {
         "$(user):structExample":{
             "_save":{+type:"proc",
@@ -116,5 +115,4 @@ record(longout, "$(user):structExampleSave") {
                      +trigger:"*"}
         }
     })
-    field(TPRO, "1")
 }

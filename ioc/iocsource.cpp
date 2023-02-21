@@ -101,7 +101,8 @@ void IOCSource::getScalar(dbChannel* pDbValueChannel, dbChannel* pDbPropertiesCh
                         pDbFieldLog);
     } else {
         dbErrorMessage =
-                dbChannelGet(pDbPropertiesChannel, pDbPropertiesChannel->final_type, pValueBuffer, &actualOptions,
+                dbChannelGet(pDbPropertiesChannel, dbChannelFinalFieldType(pDbPropertiesChannel), pValueBuffer,
+                        &actualOptions,
                         &nElements,
                         pDbFieldLog);
     }

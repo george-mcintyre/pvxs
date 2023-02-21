@@ -29,8 +29,7 @@ DBManyLock::DBManyLock()
  * @param flags the lock flags to be passed on to dbLockerAlloc()
  */
 DBManyLock::DBManyLock(const std::vector<dbCommon*>& channels, unsigned flags) {
-    assert(!channels.empty());
-    pLocker = dbLockerAlloc(&channels[0], channels.size(), flags);
+    pLocker = dbLockerAlloc(channels.data(), channels.size(), flags);
     if (!pLocker) {
         throw std::invalid_argument("Failed to create locker");
     }

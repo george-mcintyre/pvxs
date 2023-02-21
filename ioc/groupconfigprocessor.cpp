@@ -237,8 +237,6 @@ void GroupConfigProcessor::defineTriggers(GroupDefinition& groupDefinition, cons
 		while (std::getline(splitter, trigger, ',')) {
 			triggers.insert(trigger);
 		}
-	} else {
-		triggers.insert(fieldName);
 	}
 	groupDefinition.fieldTriggerMap[fieldName] = triggers;
 }
