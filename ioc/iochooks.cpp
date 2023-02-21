@@ -151,6 +151,19 @@ void pvxsi() {
     }
 }
 
+void pvxrefs() {
+    try {
+        auto refs(instanceSnapshot());
+        for(auto& pair : refs) {
+            if(pair.second>0u)
+                printf("%s\t= %zu\n", pair.first.c_str(), pair.second);
+        }
+
+    }  catch (std::exception& e) {
+        fprintf(stderr, "Error in %s : %s\n", __func__, e.what());
+    }
+}
+
 /**
  * Initialise and control state of pvxs ioc server instance in response to iocInitHook events.
  * Installed on the initHookState hook this function will respond to the following events:
@@ -244,6 +257,8 @@ void pvxsBaseRegistrar() {
                                                                    "or about connected clients (level>0).\n")
                 .implementation<&pvxsr>();
         IOCShCommand<>("pvxsi", "Show detailed server information\n").implementation<&pvxsi>();
+
+        IOCShCommand<>("pvxrefs").implementation<&pvxrefs>();
 
         // Initialise the PVXS Server
         initialisePvxsServer();
