@@ -37,8 +37,19 @@ public:
     ChannelLocks value;
     ChannelLocks properties;
 
-    Group();
-    virtual ~Group();
+/**
+ * Constructor for IOC group.
+ * Set the atomic and monitor atomic flags
+ */
+    Group()
+            :atomicPutGet(false), atomicMonitor(false) {
+    }
+
+/**
+ * Destructor for IOC group
+ */
+    virtual ~Group() = default;
+
     virtual void show(int level) const;
     Field& operator[](const std::string& fieldName);
 

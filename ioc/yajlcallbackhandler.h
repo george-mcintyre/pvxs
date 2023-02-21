@@ -20,9 +20,29 @@ namespace ioc {
 class YajlCallbackHandler {
     yajl_handle handle;
 public:
-    explicit YajlCallbackHandler(yajl_handle yajlHandler);
-    ~YajlCallbackHandler();
-    operator yajl_handle(); // NOLINT(google-explicit-constructor)
+/**
+ * Set the callback handler for the yajl parser
+ *
+ * @param yajlHandler the allocated handler to set
+ */
+    explicit YajlCallbackHandler(yajl_handle yajlHandler)
+            :handle(yajlHandler) {
+        if (!handle) {
+            throw std::runtime_error("Failed to allocate yajl handle");
+        }
+    }
+
+/**
+ * Destructor for the callback handler
+ */
+    ~YajlCallbackHandler() {
+        yajl_free(handle);
+    }
+
+    // NOLINT(google-explicit-constructor)
+    operator yajl_handle() {
+        return handle;
+    }
 };
 
 } // pvxs

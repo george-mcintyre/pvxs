@@ -39,7 +39,16 @@ public:
     void subscribeField(dbEventCtx pEventCtx, EVENTFUNC (* subscriptionCallback),
             unsigned int selectOptions, bool forValues = true);
 
-    explicit FieldSubscriptionCtx(Field& field, GroupSourceSubscriptionCtx* groupSourceSubscriptionCtx);
+/**
+ * Constructor for a field subscription context takes a field and a group subscription context
+ *
+ * @param field the field this subscription context will be used to monitor
+ * @param groupSourceSubscriptionCtx the group subscription context this is a part of
+ */
+    explicit FieldSubscriptionCtx(Field& field, GroupSourceSubscriptionCtx* groupSourceSubscriptionCtx)
+            :pGroupCtx(groupSourceSubscriptionCtx), field(&field) {
+    };
+
     FieldSubscriptionCtx(FieldSubscriptionCtx&&) = default;
 
     FieldSubscriptionCtx(const FieldSubscriptionCtx&) = delete;

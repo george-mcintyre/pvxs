@@ -452,23 +452,6 @@ void IOCSource::setStringValueInBuffer(const Value& valueSource, char* pValueBuf
 }
 
 /**
- * Set the value field of the given return value to a scalar pointed to by pValueBuffer
- * Supported types are:
- *   TypeCode::Int8 	TypeCode::UInt8
- *   TypeCode::Int16 	TypeCode::UInt16
- *   TypeCode::Int32 	TypeCode::UInt32
- *   TypeCode::Int64 	TypeCode::UInt64
- *   TypeCode::Float32 	TypeCode::Float64
- *
- * @tparam valueType the type of the scalar stored in the buffer.  One of the supported types
- * @param valueTarget the return value
- * @param pValueBuffer the pointer to the data containing the database data to store in the return value
- */
-template<typename valueType> void IOCSource::getValueFromBuffer(Value& valueTarget, const void* pValueBuffer) {
-    valueTarget = ((valueType*)pValueBuffer)[0];
-}
-
-/**
  * Set the value field of the given return value to an array of scalars pointed to by pValueBuffer
  * Supported types are:
  *   TypeCode::Int8 	TypeCode::UInt8
@@ -489,11 +472,6 @@ void IOCSource::getValueFromBuffer(Value& valueTarget, const void* pValueBuffer,
         values[i] = ((valueType*)pValueBuffer)[i];
     }
     valueTarget = values.freeze().template castTo<const void>();
-}
-
-// Get the value into the given database value buffer (templated)
-template<typename valueType> void IOCSource::setValueInBuffer(const Value& valueSource, void* pValueBuffer) {
-    ((valueType*)pValueBuffer)[0] = valueSource.as<valueType>();
 }
 
 // Get the value into the given database value buffer (templated)

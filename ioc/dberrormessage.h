@@ -11,6 +11,9 @@
 #define PVXS_DBERRORMESSAGE_H
 
 #include <epicsTypes.h>
+#include <errSymTbl.h>
+
+#include "dberrormessage.h"
 
 namespace pvxs {
 namespace ioc {
@@ -22,10 +25,34 @@ class DBErrorMessage {
     long status = 0;
     char message[MAX_STRING_SIZE]{};
 public:
-    explicit DBErrorMessage(const long& dbStatus = 0);
+/**
+ * Construct a new DBErrorMessage from a native database command status code
+ *
+ * @param dbStatus database command status code
+ */
+    explicit DBErrorMessage(const long& dbStatus = 0) {
+        (*this) = dbStatus;
+    }
+
     DBErrorMessage& operator=(const long& dbStatus);
-    explicit operator bool() const;
-    const char* c_str() const;
+/**
+ * bool cast operation returns true if the status indicates a failure
+ *
+ * @return returns true if the status indicates a failure
+ */
+    explicit operator bool() const {
+        return status;
+    }
+
+/**
+ * Return the text of the database status as a string pointer
+ *
+ * @return the text of the database status as a string pointer
+ */
+    const char* c_str() const {
+        return message;
+    }
+
 };
 
 } // ioc

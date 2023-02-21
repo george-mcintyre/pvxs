@@ -88,16 +88,6 @@ void GroupSource::onCreate(std::unique_ptr<server::ChannelControl>&& channelCont
 }
 
 /**
- * Implementation of the onList() interface of pvxs::server::Source to return a list of all records
- * managed by this source.
- *
- * @return all records managed by this source
- */
-GroupSource::List GroupSource::onList() {
-    return allRecords;
-}
-
-/**
  * Respond to search requests.  For each matching pv, claim that pv
  *
  * @param searchOperation the search operation
@@ -143,6 +133,141 @@ void GroupSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::C
             ->onSubscribe([this, subscriptionContext](std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) {
                 onSubscribe(subscriptionContext, std::move(subscriptionOperation));
             });
+}
+
+/**
+ * Called when a client pauses / stops a subscription it has been subscribed to.
+ * This function loops over all fields event subscriptions the group subscription context and disables each of them.
+ *
+ * @param groupSubscriptionCtx the group subscription context
+ */
+void GroupSource::onDisableSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx) {
+    for (auto& fieldSubscriptionCtx: groupSubscriptionCtx->fieldSubscriptionContexts) {
+        auto pValueEventSubscription = fieldSubscriptionCtx.pValueEventSubscription.get();
+        auto pPropertiesEventSubscription = fieldSubscriptionCtx.pPropertiesEventSubscription.get();
+        db_event_disable(pValueEventSubscription);
+        db_event_disable(pPropertiesEventSubscription);
+    }
+}
+
+/**
+ * Handler for the onOp event raised by pvxs Sources when they are started, in order to define the get and put handlers
+ * on a per source basis.
+ * This is called after the event has been intercepted and we add the group to the call.
+ *
+ * @param group the group to which the get/put operation pertains
+ * @param channelConnectOperation the channel connect operation object
+ */
+void GroupSource::onOp(Group& group,
+        std::unique_ptr<server::ConnectOp>&& channelConnectOperation) {
+    // First stage for handling any request is to announce the channel type with a `connect()` call
+    // @note The type signalled here must match the eventual type returned by a pvxs get
+    channelConnectOperation->connect(group.valueTemplate);
+
+    // register handler for pvxs group get
+    channelConnectOperation->onGet([&group](std::unique_ptr<server::ExecOp>&& getOperation) {
+        get(group, getOperation);
+    });
+
+    // Make a security cache for this client's connection to this group
+    // Each time the same client calls put we will re-use the cached security client
+    // The security cache will be deleted when the client disconnects from this group pv
+    auto securityCache = std::make_shared<GroupSecurityCache>();
+
+    // register handler for pvxs group put
+    channelConnectOperation
+            ->onPut([&group, securityCache](std::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
+                if (!securityCache->done) {
+                    // First time we call put we need to initialise the security cache
+                    securityCache->securityClients.resize(group.fields.size());
+                    securityCache->credentials.reset(new Credentials(*putOperation->credentials()));
+                    auto fieldIndex = 0u;
+                    for (auto& field: group.fields) {
+                        if (field.value.channel) {
+                            securityCache->securityClients[fieldIndex]
+                                    .update(field.value.channel, *securityCache->credentials);
+                        }
+                        fieldIndex++;
+                    }
+                    auto& pvRequest = putOperation->pvRequest();
+                    IOCSource::setForceProcessingFlag(pvRequest, securityCache);
+                    securityCache->done = true;
+                }
+
+                putGroup(group, putOperation, value, *securityCache);
+            });
+}
+
+/**
+ * Called by the framework when the monitoring client issues a start or stop subscription.  We
+ * intercept the framework's call prior to entering here, and add the group subscription context
+ * containing a list of field contexts and their event subscriptions to manage.
+ *
+ * @param groupSubscriptionCtx the group subscription context
+ * @param isStarting true if the client issued a start subscription request, false otherwise
+ */
+void GroupSource::onStart(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx, bool isStarting) {
+    if (isStarting) {
+        onStartSubscription(groupSubscriptionCtx);
+    } else {
+        onDisableSubscription(groupSubscriptionCtx);
+    }
+}
+
+/**
+ * Called when a client starts a subscription it has subscribed to.  For each field in the subscription,
+ * enable events and post a single event to both the values and properties event channels to kick things off.
+ *
+ * @param groupSubscriptionCtx the group subscription context containing the field event subscriptions to start
+ */
+void GroupSource::onStartSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx) {
+    for (auto& fieldSubscriptionCtx: groupSubscriptionCtx->fieldSubscriptionContexts) {
+        auto pValueEventSubscription = fieldSubscriptionCtx.pValueEventSubscription.get();
+        auto pPropertiesEventSubscription = fieldSubscriptionCtx.pPropertiesEventSubscription.get();
+        db_event_enable(pValueEventSubscription);
+        db_event_enable(pPropertiesEventSubscription);
+        db_post_single_event(pValueEventSubscription);
+        db_post_single_event(pPropertiesEventSubscription);
+    }
+}
+
+/**
+ * Called by the framework when a client subscribes to a channel.  We intercept the call before this function is called
+ * to add a new group subscription context containing a reference to the group.
+ * This function must initialise all of the field's subscription contexts.
+ *
+ * @param groupSubscriptionCtx a new group subscription context
+ * @param subscriptionOperation the group subscription operation
+ */
+void GroupSource::onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx,
+        std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) const {
+    // inform peer of data type and acquire control of the subscription queue
+    groupSubscriptionCtx->subscriptionControl = subscriptionOperation
+            ->connect(groupSubscriptionCtx->group.valueTemplate);
+
+    // Initialise the field subscription contexts.  One for each group field.
+    // This is stored in the group context
+    groupSubscriptionCtx->fieldSubscriptionContexts.reserve(groupSubscriptionCtx->group.fields.size());
+    for (auto& field: groupSubscriptionCtx->group.fields) {
+        groupSubscriptionCtx->fieldSubscriptionContexts.emplace_back(field, groupSubscriptionCtx.get());
+        auto& fieldSubscriptionContext = groupSubscriptionCtx->fieldSubscriptionContexts.back();
+
+        // Two subscription are made for each group channel for pvxs
+        if (field.isMeta) {
+            fieldSubscriptionContext
+                    .subscribeField(eventContext.get(), subscriptionValueCallback, DBE_ALARM);
+        } else {
+            fieldSubscriptionContext
+                    .subscribeField(eventContext.get(), subscriptionValueCallback, DBE_VALUE | DBE_ALARM | DBE_ARCHIVE);
+        }
+        fieldSubscriptionContext
+                .subscribeField(eventContext.get(), subscriptionPropertiesCallback, DBE_PROPERTY, false);
+    }
+
+    // If all goes well, set up handlers for start and stop monitoring events
+    groupSubscriptionCtx->subscriptionControl->onStart([groupSubscriptionCtx](bool isStarting) {
+        onStart(groupSubscriptionCtx, isStarting);
+    });
 }
 
 /**
@@ -254,146 +379,12 @@ bool GroupSource::getGroupField(const Field& field, Value valueTarget, const std
 }
 
 /**
- * Called when a client pauses / stops a subscription it has been subscribed to.
- * This function loops over all fields event subscriptions the group subscription context and disables each of them.
- *
- * @param groupSubscriptionCtx the group subscription context
- */
-void GroupSource::onDisableSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx) {
-    for (auto& fieldSubscriptionCtx: groupSubscriptionCtx->fieldSubscriptionContexts) {
-        auto pValueEventSubscription = fieldSubscriptionCtx.pValueEventSubscription.get();
-        auto pPropertiesEventSubscription = fieldSubscriptionCtx.pPropertiesEventSubscription.get();
-        db_event_disable(pValueEventSubscription);
-        db_event_disable(pPropertiesEventSubscription);
-    }
-}
-
-/**
- * Handler for the onOp event raised by pvxs Sources when they are started, in order to define the get and put handlers
- * on a per source basis.
- * This is called after the event has been intercepted and we add the group to the call.
- *
- * @param group the group to which the get/put operation pertains
- * @param channelConnectOperation the channel connect operation object
- */
-void GroupSource::onOp(Group& group,
-        std::unique_ptr<server::ConnectOp>&& channelConnectOperation) {
-    // First stage for handling any request is to announce the channel type with a `connect()` call
-    // @note The type signalled here must match the eventual type returned by a pvxs get
-    channelConnectOperation->connect(group.valueTemplate);
-
-    // register handler for pvxs group get
-    channelConnectOperation->onGet([&group](std::unique_ptr<server::ExecOp>&& getOperation) {
-        get(group, getOperation);
-    });
-
-    // Make a security cache for this client's connection to this group
-    // Each time the same client calls put we will re-use the cached security client
-    // The security cache will be deleted when the client disconnects from this group pv
-    auto securityCache = std::make_shared<GroupSecurityCache>();
-
-    // register handler for pvxs group put
-    channelConnectOperation
-            ->onPut([&group, securityCache](std::unique_ptr<server::ExecOp>&& putOperation, Value&& value) {
-                if (!securityCache->done) {
-                    // First time we call put we need to initialise the security cache
-                    securityCache->securityClients.resize(group.fields.size());
-                    securityCache->credentials.reset(new Credentials(*putOperation->credentials()));
-                    auto fieldIndex = 0u;
-                    for (auto& field: group.fields) {
-                        if (field.value.channel) {
-                            securityCache->securityClients[fieldIndex]
-                                    .update(field.value.channel, *securityCache->credentials);
-                        }
-                        fieldIndex++;
-                    }
-                    auto& pvRequest = putOperation->pvRequest();
-                    IOCSource::setForceProcessingFlag(pvRequest, securityCache);
-                    securityCache->done = true;
-                }
-
-                putGroup(group, putOperation, value, *securityCache);
-            });
-}
-
-/**
- * Called by the framework when a client subscribes to a channel.  We intercept the call before this function is called
- * to add a new group subscription context containing a reference to the group.
- * This function must initialise all of the field's subscription contexts.
- *
- * @param groupSubscriptionCtx a new group subscription context
- * @param subscriptionOperation the group subscription operation
- */
-void GroupSource::onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx,
-        std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) const {
-    // inform peer of data type and acquire control of the subscription queue
-    groupSubscriptionCtx->subscriptionControl = subscriptionOperation
-            ->connect(groupSubscriptionCtx->group.valueTemplate);
-
-    // Initialise the field subscription contexts.  One for each group field.
-    // This is stored in the group context
-    groupSubscriptionCtx->fieldSubscriptionContexts.reserve(groupSubscriptionCtx->group.fields.size());
-    for (auto& field: groupSubscriptionCtx->group.fields) {
-        groupSubscriptionCtx->fieldSubscriptionContexts.emplace_back(field, groupSubscriptionCtx.get());
-        auto& fieldSubscriptionContext = groupSubscriptionCtx->fieldSubscriptionContexts.back();
-
-        // Two subscription are made for each group channel for pvxs
-        if (field.isMeta) {
-            fieldSubscriptionContext
-                    .subscribeField(eventContext.get(), subscriptionValueCallback, DBE_ALARM);
-        } else {
-            fieldSubscriptionContext
-                    .subscribeField(eventContext.get(), subscriptionValueCallback, DBE_VALUE | DBE_ALARM | DBE_ARCHIVE);
-        }
-        fieldSubscriptionContext
-                .subscribeField(eventContext.get(), subscriptionPropertiesCallback, DBE_PROPERTY, false);
-    }
-
-    // If all goes well, set up handlers for start and stop monitoring events
-    groupSubscriptionCtx->subscriptionControl->onStart([groupSubscriptionCtx](bool isStarting) {
-        onStart(groupSubscriptionCtx, isStarting);
-    });
-}
-
-/**
- * Called by the framework when the monitoring client issues a start or stop subscription.  We
- * intercept the framework's call prior to entering here, and add the group subscription context
- * containing a list of field contexts and their event subscriptions to manage.
- *
- * @param groupSubscriptionCtx the group subscription context
- * @param isStarting true if the client issued a start subscription request, false otherwise
- */
-void GroupSource::onStart(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx, bool isStarting) {
-    if (isStarting) {
-        onStartSubscription(groupSubscriptionCtx);
-    } else {
-        onDisableSubscription(groupSubscriptionCtx);
-    }
-}
-
-/**
- * Called when a client starts a subscription it has subscribed to.  For each field in the subscription,
- * enable events and post a single event to both the values and properties event channels to kick things off.
- *
- * @param groupSubscriptionCtx the group subscription context containing the field event subscriptions to start
- */
-void GroupSource::onStartSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx) {
-    for (auto& fieldSubscriptionCtx: groupSubscriptionCtx->fieldSubscriptionContexts) {
-        auto pValueEventSubscription = fieldSubscriptionCtx.pValueEventSubscription.get();
-        auto pPropertiesEventSubscription = fieldSubscriptionCtx.pPropertiesEventSubscription.get();
-        db_event_enable(pValueEventSubscription);
-        db_event_enable(pPropertiesEventSubscription);
-        db_post_single_event(pValueEventSubscription);
-        db_post_single_event(pPropertiesEventSubscription);
-    }
-}
-
-/**
  * Handler invoked when a peer sends data on a PUT
  *
  * @param group the group to which the data is posted
  * @param putOperation the put operation object to use to interact with the client
  * @param value the value being posted
+ * @param groupSecurityCache the object that caches the security context of client connections
  */
 void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOperation, const Value& value,
         const GroupSecurityCache& groupSecurityCache) {
@@ -427,9 +418,8 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
             DBManyLocker G(group.value.lock);
             // Loop through all fields
             for (auto& field: group.fields) {
-                dbChannel* pDbChannel = field.value.channel;
                 // Put the field
-                putField(value, field, pDbChannel, groupSecurityCache.securityClients[fieldIndex]);
+                putGroupField(value, field, groupSecurityCache.securityClients[fieldIndex]);
                 // Do processing if required
                 IOCSource::doPostProcessing(field.value.channel, groupSecurityCache.forceProcessing);
                 fieldIndex++;
@@ -447,7 +437,7 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
                 // Lock this field
                 DBLocker F(pDbChannel->addr.precord);
                 // Put the field
-                putField(value, field, pDbChannel, groupSecurityCache.securityClients[fieldIndex]);
+                putGroupField(value, field, groupSecurityCache.securityClients[fieldIndex]);
                 // Do processing if required
                 IOCSource::doPostProcessing(field.value.channel, groupSecurityCache.forceProcessing);
                 // Unlock this field when locker goes out of scope
@@ -475,9 +465,9 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
  *
  * @param value the sparsely populated value to put into the group's field
  * @param field the group field to check against
+ * @param securityClient the security client to use to authorise the operation
  */
-void GroupSource::putField(const Value& value, const Field& field, dbChannel* pDbChannel,
-        const SecurityClient& securityClient) {
+void GroupSource::putGroupField(const Value& value, const Field& field, const SecurityClient& securityClient) {
     // find the leaf node that the field refers to in the given value
     auto leafNode = field.findIn(value);
 

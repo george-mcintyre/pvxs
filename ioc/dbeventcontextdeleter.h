@@ -19,7 +19,9 @@ namespace pvxs {
 namespace ioc {
 class DBEventContextDeleter {
 public:
-    void operator()(const dbEventCtx& eventContext);
+    void operator()(const dbEventCtx& eventContext) {
+        db_close_events(eventContext);
+    }
 };
 
 typedef std::unique_ptr<std::remove_pointer<dbEventCtx>::type, DBEventContextDeleter> DBEventContext;

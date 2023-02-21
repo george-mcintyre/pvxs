@@ -20,7 +20,12 @@ public:
     db_field_log* pFieldLog;
     bool owned = false;
     explicit LocalFieldLog(dbChannel* pDbChannel, db_field_log* existingFieldLog = nullptr);
-    ~LocalFieldLog();
+    ~LocalFieldLog() {
+        if (owned) {
+            db_delete_field_log(pFieldLog);
+        }
+    }
+
 };
 
 } // pvxs

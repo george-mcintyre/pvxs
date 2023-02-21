@@ -32,17 +32,52 @@ private:
 public:
     // This constructor calls dbChannelOpen()
     explicit Channel(const std::string& name);
-    ~Channel();
 
-    // Casting and indirection
-    operator dbChannel*() const;
-    const dbChannel* operator->() const;
+/**
+ * Destructor is default because pDbChannel cleans up after itself.
+ */
+    ~Channel() = default;
+
+    /**
+ * Cast as a shared pointer to a dbChannel.  This returns the pDbChannel member
+ *
+ * @return the pDbChannel member
+ */
+    operator dbChannel*() const {
+        return pDbChannel.get();
+    }
+/**
+ * Const pointer indirection operator
+ * @return pointer to the dbChannel associated with this group channel
+ */
+    const dbChannel* operator->() const {
+        return pDbChannel.get();
+    }
+
     explicit operator bool() const {
         return pDbChannel.operator bool();
     }
 
-    Channel(Channel&&) noexcept;
-    Channel& operator=(Channel&& other) noexcept;
+/**
+ * Move constructor
+ *
+ * @param other other Channel
+ */
+    Channel(Channel&& other) noexcept
+            :pDbChannel(std::move(other.pDbChannel)) {
+    }
+
+/**
+ * Move assignment operator
+ *
+ * @param other the other channel
+ * @return the moved channel
+ */
+    Channel& operator=(Channel&& other) noexcept {
+        pDbChannel = std::move(other.pDbChannel);
+        other.pDbChannel = nullptr;
+        return *this;
+    }
 
     // Disallowed methods.  Copy and move constructors
     Channel(const Channel&) = delete;

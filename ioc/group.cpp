@@ -64,19 +64,6 @@ void Group::show(int level) const {
 }
 
 /**
- * Constructor for IOC group.
- * Set the atomic and monitor atomic flags
- */
-Group::Group()
-        :atomicPutGet(false), atomicMonitor(false) {
-}
-
-/**
- * Destructor for IOC group
- */
-Group::~Group() = default;
-
-/**
  * De-reference the field in the current group by providing the field name.
  *
  * @param fieldName of the field to be de-referenced

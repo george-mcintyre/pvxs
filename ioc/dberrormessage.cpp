@@ -16,15 +16,6 @@ namespace pvxs {
 namespace ioc {
 
 /**
- * Construct a new DBErrorMessage from a native database command status code
- *
- * @param dbStatus database command status code
- */
-DBErrorMessage::DBErrorMessage(const long& dbStatus) {
-    (*this) = dbStatus;
-}
-
-/**
  * Set value of this DBErrorMessage object from the specified database status code
  *
  * @param dbStatus database command status code
@@ -39,24 +30,6 @@ DBErrorMessage& DBErrorMessage::operator=(const long& dbStatus) {
         message[sizeof(message) - 1] = '\0';
     }
     return *this;
-}
-
-/**
- * bool cast operation returns true if the status indicates a failure
- *
- * @return returns true if the status indicates a failure
- */
-DBErrorMessage::operator bool() const {
-    return status;
-}
-
-/**
- * Return the text of the database status as a string pointer
- *
- * @return the text of the database status as a string pointer
- */
-const char* DBErrorMessage::c_str() const {
-    return message;
 }
 
 } // ioc

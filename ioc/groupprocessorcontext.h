@@ -34,7 +34,17 @@ public:
     GroupProcessorContext(std::string& channelPrefix, GroupConfigProcessor* groupConfigProcessor)
             :channelPrefix(channelPrefix), groupConfigProcessor(groupConfigProcessor), depth(0u) {
     }
-    void canAssign() const;
+
+/**
+ * Check whether anything can be assigned at the current depth within the json stream being processed.
+ * Throw an exception if not
+ */
+    void canAssign() const {
+        if (depth < 2 || depth > 3) {
+            throw std::runtime_error("Can't assign value in this context");
+        }
+    }
+
     void assign(const Value& value);
 
 };

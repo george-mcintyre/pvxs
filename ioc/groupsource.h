@@ -21,20 +21,30 @@ namespace ioc {
 
 class GroupSource : public server::Source {
 public:
-	GroupSource();
-	void onCreate(std::unique_ptr<server::ChannelControl>&& channelControl) final;
-	List onList() final;
-	void onSearch(Search& searchOperation) final;
-	void show(std::ostream& outputStream) final;
+    GroupSource();
+    void onCreate(std::unique_ptr<server::ChannelControl>&& channelControl) final;
+
+/**
+ * Implementation of the onList() interface of pvxs::server::Source to return a list of all records
+ * managed by this source.
+ *
+ * @return all records managed by this source
+ */
+    List onList() final {
+        return allRecords;
+    }
+
+    void onSearch(Search& searchOperation) final;
+    void show(std::ostream& outputStream) final;
 
 private:
-	// List of all database records that this single source serves
-	List allRecords;
-	// The event context for all subscriptions
-	DBEventContext eventContext;
+    // List of all database records that this single source serves
+    List allRecords;
+    // The event context for all subscriptions
+    DBEventContext eventContext;
 
-	// Create request and subscription handlers for single record sources
-	void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& channelControl,
+    // Create request and subscription handlers for single record sources
+    void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>& channelControl,
             Group& group);
     // Handles all get, put and subscribe requests
     static void onOp(Group& group, std::unique_ptr<server::ConnectOp>&& channelConnectOperation);
@@ -70,9 +80,8 @@ private:
 	static void onStartSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx);
 	void onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx,
 			std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) const;
-	static void onStart(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx, bool isStarting);
-	static void
-	putField(const Value& value, const Field& field, dbChannel* pDbChannel, const SecurityClient& securityClient);
+    static void onStart(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx, bool isStarting);
+    static void putGroupField(const Value& value, const Field& field, const SecurityClient& securityClient);
 };
 
 } // ioc

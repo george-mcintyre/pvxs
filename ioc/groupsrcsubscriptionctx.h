@@ -35,7 +35,10 @@ public:
     Value currentValue;
 
     std::vector<FieldSubscriptionCtx> fieldSubscriptionContexts{};
-    explicit GroupSourceSubscriptionCtx(Group& group);
+    explicit GroupSourceSubscriptionCtx(Group& subscribedGroup)
+            :group(subscribedGroup), currentValue(subscribedGroup.valueTemplate.cloneEmpty()) {
+    }
+
 };
 
 } // pvxs

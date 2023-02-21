@@ -13,16 +13,6 @@ namespace pvxs {
 namespace ioc {
 
 /**
- * Constructor for a field subscription context takes a field and a group subscription context
- *
- * @param field the field this subscription context will be used to monitor
- * @param groupSourceSubscriptionCtx the group subscription context this is a part of
- */
-FieldSubscriptionCtx::FieldSubscriptionCtx(Field& field, GroupSourceSubscriptionCtx* groupSourceSubscriptionCtx)
-        :pGroupCtx(groupSourceSubscriptionCtx), field(&field) {
-};
-
-/**
  * Called when a client wishes to subscribe to a group.  The onSubscribe method calls this method for each
  * field within the group.  This method will create a new event subscription and attach it to this field
  * subscription context.

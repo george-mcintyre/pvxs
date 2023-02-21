@@ -31,18 +31,74 @@ class FieldName {
 private:
 public:
     FieldNameComponents fieldNameComponents;
-    bool empty() const;
-    size_t size() const;
 
     explicit FieldName(const std::string& fieldName);
-
-    void swap(FieldName& o);
-    const FieldNameComponent& operator[](size_t i) const;
-    const FieldNameComponent& back() const;
     std::string to_string(size_t padLength = 0) const;
-    const std::string& leafFieldName() const;
 
-    void show(const std::string& suffix = {}) const;
+/**
+ * Show this field name.  All components are shown as they were configured.
+ *
+ * @param suffix the suffix to add to the field name, defaults to none
+ */
+    void show(const std::string& suffix = {}) const {
+        printf("%s%s", to_string(PADDING_WIDTH - suffix.size()).c_str(), suffix.c_str());
+    }
+
+/**
+ * swap delegate
+ *
+ * @param o
+ */
+    void swap(FieldName& o) {
+        fieldNameComponents.swap(o.fieldNameComponents);
+    }
+
+/**
+ * empty delegate
+ *
+ * @return
+ */
+    bool empty() const {
+        return fieldNameComponents.empty() || (fieldNameComponents.size() == 1 && fieldNameComponents[0].name.empty());
+    }
+
+/**
+ * size delegate
+ *
+ * @return
+ */
+    size_t size() const {
+        return fieldNameComponents.size();
+    }
+
+/**
+ * back() delegate
+ *
+ * @return
+ */
+    const FieldNameComponent& back() const {
+        return fieldNameComponents.back();
+    }
+
+/**
+ * operator[] delegate
+ *
+ * @param i
+ * @return
+ */
+    const FieldNameComponent& operator[](size_t i) const {
+        return fieldNameComponents[i];
+    }
+
+/**
+ * Get the leaf field name of this field
+ *
+ * @return the leaf field name
+ */
+    const std::string& leafFieldName() const {
+        return fieldNameComponents[fieldNameComponents.size() - 1].name;
+    }
+
 };
 
 } // pvxs

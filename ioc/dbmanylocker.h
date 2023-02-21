@@ -12,6 +12,7 @@
 
 #include <vector>
 
+#include <dbCommon.h>
 #include <dbLock.h>
 
 namespace pvxs {
@@ -28,14 +29,53 @@ class DBManyLock {
 public:
     dbLocker* pLocker{};
 
-    explicit DBManyLock(const std::vector<dbCommon*>& channels, unsigned flags = 0);
+/**
+ * Empty lock
+ */
+    DBManyLock()
+            :pLocker(nullptr) {
+    }
 
-    DBManyLock();
-    DBManyLock(DBManyLock&& other) noexcept;
-    ~DBManyLock();
+/**
+ * Create a many lock from a list of channels
+ *
+ * @param channels the list of channels to lock
+ * @param flags the lock flags to be passed on to dbLockerAlloc()
+ */
+    explicit DBManyLock(const std::vector<dbCommon*>& channels, unsigned flags = 0) {
+        pLocker = dbLockerAlloc(channels.data(), channels.size(), flags);
+        if (!pLocker) {
+            throw std::invalid_argument("Failed to create locker");
+        }
+    }
 
-    explicit operator dbLocker*() const;
-    DBManyLock& operator=(DBManyLock&& other) noexcept;
+/**
+ * When the lock goes out of scope, then free the lock
+ */
+    ~DBManyLock() {
+        if (pLocker) {
+            dbLockerFree(pLocker);
+            pLocker = nullptr;
+        }
+    }
+
+    explicit operator dbLocker*() const {
+        return pLocker;
+    }
+
+    DBManyLock(DBManyLock&& other) noexcept
+            :pLocker(other.pLocker) {
+        other.pLocker = nullptr;
+    }
+
+    DBManyLock& operator=(DBManyLock&& other) noexcept {
+        if (pLocker) {
+            dbLockerFree(pLocker);
+        }
+        pLocker = other.pLocker;
+        other.pLocker = nullptr;
+        return *this;
+    }
 
     // Prevent copy construction and assignment
     DBManyLock(const DBManyLock&) = delete;

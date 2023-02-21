@@ -11,6 +11,9 @@
 #define PVXS_DBENTRY_H
 
 #include <dbStaticLib.h>
+#include <dbAccess.h>
+
+#include "dbentry.h"
 
 namespace pvxs {
 namespace ioc {
@@ -21,10 +24,22 @@ namespace ioc {
 class DBEntry {
     DBENTRY ent{};
 public:
-    DBEntry();
-    ~DBEntry();
-    operator DBENTRY*();
-    DBENTRY* operator->();
+    DBEntry() {
+        dbInitEntry(pdbbase, &ent);
+    }
+
+    ~DBEntry() {
+        dbFinishEntry(&ent);
+    }
+
+    operator DBENTRY*() {
+        return &ent;
+    }
+
+    DBENTRY* operator->() {
+        return &ent;
+    }
+
 };
 
 } // ioc

@@ -26,11 +26,5 @@ LocalFieldLog::LocalFieldLog(dbChannel* pDbChannel, db_field_log* existingFieldL
     }
 }
 
-LocalFieldLog::~LocalFieldLog() {
-    if (owned) {
-        db_delete_field_log(pFieldLog);
-    }
-}
-
 } // pvxs
 } // ioc

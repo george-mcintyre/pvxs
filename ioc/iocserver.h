@@ -22,7 +22,10 @@ namespace ioc {
 class IOCServer : public server::Server {
 
 public:
-    explicit IOCServer(const server::Config& config);
+    explicit IOCServer(const server::Config& config)
+            :pvxs::server::Server(config) {
+    }
+
     GroupMap groupMap;
     std::list<std::string> groupConfigFiles;
 

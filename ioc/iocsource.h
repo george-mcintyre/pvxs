@@ -80,9 +80,23 @@ public:
     static void getValueFromBuffer(Value& valueTarget, const void* pValueBuffer);
     // Get a return value from the given database value buffer
     static void getValueFromBuffer(Value& valueTarget, const void* pValueBuffer, const long& nElements);
-    // Get a return value from the given database value buffer (templated)
-    template<typename valueType>
-    static void getValueFromBuffer(Value& valueTarget, const void* pValueBuffer);
+/**
+ * Set the value field of the given return value to a scalar pointed to by pValueBuffer
+ * Supported types are:
+ *   TypeCode::Int8 	TypeCode::UInt8
+ *   TypeCode::Int16 	TypeCode::UInt16
+ *   TypeCode::Int32 	TypeCode::UInt32
+ *   TypeCode::Int64 	TypeCode::UInt64
+ *   TypeCode::Float32 	TypeCode::Float64
+ *
+ * @tparam valueType the type of the scalar stored in the buffer.  One of the supported types
+ * @param valueTarget the return value
+ * @param pValueBuffer the pointer to the data containing the database data to store in the return value
+ */
+    template<typename valueType> static void getValueFromBuffer(Value& valueTarget, const void* pValueBuffer) {
+        valueTarget = ((valueType*)pValueBuffer)[0];
+    }
+
     // Get a return value from the given database value buffer (templated)
     template<typename valueType>
     static void getValueFromBuffer(Value& valueTarget, const void* pValueBuffer, const long& nElements);
@@ -97,8 +111,9 @@ public:
     // Set string value in the given buffer
     static void setStringValueInBuffer(const Value& valueSource, char* pValueBuffer);
 // Set the value into the given database value buffer (templated)
-    template<typename valueType>
-    static void setValueInBuffer(const Value& valueSource, void* pValueBuffer);
+    template<typename valueType> static void setValueInBuffer(const Value& valueSource, void* pValueBuffer) {
+        ((valueType*)pValueBuffer)[0] = valueSource.as<valueType>();
+    }
     // Set the value into the given database value buffer (templated)
     template<typename valueType>
     static void setValueInBuffer(const Value& valueSource, void* pValueBuffer, long nElements);

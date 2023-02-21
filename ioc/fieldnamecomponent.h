@@ -12,6 +12,7 @@
 
 #include <string>
 #include <vector>
+#include <utility>
 
 namespace pvxs {
 namespace ioc {
@@ -26,17 +27,41 @@ namespace ioc {
  * An array of structures is an array whose elements are themselves structures.
  */
 class FieldNameComponent {
-    // If this component is an array this is the index into the array
-    FieldNameComponent();
+/**
+ * Construct an simple Field name component holder.  -1 means not a structure array
+ */
+    FieldNameComponent()
+            :index((uint32_t)-1) {
+    }
 public:
-    explicit FieldNameComponent(std::string name, uint32_t index = (uint32_t)-1);
-    bool isArray() const;
-
     // the name of this field component
     std::string name;
     // If this is a structure array then this is the index that is referred to by this field name component.
     // -1 means that it is not a structure array
     uint32_t index;
+
+/**
+ * Construct an Field Name Component from the given name and index
+ *
+ * @param name the field name component
+ * @param index the index of the field name component if the component is an array of structures.  Note
+ *              that index will only ever be specified in configuration if this is an array of structures.
+ */
+    explicit FieldNameComponent(std::string name, uint32_t index = (uint32_t)-1)
+            :name(std::move(name)), index(index) {
+    }
+
+/**
+ * Is this an array of structures.  Determines whether this component is an array of structures or not, by looking
+ * at the index field.  If it is -1 then its not an array of structures otherwise it is a simple scalar
+ * or an array of scalars
+ *
+ * @return true if this is an array of structures
+ */
+    bool isArray() const {
+        return index != (uint32_t)-1;
+    }
+
 };
 
 typedef std::vector<FieldNameComponent> FieldNameComponents;

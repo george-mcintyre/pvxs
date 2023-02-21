@@ -32,26 +32,6 @@ Channel::Channel(const std::string& name)
 }
 
 /**
- * Move constructor
- *
- * @param other other Channel
- */
-Channel::Channel(Channel&& other) noexcept
-        :pDbChannel(std::move(other.pDbChannel)) {
-}
-
-Channel& Channel::operator=(Channel&& other) noexcept {
-    pDbChannel = std::move(other.pDbChannel);
-    other.pDbChannel = nullptr;
-    return *this;
-}
-
-/**
- * Destructor is default because pDbChannel cleans up after itself.
- */
-Channel::~Channel() = default;
-
-/**
  * Internal function to prepare the dbChannel for operation by opening it
  */
 void Channel::prepare() {
@@ -63,21 +43,6 @@ void Channel::prepare() {
     }
 }
 
-/**
- * Cast as a shared pointer to a dbChannel.  This returns the pDbChannel member
- *
- * @return the pDbChannel member
- */
-Channel::operator dbChannel*() const {
-    return pDbChannel.get();
-}
-/**
- * Const pointer indirection operator
- * @return pointer to the dbChannel associated with this group channel
- */
-const dbChannel* Channel::operator->() const {
-    return pDbChannel.get();
-}
 
 } // pvxs
 } // ioc
