@@ -360,6 +360,7 @@ void SingleSource::onStart(const std::shared_ptr<SingleSourceSubscriptionCtx>& s
  * @param subscriptionContext the subscription context
  */
 void SingleSource::onStartSubscription(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext) {
+    subscriptionContext->eventsEnabled = true;
     db_event_enable(subscriptionContext->pValueEventSubscription.get());
     db_event_enable(subscriptionContext->pPropertiesEventSubscription.get());
     db_post_single_event(subscriptionContext->pValueEventSubscription.get());

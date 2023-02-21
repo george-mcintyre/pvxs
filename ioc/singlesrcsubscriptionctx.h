@@ -35,6 +35,11 @@ public:
     Value currentValue{};
     epicsMutex eventLock{};
     std::unique_ptr<server::MonitorControlOp> subscriptionControl{};
+    bool eventsEnabled = false;
+
+    ~SingleSourceSubscriptionCtx() {
+        assert(!eventsEnabled);
+    }
 };
 
 } // ioc
