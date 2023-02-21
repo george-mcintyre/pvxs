@@ -95,9 +95,10 @@ static std::initializer_list<void (*)()> tests = {
 			testdbGetArrFieldEqualB("test:vectorExampleD2", DBR_DOUBLE, 5, expected.size(), expected.data());
 		},
 		[]() {
-			clientContext = ioc::server().clientConfig().build();
-			testOkB(true, "cli = ioc::server().clientConfig().build()");
-		},
+            clientContext = ioc::server().clientConfig().build();
+            testShow() << clientContext.config();
+            testOkB(true, "cli = ioc::server().clientConfig().build()");
+        },
 		[]() {
 			auto val = clientContext.get("test:aiExample").exec()->wait(5.0);
 			auto aiExample = val["value"].as<double>();
