@@ -99,8 +99,8 @@ private:
  * @param subscriptionContext the subscription context
  */
     static void onDisableSubscription(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext) {
-        db_event_disable(subscriptionContext->pValueEventSubscription.get());
-        db_event_disable(subscriptionContext->pPropertiesEventSubscription.get());
+        subscriptionContext->pValueEventSubscription.disable();
+        subscriptionContext->pPropertiesEventSubscription.disable();
         subscriptionContext->eventsEnabled = false;
     }
 

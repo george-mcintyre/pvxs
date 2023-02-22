@@ -143,10 +143,8 @@ void GroupSource::createRequestAndSubscriptionHandlers(std::unique_ptr<server::C
  */
 void GroupSource::onDisableSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx) {
     for (auto& fieldSubscriptionCtx: groupSubscriptionCtx->fieldSubscriptionContexts) {
-        auto pValueEventSubscription = fieldSubscriptionCtx.pValueEventSubscription.get();
-        auto pPropertiesEventSubscription = fieldSubscriptionCtx.pPropertiesEventSubscription.get();
-        db_event_disable(pValueEventSubscription);
-        db_event_disable(pPropertiesEventSubscription);
+        fieldSubscriptionCtx.pValueEventSubscription.disable();
+        fieldSubscriptionCtx.pPropertiesEventSubscription.disable();
     }
     groupSubscriptionCtx->eventsEnabled = false;
 }
@@ -224,12 +222,8 @@ void GroupSource::onStart(const std::shared_ptr<GroupSourceSubscriptionCtx>& gro
 void GroupSource::onStartSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx) {
     groupSubscriptionCtx->eventsEnabled = true;
     for (auto& fieldSubscriptionCtx: groupSubscriptionCtx->fieldSubscriptionContexts) {
-        auto pValueEventSubscription = fieldSubscriptionCtx.pValueEventSubscription.get();
-        auto pPropertiesEventSubscription = fieldSubscriptionCtx.pPropertiesEventSubscription.get();
-        db_event_enable(pValueEventSubscription);
-        db_event_enable(pPropertiesEventSubscription);
-        db_post_single_event(pValueEventSubscription);
-        db_post_single_event(pPropertiesEventSubscription);
+        fieldSubscriptionCtx.pValueEventSubscription.enable();
+        fieldSubscriptionCtx.pPropertiesEventSubscription.enable();
     }
 }
 

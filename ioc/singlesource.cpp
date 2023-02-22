@@ -361,10 +361,8 @@ void SingleSource::onStart(const std::shared_ptr<SingleSourceSubscriptionCtx>& s
  */
 void SingleSource::onStartSubscription(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext) {
     subscriptionContext->eventsEnabled = true;
-    db_event_enable(subscriptionContext->pValueEventSubscription.get());
-    db_event_enable(subscriptionContext->pPropertiesEventSubscription.get());
-    db_post_single_event(subscriptionContext->pValueEventSubscription.get());
-    db_post_single_event(subscriptionContext->pPropertiesEventSubscription.get());
+    subscriptionContext->pValueEventSubscription.enable();
+    subscriptionContext->pPropertiesEventSubscription.enable();
 }
 
 /**
@@ -381,15 +379,19 @@ void SingleSource::onSubscribe(const std::shared_ptr<SingleSourceSubscriptionCtx
 
     // Two subscription are made for pvxs
     // first subscription is for Value changes
-    addSubscriptionEvent(Value, eventContext, subscriptionContext, DBE_VALUE | DBE_ALARM | DBE_ARCHIVE);
+    subscriptionContext->pValueEventSubscription.subscribe(eventContext.get(),
+                                                           subscriptionContext->pValueChannel,
+                                                           subscriptionValueCallback,
+                                                           subscriptionContext.get(),
+                                                           DBE_VALUE | DBE_ALARM | DBE_ARCHIVE
+                                                           );
     // second subscription is for Property changes
-    addSubscriptionEvent(Properties, eventContext, subscriptionContext, DBE_PROPERTY);
-
-    // If either fail to complete then raise an error (removes last ref to shared_ptr subscriptionContext)
-    if (!subscriptionContext->pValueEventSubscription
-            || !subscriptionContext->pPropertiesEventSubscription) {
-        throw std::runtime_error("Failed to create db subscription");
-    }
+    subscriptionContext->pPropertiesEventSubscription.subscribe(eventContext.get(),
+                                                                subscriptionContext->pPropertiesChannel,
+                                                                subscriptionPropertiesCallback,
+                                                                subscriptionContext.get(),
+                                                                DBE_PROPERTY
+                                                                );
 
     // If all goes well, Set up handlers for start and stop monitoring events
     subscriptionContext->subscriptionControl->onStart([&subscriptionContext](bool isStarting) {
