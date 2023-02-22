@@ -160,6 +160,10 @@ void testIterStruct()
     val["timeStamp"].mark(); // 4 fields (struct node and 3x leaves)
 
     testMarked(6u)<<"mark multiple sub-struct";
+
+    val["timeStamp.nanoseconds"].unmark(true);
+
+    testMarked(2u)<<"mark multiple sub-struct";
 }
 
 void testIterUnion()
@@ -174,6 +178,18 @@ void testIterUnion()
     {
         auto it = top.iall().begin();
         auto end = top.iall().end();
+        if(testOk1(it!=end))
+            testEq(top.nameOf(*it), "A");
+        ++it;
+        if(testOk1(it!=end))
+            testEq(top.nameOf(*it), "B");
+        ++it;
+        testOk1(it==end);
+    }
+
+    {
+        auto it = top.ichildren().begin();
+        auto end = top.ichildren().end();
         if(testOk1(it!=end))
             testEq(top.nameOf(*it), "A");
         ++it;
@@ -313,6 +329,27 @@ void testAssignSimilar()
     }
 }
 
+void testUnionMagicAssign()
+{
+    testShow()<<__func__;
+
+    using namespace members;
+    auto val(TypeDef(TypeCode::Union, {
+                         UInt16("x"),
+                         Float64("y"),
+                     }).create());
+
+    val = 5;
+    testEq(val.nameOf(val["->"]), "x");
+    testEq(val.as<std::string>(), "5");
+
+    val = unselect;
+
+    testThrows<NoConvert>([&val](){
+        val = "invalid";
+    });
+}
+
 void testExtract()
 {
     testShow()<<__func__;
@@ -379,7 +416,7 @@ void testClear()
 
 MAIN(testdata)
 {
-    testPlan(127);
+    testPlan(146);
     testSetup();
     testTraverse();
     testAssign();
@@ -388,6 +425,12 @@ MAIN(testdata)
     testIterStruct();
     testIterUnion();
 
+    testConvertScalar<bool, bool>(true, true);
+    testConvertScalar<bool, uint32_t>(true, 1u);
+    testConvertScalar<bool, int32_t>(true, 1);
+    //testConvertScalar<bool, double>(true, 1.0); // TODO: define double -> bool
+    testConvertScalar<bool, std::string>(true, "true");
+    testConvertScalar<bool, std::string>(false, "false");
     testConvertScalar<double, bool>(1.0, true);
     testConvertScalar<double, bool>(0.0, false);
     testConvertScalar<double, uint32_t>(5.0, 5);
@@ -422,6 +465,7 @@ MAIN(testdata)
     testConvertScalar2<int32_t, uint64_t, int64_t>(0, 0x100000000llu, -0);
 
     testAssignSimilar();
+    testUnionMagicAssign();
     testExtract();
     testClear();
     cleanup_for_valgrind();

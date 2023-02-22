@@ -291,8 +291,8 @@ void Value::unmark(bool parents, bool children)
         auto pdesc = desc;
         auto pstore = store.get();
         while(pdesc!=top->desc.get()) {
-            pdesc -= pdesc->parent_index;
             pstore -= pdesc->parent_index;
+            pdesc -= pdesc->parent_index;
 
             pstore->valid = false;
         }
@@ -696,6 +696,7 @@ void Value::copyIn(const void *ptr, StoreType type)
                         continue;
                     }
                     val = std::move(temp);
+                    break;
                 }
                 if(!val)
                     throw NoConvert("Unsupported assignment to unselected union");
@@ -969,10 +970,11 @@ size_t Value::nmembers() const
 {
     switch(desc ? desc->code.code : TypeCode::Null) {
     case TypeCode::Struct:
-    case TypeCode::StructA:
     case TypeCode::Union:
-    case TypeCode::UnionA:
         return desc->miter.size();
+    case TypeCode::StructA:
+    case TypeCode::UnionA:
+        return desc->members[0].miter.size();
     default:
         return 0u;
     }

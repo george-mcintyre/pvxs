@@ -52,12 +52,20 @@ namespace pvxs {namespace impl {
 PVXS_API
 bool inUnitTest();
 
+template<typename T>
+struct promote_print { static T op(const T& v) { return v; }};
+template<>
+struct promote_print<int8_t> { static int op(const char& v) { return v; }};
+template<>
+struct promote_print<uint8_t> { static unsigned op(const char& v) { return v; }};
+
 //! in-line string builder (eg. for exception messages)
 //! eg. @code throw std::runtime_error(SB()<<"Some message"<<42); @endcode
 struct SB {
     std::ostringstream strm;
     SB() {}
     operator std::string() const { return strm.str(); }
+    std::string str() const { return strm.str(); }
     template<typename T>
     SB& operator<<(const T& i) { strm<<i; return *this; }
 };
