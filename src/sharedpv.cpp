@@ -467,17 +467,15 @@ Value SharedPV::fetch() const
     }
 }
 
-struct StaticSource::Impl : public Source
-{
+struct StaticSource::Impl final : public Source {
     mutable RWLock lock;
 
     list_t pvs;
-    decltype (List::names) list;
+    decltype(List::names) list;
 
-    virtual void onSearch(Search &op) override
-    {
+    virtual void onSearch(Search& op) override {
         auto G(lock.lockReader());
-        for(auto& name : op) {
+        for (auto& name: op) {
             auto it(pvs.find(name.name()));
             if(it!=pvs.end()) {
                 name.claim();

@@ -43,14 +43,14 @@ private:
     // The event context for all subscriptions
     DBEventContext eventContext;
 
-	// Create request and subscription handlers for single record sources
-	void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>&& channelControl,
-			const std::shared_ptr<dbChannel>& dbChannelSharedPtr);
-	// Handles all get, put and subscribe requests
-	static void onOp(const std::shared_ptr<dbChannel>& forceProcessingOption, const Value& valuePrototype,
-			std::unique_ptr<server::ConnectOp>&& channelConnectOperation);
-	// Helper function to create a value prototype for the given channel
-	static Value getValuePrototype(const std::shared_ptr<dbChannel>& dbChannelSharedPtr);
+    // Create request and subscription handlers for single record sources
+    void createRequestAndSubscriptionHandlers(std::unique_ptr<server::ChannelControl>&& channelControl,
+            const std::shared_ptr<dbChannel>& dbChannelSharedPtr);
+    // Handles all get, put and subscribe requests
+    static void onOp(const std::shared_ptr<dbChannel>& forceProcessingOption, const Value& valuePrototype,
+            std::unique_ptr<server::ConnectOp>&& channelConnectOperation);
+    // Helper function to create a value prototype for the given channel
+    static Value getValuePrototype(const std::shared_ptr<dbChannel>& dbChannelSharedPtr);
 
     //////////////////////////////
     // Get
@@ -113,7 +113,7 @@ private:
     static void onStart(const std::shared_ptr<SingleSourceSubscriptionCtx>& subscriptionContext, bool isStarting);
 
     static int putCallback(processNotify* notify, notifyPutType type);
-	static void doneCallback(processNotify* notify);
+    static void doneCallback(processNotify* notify);
 };
 
 } // ioc

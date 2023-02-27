@@ -43,6 +43,5 @@ void Channel::prepare() {
     }
 }
 
-
 } // pvxs
 } // ioc

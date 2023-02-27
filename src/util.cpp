@@ -247,9 +247,9 @@ struct SocketPair {
 
 } // namespace
 
-struct SigInt::Pvt : public epicsThreadRunable {
-    void (*prevINT)(int);
-    void (*prevTERM)(int);
+struct SigInt::Pvt final : private epicsThreadRunable {
+    void (* prevINT)(int);
+    void (* prevTERM)(int);
     const std::function<void()> handler;
 
     // either pipe() or socketpair()
@@ -257,7 +257,7 @@ struct SigInt::Pvt : public epicsThreadRunable {
 
     epicsThread thr;
 
-    Pvt(const std::function<void ()> &&handler)
+    Pvt(const std::function<void()>&& handler)
         :handler(handler)
         ,thr(*this, "SigInt",
              epicsThreadGetStackSize(epicsThreadStackBig),

@@ -380,18 +380,18 @@ void SingleSource::onSubscribe(const std::shared_ptr<SingleSourceSubscriptionCtx
     // Two subscription are made for pvxs
     // first subscription is for Value changes
     subscriptionContext->pValueEventSubscription.subscribe(eventContext.get(),
-                                                           subscriptionContext->pValueChannel,
-                                                           subscriptionValueCallback,
-                                                           subscriptionContext.get(),
-                                                           DBE_VALUE | DBE_ALARM | DBE_ARCHIVE
-                                                           );
+            subscriptionContext->pValueChannel,
+            subscriptionValueCallback,
+            subscriptionContext.get(),
+            DBE_VALUE | DBE_ALARM | DBE_ARCHIVE
+    );
     // second subscription is for Property changes
     subscriptionContext->pPropertiesEventSubscription.subscribe(eventContext.get(),
-                                                                subscriptionContext->pPropertiesChannel,
-                                                                subscriptionPropertiesCallback,
-                                                                subscriptionContext.get(),
-                                                                DBE_PROPERTY
-                                                                );
+            subscriptionContext->pPropertiesChannel,
+            subscriptionPropertiesCallback,
+            subscriptionContext.get(),
+            DBE_PROPERTY
+    );
 
     // If all goes well, Set up handlers for start and stop monitoring events
     subscriptionContext->subscriptionControl->onStart([&subscriptionContext](bool isStarting) {

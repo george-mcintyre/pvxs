@@ -29,28 +29,26 @@ public:
      * Adds a deleter to clean up the subscription by calling db_cancel_event.
      */
     void subscribe(void* context,
-                   const std::shared_ptr<dbChannel>& pChan,
-                   EVENTFUNC *user_sub, void *user_arg, unsigned select)
-    {
+            const std::shared_ptr<dbChannel>& pChan,
+            EVENTFUNC* user_sub, void* user_arg, unsigned select) {
         auto chan(pChan); // bind by value
         sub.reset(db_add_event(context, chan.get(),
-                               user_sub, user_arg, select),
-                  [chan](void* sub) mutable
-        {
-            db_cancel_event(sub);
-            chan.reset(); // dbChannel* must outlive subscription
-        });
-        if(!sub)
+                        user_sub, user_arg, select),
+                [chan](void* sub) mutable {
+                    db_cancel_event(sub);
+                    chan.reset(); // dbChannel* must outlive subscription
+                });
+        if (!sub)
             throw std::runtime_error("Failed to create db subscription");
     }
     void enable() {
-        if(sub) {
+        if (sub) {
             db_event_enable(sub.get());
             db_post_single_event(sub.get());
         }
     }
     void disable() {
-        if(sub)
+        if (sub)
             db_event_disable(sub.get());
     }
 };

@@ -67,10 +67,10 @@ void test_call()
         testDiag("Demonstrate exclusive ownership transfer");
         bool called = false;
         std::unique_ptr<int> ival{new int(42)};
-        base.call(std::bind([&called](std::unique_ptr<int>& ival) {
-                      auto trash(std::move(ival));
-                      called = true;
-                  }, std::move(ival)));
+        base.call(std::bind([&called](std::unique_ptr<int>& ival) noexcept {
+            auto trash(std::move(ival));
+            called = true;
+        }, std::move(ival)));
         testTrue(called);
     }
 

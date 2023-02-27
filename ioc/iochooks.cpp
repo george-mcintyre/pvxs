@@ -154,12 +154,12 @@ void pvxsi() {
 void pvxrefs() {
     try {
         auto refs(instanceSnapshot());
-        for(auto& pair : refs) {
-            if(pair.second>0u)
+        for (auto& pair: refs) {
+            if (pair.second > 0u)
                 printf("%s\t= %zu\n", pair.first.c_str(), pair.second);
         }
 
-    }  catch (std::exception& e) {
+    } catch (std::exception& e) {
         fprintf(stderr, "Error in %s : %s\n", __func__, e.what());
     }
 }

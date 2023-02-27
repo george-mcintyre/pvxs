@@ -42,7 +42,6 @@ public:
     FieldTriggerMap fieldTriggerMap;    // The trigger map, mapping fields to related triggering fields
 
     GroupDefinition() = default;
-    virtual ~GroupDefinition() = default;
 };
 
 // A map of group name to GroupPv

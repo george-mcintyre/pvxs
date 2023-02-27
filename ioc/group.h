@@ -32,27 +32,16 @@ private:
 public:
     std::string name;
     Fields fields;
-    bool atomicPutGet, atomicMonitor;
+    bool atomicPutGet = false;
+    bool atomicMonitor = false;
     Value valueTemplate;
     ChannelLocks value;
     ChannelLocks properties;
 
-/**
- * Constructor for IOC group.
- * Set the atomic and monitor atomic flags
- */
-    Group()
-            :atomicPutGet(false), atomicMonitor(false) {
-    }
-
-/**
- * Destructor for IOC group
- */
-    virtual ~Group() = default;
-
-    virtual void show(int level) const;
+    void show(int level) const;
     Field& operator[](const std::string& fieldName);
 
+    Group() = default;
     Group(const Group&) = delete;
 };
 

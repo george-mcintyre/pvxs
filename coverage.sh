@@ -13,11 +13,11 @@ trap 'rm -rf "$TDIR"' EXIT INT QUIT TERM
 
 git archive --format tar "$REV" | tar -C "$TDIR" -xv
 
-if [ -f configure/RELEASE.local ]
+if [ -f ../RELEASE.local ]
 then
-    sed -e "s|\$(TOP)|${PWD}|g" configure/RELEASE.local > "$TDIR/configure"/RELEASE.local
+    sed -e "s|\$(TOP)|${PWD}|g" ../RELEASE.local > "$TDIR/configure"/RELEASE.local
 else
-    sed -e "s|\$(TOP)|${PWD}|g" configure/RELEASE > "$TDIR/configure"/RELEASE.local
+    sed -e "s|\$(TOP)|${PWD}|g" ../RELEASE > "$TDIR/configure"/RELEASE.local
 fi
 
 if [ -f configure/CONFIG_SITE.local ]
@@ -35,15 +35,15 @@ make -C "$TDIR" -j8 \
  CROSS_COMPILER_TARGET_ARCHS= \
  CMD_CXXFLAGS='-fprofile-arcs -ftest-coverage -O0' \
  CMD_LDFLAGS='-fprofile-arcs -ftest-coverage' \
- runtests
+ runtests || true
 
 OUTDIR="$PWD"/coverage
 install -d "$OUTDIR"
 
-cd "$TDIR"/src/O.linux-*
+cd "$TDIR"/src/O.darwin-*
 gcovr -v -r .. --html --html-details -o "$OUTDIR"/coverage.html
 
-cd "$TDIR"/ioc/O.linux-*
+cd "$TDIR"/ioc/O.darwin-*
 gcovr -v -r .. --html --html-details -o "$OUTDIR"/coverage-ioc.html
 
 cd "$OUTDIR"

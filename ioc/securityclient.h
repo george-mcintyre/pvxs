@@ -23,10 +23,10 @@ namespace ioc {
 
 class SecurityClient {
 public:
-	std::vector<ASCLIENTPVT> cli;
-	~SecurityClient();
-	void update(dbChannel* ch, Credentials& cred);
-	bool canWrite() const;
+    std::vector<ASCLIENTPVT> cli;
+    ~SecurityClient();
+    void update(dbChannel* ch, Credentials& cred);
+    bool canWrite() const;
 };
 
 /**
@@ -34,8 +34,8 @@ public:
  */
 class SecurityControlObject {
 public:
-	bool done = false;
-	TriState forceProcessing{ Unset };
+    bool done = false;
+    TriState forceProcessing{ Unset };
 };
 
 /**
@@ -43,8 +43,8 @@ public:
  */
 class GroupSecurityCache : public SecurityControlObject {
 public:
-	std::vector<SecurityClient> securityClients;
-	std::unique_ptr<Credentials> credentials;
+    std::vector<SecurityClient> securityClients;
+    std::unique_ptr<Credentials> credentials;
 };
 
 /**
@@ -52,8 +52,8 @@ public:
  */
 class SingleSecurityCache : public SecurityControlObject {
 public:
-	SecurityClient securityClient;
-	std::unique_ptr<Credentials> credentials;
+    SecurityClient securityClient;
+    std::unique_ptr<Credentials> credentials;
 };
 
 /**
@@ -61,11 +61,11 @@ public:
  * Includes a single security cache as well as information pertaining to asynchronous put operations
  */
 struct PutOperationCache : public SingleSecurityCache {
-	bool doWait{ false };
-	processNotify notify{};
-	Value valueToSet;
-	std::unique_ptr<server::ExecOp> putOperation;
-	~PutOperationCache();
+    bool doWait{ false };
+    processNotify notify{};
+    Value valueToSet;
+    std::unique_ptr<server::ExecOp> putOperation;
+    ~PutOperationCache();
 };
 
 } // pvxs

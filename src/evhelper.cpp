@@ -107,17 +107,16 @@ struct ThreadEvent
     inline epicsEvent* operator->() { return get(); }
 };
 
-struct evbase::Pvt : public epicsThreadRunable
-{
+struct evbase::Pvt final : public epicsThreadRunable {
     SockAttach attach;
 
     std::weak_ptr<Pvt> internal_self;
 
     struct Work {
         mfunction fn;
-        std::exception_ptr *result;
-        epicsEvent *notify;
-        Work(mfunction&& fn, std::exception_ptr *result, epicsEvent *notify)
+        std::exception_ptr* result;
+        epicsEvent* notify;
+        Work(mfunction&& fn, std::exception_ptr* result, epicsEvent* notify)
             :fn(std::move(fn)), result(result), notify(notify)
         {}
     };

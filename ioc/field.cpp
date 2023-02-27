@@ -28,7 +28,7 @@ Field::Field(const std::string& stringFieldName, const std::string& stringChanne
 
     if (!fieldName.fieldNameComponents.empty()) {
         name = fieldName.fieldNameComponents[0].name;
-        fullName = std::string(fieldName.to_string());
+        fullName = fieldName.to_string();
 
         if (fieldName.fieldNameComponents[fieldName.fieldNameComponents.size() - 1].isArray()) {
             isArray = true;

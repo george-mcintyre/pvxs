@@ -31,8 +31,7 @@ struct Entry {
 };
 }
 
-struct SubscriptionImpl : public OperationBase, public Subscription
-{
+struct SubscriptionImpl final : public OperationBase, public Subscription {
     // for use in log messages, even after cancel()
     std::string channelName;
 
@@ -40,7 +39,7 @@ struct SubscriptionImpl : public OperationBase, public Subscription
 
     // const after exec()
     std::weak_ptr<SubscriptionImpl> self; // internal
-    std::function<void (Subscription&, const Value&)> onInit;
+    std::function<void(Subscription&, const Value&)> onInit;
     std::function<void(Subscription&)> event;
     Value pvRequest;
     bool pipeline = false;
@@ -259,11 +258,11 @@ struct SubscriptionImpl : public OperationBase, public Subscription
                     auto junk(std::move(strong));
                     // need to do cleanup on worker if running
                     auto loop(junk->loop);
-                    loop.tryCall(std::bind([](std::shared_ptr<SubscriptionImpl>& junk){
-                         // really on worker
-                         // cleanup here when worker is running
-                         junk.reset();
-                     }, std::move(junk)));
+                    loop.tryCall(std::bind([](std::shared_ptr<SubscriptionImpl>& junk) noexcept {
+                        // really on worker
+                        // cleanup here when worker is running
+                        junk.reset();
+                    }, std::move(junk)));
                     // or cleanup here when worker is stopped, and lambda is destroyed
                 });
                 // hack: external_internal is 'mutable' so that shared_from_this() can appear to be const

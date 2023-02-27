@@ -27,8 +27,8 @@ void FieldSubscriptionCtx::subscribeField(dbEventCtx pEventCtx, EVENTFUNC (* sub
     auto& pDbChannel = (forValues ? field->value.channel : field->properties.channel).shared_ptr();
     auto& pEventSubscription = forValues ? pValueEventSubscription : pPropertiesEventSubscription;
     pEventSubscription.subscribe(pEventCtx, pDbChannel,
-                                 subscriptionCallback,
-                                 this, selectOptions);
+            subscriptionCallback,
+            this, selectOptions);
 }
 
 } // pvcs

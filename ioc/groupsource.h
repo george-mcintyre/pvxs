@@ -67,19 +67,19 @@ private:
     //////////////////////////////
     // Subscriptions
     //////////////////////////////
-	// Called when values are requested by a subscription
-	static void
-	subscriptionValueCallback(void* userArg, dbChannel* pDbChannel, int eventsRemaining, db_field_log* pDbFieldLog);
-	static void
-	subscriptionPropertiesCallback(void* userArg, dbChannel* pDbChannel, int eventsRemaining,
-			db_field_log* pDbFieldLog);
-	static void
-	subscriptionCallback(FieldSubscriptionCtx* fieldSubscriptionCtx,
-			GetOperationType getOperationType, struct db_field_log* pDbFieldLog);
-	static void onDisableSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx);
-	static void onStartSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx);
-	void onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx,
-			std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) const;
+    // Called when values are requested by a subscription
+    static void
+    subscriptionValueCallback(void* userArg, dbChannel* pDbChannel, int eventsRemaining, db_field_log* pDbFieldLog);
+    static void
+    subscriptionPropertiesCallback(void* userArg, dbChannel* pDbChannel, int eventsRemaining,
+            db_field_log* pDbFieldLog);
+    static void
+    subscriptionCallback(FieldSubscriptionCtx* fieldSubscriptionCtx,
+            GetOperationType getOperationType, struct db_field_log* pDbFieldLog);
+    static void onDisableSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx);
+    static void onStartSubscription(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx);
+    void onSubscribe(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx,
+            std::unique_ptr<server::MonitorSetupOp>&& subscriptionOperation) const;
     static void onStart(const std::shared_ptr<GroupSourceSubscriptionCtx>& groupSubscriptionCtx, bool isStarting);
     static void putGroupField(const Value& value, const Field& field, const SecurityClient& securityClient);
 };
