@@ -417,11 +417,13 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
             DBManyLocker G(group.value.lock);
             // Loop through all fields
             for (auto& field: group.fields) {
-                // Put the field
-                putGroupField(value, field, groupSecurityCache.securityClients[fieldIndex]);
-                // Do processing if required
-                IOCSource::doPostProcessing(field.value.channel, groupSecurityCache.forceProcessing);
-                fieldIndex++;
+                if (!field.isMeta) {
+                    // Put the field
+                    putGroupField(value, field, groupSecurityCache.securityClients[fieldIndex]);
+                    // Do processing if required
+                    IOCSource::doPostProcessing(field.value.channel, groupSecurityCache.forceProcessing);
+                    fieldIndex++;
+                }
             }
 
             // Unlock the all group fields when the locker goes out of scope
@@ -432,15 +434,17 @@ void GroupSource::putGroup(Group& group, std::unique_ptr<server::ExecOp>& putOpe
 
             // Loop through all fields
             for (auto& field: group.fields) {
-                dbChannel* pDbChannel = field.value.channel;
-                // Lock this field
-                DBLocker F(pDbChannel->addr.precord);
-                // Put the field
-                putGroupField(value, field, groupSecurityCache.securityClients[fieldIndex]);
-                // Do processing if required
-                IOCSource::doPostProcessing(field.value.channel, groupSecurityCache.forceProcessing);
-                // Unlock this field when locker goes out of scope
-                fieldIndex++;
+                if (!field.isMeta) {
+                    dbChannel* pDbChannel = field.value.channel;
+                    // Lock this field
+                    DBLocker F(pDbChannel->addr.precord);
+                    // Put the field
+                    putGroupField(value, field, groupSecurityCache.securityClients[fieldIndex]);
+                    // Do processing if required
+                    IOCSource::doPostProcessing(field.value.channel, groupSecurityCache.forceProcessing);
+                    // Unlock this field when locker goes out of scope
+                    fieldIndex++;
+                }
             }
         }
 
