@@ -495,20 +495,23 @@ void GroupSource::subscriptionCallback(FieldSubscriptionCtx* fieldSubscriptionCt
     // We simply merge new field changes onto this value as events occur
     auto currentValue = pGroupCtx->currentValue;
 
-    // Lock only fields triggered by this field
-    DBManyLocker G(getOperationType <= FOR_METADATA ? field->value.lock : field->properties.lock);
+    // For properties only update the field that caused the subscription update
+    if (getOperationType == FOR_PROPERTIES) {
+        DBLocker F(dbChannelRecord(field->properties.channel));
+        IOCSource::get(field->value.channel, field->properties.channel,
+                currentValue, getOperationType, pDbFieldLog);
+    } else {
+        // Lock only fields triggered by this field
+        DBManyLocker G(field->value.lock);
 
-    // for all triggered fields get the values.  Assumes that self has been added to triggered list
-    for (auto& pTriggeredField: field->triggers) {
-        // Skip metadata updates for property update events
-        if (!pTriggeredField->isMeta || getOperationType != FOR_PROPERTIES) {
+        // for all triggered fields get the values.  Assumes that self has been added to triggered list
+        for (auto& pTriggeredField: field->triggers) {
             // Find leaf node within the current value.  This will be a reference into the currentValue.
             // So that if we assign the leafNode with the value we `get()` back, then currentValue will be updated
             auto leafNode = pTriggeredField->findIn(currentValue);
             if (leafNode) {
-                dbChannel* channelToUse = (getOperationType == FOR_PROPERTIES) ? pTriggeredField->properties.channel
-                                                                               : pTriggeredField->value.channel;
-                LocalFieldLog localFieldLog(channelToUse, (pTriggeredField == field) ? pDbFieldLog : nullptr);
+                LocalFieldLog localFieldLog(pTriggeredField->value.channel,
+                        (pTriggeredField == field) ? pDbFieldLog : nullptr);
                 IOCSource::get(pTriggeredField->value.channel, pTriggeredField->properties.channel,
                         leafNode, pTriggeredField->isMeta ? FOR_METADATA : getOperationType, localFieldLog.pFieldLog);
             }
