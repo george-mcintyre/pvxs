@@ -539,13 +539,17 @@ void GroupSource::subscriptionCallback(FieldSubscriptionCtx* fieldSubscriptionCt
  * @param pDbFieldLog the database field log containing the changes being notified
  */
 void GroupSource::subscriptionValueCallback(void* userArg, dbChannel*, int, struct db_field_log* pDbFieldLog) {
-    auto subscriptionContext = (FieldSubscriptionCtx*)userArg;
-    {
-        epicsGuard<epicsMutex> G((subscriptionContext->pGroupCtx)->eventLock);
-        subscriptionContext->hadValueEvent = true;
+    try {
+        auto subscriptionContext = (FieldSubscriptionCtx*)userArg;
+        {
+            epicsGuard<epicsMutex> G((subscriptionContext->pGroupCtx)->eventLock);
+            subscriptionContext->hadValueEvent = true;
+        }
+        subscriptionCallback(subscriptionContext,
+                subscriptionContext->field->isMeta ? FOR_METADATA : FOR_VALUE, pDbFieldLog);
+    } catch (std::exception& e) {
+        log_exc_printf(_logname, "Unhandled exception in %s\n", __func__);
     }
-    subscriptionCallback(subscriptionContext,
-            subscriptionContext->field->isMeta ? FOR_METADATA : FOR_VALUE, pDbFieldLog);
 }
 
 /**
@@ -555,13 +559,17 @@ void GroupSource::subscriptionValueCallback(void* userArg, dbChannel*, int, stru
  * @param pDbFieldLog the database field log containing the changes being notified
  */
 void GroupSource::subscriptionPropertiesCallback(void* userArg, dbChannel*, int, struct db_field_log* pDbFieldLog) {
-    auto subscriptionContext = (FieldSubscriptionCtx*)userArg;
-    {
-        epicsGuard<epicsMutex> G((subscriptionContext->pGroupCtx)->eventLock);
-        subscriptionContext->hadPropertyEvent = true;
-    }
-    if (!subscriptionContext->field->isMeta) {
-        subscriptionCallback(subscriptionContext, FOR_PROPERTIES, pDbFieldLog);
+    try {
+        auto subscriptionContext = (FieldSubscriptionCtx*)userArg;
+        {
+            epicsGuard<epicsMutex> G((subscriptionContext->pGroupCtx)->eventLock);
+            subscriptionContext->hadPropertyEvent = true;
+        }
+        if (!subscriptionContext->field->isMeta) {
+            subscriptionCallback(subscriptionContext, FOR_PROPERTIES, pDbFieldLog);
+        }
+    } catch (std::exception& e) {
+        log_exc_printf(_logname, "Unhandled exception in %s\n", __func__);
     }
 }
 

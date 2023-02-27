@@ -408,24 +408,27 @@ void SingleSource::onSubscribe(const std::shared_ptr<SingleSourceSubscriptionCtx
  */
 void SingleSource::subscriptionCallback(SingleSourceSubscriptionCtx* subscriptionContext,
         const GetOperationType getOperationType, struct db_field_log* pDbFieldLog) {
+    try {
+        // Get the current value of this subscription
+        // We simply merge new field changes onto this value as events occur
+        auto currentValue = subscriptionContext->currentValue;
 
-    // Get the current value of this subscription
-    // We simply merge new field changes onto this value as events occur
-    auto currentValue = subscriptionContext->currentValue;
+        {
+            DBLocker F(dbChannelRecord(subscriptionContext->pValueChannel.get()));
+            IOCSource::get(subscriptionContext->pValueChannel.get(),
+                    ((getOperationType == FOR_PROPERTIES) ? subscriptionContext->pPropertiesChannel.get() : nullptr),
+                    currentValue, getOperationType, pDbFieldLog);
+        }
 
-    {
-        DBLocker F(dbChannelRecord(subscriptionContext->pValueChannel.get()));
-        IOCSource::get(subscriptionContext->pValueChannel.get(),
-                ((getOperationType == FOR_PROPERTIES) ? subscriptionContext->pPropertiesChannel.get() : nullptr),
-                currentValue, getOperationType, pDbFieldLog);
-    }
-
-    // Make sure that the initial subscription update has occurred on both channels before continuing
-    // As we make two initial updates when opening a new subscription, we need both to have completed before continuing
-    if (subscriptionContext->hadValueEvent && subscriptionContext->hadPropertyEvent) {
-        // Return value
-        subscriptionContext->subscriptionControl->post(currentValue.clone());
-        currentValue.unmark();
+        // Make sure that the initial subscription update has occurred on both channels before continuing
+        // As we make two initial updates when opening a new subscription, we need both to have completed before continuing
+        if (subscriptionContext->hadValueEvent && subscriptionContext->hadPropertyEvent) {
+            // Return value
+            subscriptionContext->subscriptionControl->post(currentValue.clone());
+            currentValue.unmark();
+        }
+    } catch (std::exception& e) {
+        log_exc_printf(_logname, "Unhandled exception in %s\n", __func__);
     }
 }
 
