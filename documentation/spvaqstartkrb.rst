@@ -19,7 +19,7 @@ This section contains a Quick Start Guide (⚡) for the Secure PVAccess *Kerbero
 Our starting point for this Quick Start Guide is the end of the :ref:`_quick_start_std` so if you haven't gone through it yet
 do that now then come back here.  You need to have users's configured (``pvacms``, ``admin``, ``softioc``, and ``client``).
 We will set up a containerised KDC and configure it so that the users can get tickets.  We will create
-a Kerberso service and provide PVACMS a keytab for passwordless authentication so that it can verify CCRs presented
+a pvacms Kerberos service and provide PVACMS a keytab for passwordless authentication so that it can verify CCRs presented
 by clients requesting new certificates.
 
 See :ref:`secure_pvaccess` for general documentation on Secure PVAccess.
@@ -105,7 +105,7 @@ create a server certificate using the Kerberos Authenticator
 
 .. code-block:: shell
 
-    authnstd -u server
+    authnkrb -u server
 
 .. code-block:: console
 
@@ -170,7 +170,7 @@ create a client certificate using the Kerberos Authenticator
 
 .. code-block:: shell
 
-    authnstd
+    authnkrb
 
 .. code-block:: console
 
