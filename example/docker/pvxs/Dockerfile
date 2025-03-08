@@ -1,4 +1,4 @@
-ARG DOCKER_USERNAME
+ARG DOCKER_USERNAME=georgeleveln
 
 FROM ${DOCKER_USERNAME}/epics-base:latest
 
