@@ -27,15 +27,6 @@ RUN apt-get update && \
         libpam-sss && \
     rm -rf /var/lib/apt/lists/*
 
-# Set up CONFIG_SITE.local
-WORKDIR ${PROJECT_HOME}
-RUN echo "EVENT2_HAS_OPENSSL = YES" >> CONFIG_SITE.local
-RUN echo "PVXS_ENABLE_LDAP_AUTH = YES" >> CONFIG_SITE.local
-
-# Rebuild PVXS with ldap support
-RUN cd pvxs && \
-    make distclean && make -j10 all
-
 # Remove the default LDAP configuration and reconfigure slapd non-interactively.
 RUN rm -rf /etc/ldap/slapd.d && \
     dpkg-reconfigure -f noninteractive slapd
@@ -85,6 +76,15 @@ RUN sed -i 's/^passwd:.*/passwd:         files sss/' /etc/nsswitch.conf && \
 
 # Copy the supervisor configuration for SSSD.
 COPY sssd-supervisor.conf /etc/supervisor/conf.d/sssd.conf
+
+# Set up CONFIG_SITE.local
+WORKDIR ${PROJECT_HOME}
+RUN echo "EVENT2_HAS_OPENSSL = YES" >> CONFIG_SITE.local
+RUN echo "PVXS_ENABLE_LDAP_AUTH = YES" >> CONFIG_SITE.local
+
+# Rebuild PVXS with ldap support
+RUN cd pvxs && \
+    make distclean && make -j10 all
 
 # Set the entrypoint to run supervisord.
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]

@@ -13,15 +13,6 @@ RUN apt-get update && \
             krb5-kdc \
             libkrb5-dev
 
-# Set up CONFIG_SITE.local
-WORKDIR ${PROJECT_HOME}
-RUN echo "EVENT2_HAS_OPENSSL = YES" >> CONFIG_SITE.local
-RUN echo "PVXS_ENABLE_KRB_AUTH = YES" >> CONFIG_SITE.local
-
-# Rebuild PVXS with kerberos support
-RUN cd pvxs && \
-    make distclean && make -j10 all
-
 COPY kadm5.acl kdc.conf badpass.txt /etc/krb5kdc/
 
 # Copy user kerberos configuration
@@ -55,5 +46,14 @@ RUN kadmin.local -q 'ktadd -k /home/pvacms/.config/krb5/pvacms.keytab pvacms/clu
 # Update pvacms service with kerberos configuration
 COPY pvacms_bashrc /home/pvacms/.spva_krb_bashrc
 RUN echo "source ~/.spva_krb_bashrc" >> /home/pvacms/.bashrc
+
+# Set up CONFIG_SITE.local
+WORKDIR ${PROJECT_HOME}
+RUN echo "EVENT2_HAS_OPENSSL = YES" >> CONFIG_SITE.local
+RUN echo "PVXS_ENABLE_KRB_AUTH = YES" >> CONFIG_SITE.local
+
+# Rebuild PVXS with kerberos support
+RUN cd pvxs && \
+    make distclean && make -j10 all
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
