@@ -37,7 +37,7 @@ Other Quick Start Guides:
 
 If you want a pre-setup environment, try the following.  You will need two terminal sessions.
 
-① 🖥 ¹ Run PVACMS
+① 🖥¹ Run PVACMS
 ^^^^^^^^^^^^^^^^^^^^
 
 start a vm in a container named *ubuntu_pvxs* from a pre-built Secure PVAccess image
@@ -75,7 +75,7 @@ within the container, start *pvacms*
     EPICS_PVAS_TLS_STOP_IF_NO_CERT=YES
     PVACMS [06e4748c] Service Running
 
-② 🖥 ² Demonstrate some certificate management tools
+② 🖥² Demonstrate some certificate management tools
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 in a new terminal open a new shell to the same container
@@ -151,7 +151,7 @@ run some *pvxcert* commands
 1️⃣ Create Container
 --------------------------------------------
 
-① 🖥 ¹ Locate the image you want to use from the list below
+① 🖥¹ Locate the image you want to use from the list below
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 +--------------+----------------+--------------------------------------------+
@@ -173,7 +173,7 @@ run some *pvxcert* commands
 +--------------+----------------+--------------------------------------------+
 
 
-② 🖥 ¹ Create a container from the image
+② 🖥¹ Create a container from the image
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 start a vm in a container named *ubuntu_pvxs* from a ubuntu image
@@ -193,7 +193,7 @@ where:
 2️⃣ Build
 -------------------------------------------------
 
-① 🖥 ¹ Initialise Environment
+① 🖥¹ Initialise Environment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 make working directory for building project files
@@ -204,7 +204,7 @@ make working directory for building project files
     mkdir -p ${PROJECT_HOME}
 
 
-② 🖥 ¹ Install Requirements
+② 🖥¹ Install Requirements
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 Select from the following installation instructions based on the image you selected:
@@ -365,7 +365,7 @@ update Homebrew and install dependencies
         sudo make install
 
 
-③ 🖥 ¹ Build epics-base
+③ 🖥¹ Build epics-base
 ^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: shell
@@ -377,7 +377,7 @@ update Homebrew and install dependencies
     make -j10 all
     cd ${PROJECT_HOME}
 
-④ 🖥 ¹ Configure PVXS Build
+④ 🖥¹ Configure PVXS Build
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: shell
@@ -387,7 +387,7 @@ update Homebrew and install dependencies
     EPICS_BASE = \$(TOP)/../epics-base
     EOF
 
-⑤ 🖥 ¹ Build PVXS
+⑤ 🖥¹ Build PVXS
 ^^^^^^^^^^^^^^
 
 .. code-block:: shell
@@ -406,7 +406,7 @@ update Homebrew and install dependencies
 3️⃣ Run PVACMS
 -------------------------------------------------------
 
-① 🖥 ¹ Configure PVACMS
+① 🖥¹ Configure PVACMS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 set up XDG environment if not already set
@@ -493,7 +493,7 @@ or new RULES section*
 
     export EPICS_PVACMS_ACF=${XDG_CONFIG_HOME}/pva/1.3/pvacms.acf
 
-② 🖥 ¹ Run PVACMS
+② 🖥¹ Run PVACMS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: shell

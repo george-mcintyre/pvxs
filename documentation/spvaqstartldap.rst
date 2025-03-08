@@ -49,7 +49,7 @@ Other Quick Start Guides:
 
 If you want a pre-setup environment, try the following.  You will need three terminal sessions.
 
-① 🖥 ¹ Load image
+① 🖥¹ Load image
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 start new container with pre-built Secure PVAccess with LDAP Authenticator and 4 Users
@@ -72,7 +72,7 @@ start new container with pre-built Secure PVAccess with LDAP Authenticator and 4
     2025-03-08 19:53:47,688 INFO success: pvacms entered RUNNING state, process has stayed up for > than 1 seconds (startsecs)
     2025-03-08 19:53:47,688 INFO success: sssd entered RUNNING state, process has stayed up for > than 1 seconds (startsecs)
 
-② 🖥 ² Log in as Service
+② 🖥² Log in as Service
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 log in as softioc service account
@@ -116,7 +116,7 @@ create a server certificate using the LDAP Authenticator, enter ``secret`` when 
     Status Expires: Sat Mar 08 20:27:22 2025 UTC
     --------------------------------------------
 
-③ 🖥 ³ Log in as a Client
+③ 🖥³ Log in as a Client
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 log in as a Secure PVAccess client
@@ -160,7 +160,7 @@ create a client certificate using the LDAP Authenticator, enter ``secret`` when 
     --------------------------------------------
 
 
-④ 🖥 ² Start SoftIOC
+④ 🖥² Start SoftIOC
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 start SoftIOC
@@ -189,7 +189,7 @@ start SoftIOC
     iocRun: All initialization complete
     epics>
 
-⑤ 🖥 ³ Get PV value
+⑤ 🖥³ Get PV value
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 get a PV ``test:enumExample`` value from the SoftIOC

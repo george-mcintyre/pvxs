@@ -44,7 +44,7 @@ Other Quick Start Guides:
 
 If you want a pre-setup environment, try the following.  You will need three terminal sessions.
 
-① 🖥 ¹ Load image
+① 🖥¹ Load image
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 start new container with pre-built Secure PVAccess with Kerberos Authenticator and 4 Users
@@ -67,7 +67,7 @@ start new container with pre-built Secure PVAccess with Kerberos Authenticator a
     2025-03-08 14:40:45,589 INFO success: krb5-kdc entered RUNNING state, process has stayed up for > than 1 seconds (startsecs)
     2025-03-08 14:40:45,589 INFO success: pvacms entered RUNNING state, process has stayed up for > than 1 seconds (startsecs)
 
-② 🖥 ² Log in as Service
+② 🖥² Log in as Service
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 log in as softioc service account
@@ -134,7 +134,7 @@ create a server certificate using the Kerberos Authenticator
     Status Expires: Sat Mar 08 16:17:14 2025 UTC
     --------------------------------------------
 
-③ 🖥 ³ Log in as a Client
+③ 🖥³ Log in as a Client
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 log in as a Secure PVAccess client
@@ -200,7 +200,7 @@ create a client certificate using the Kerberos Authenticator
     --------------------------------------------
 
 
-④ 🖥 ² Start SoftIOC
+④ 🖥² Start SoftIOC
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 start SoftIOC
@@ -229,7 +229,7 @@ start SoftIOC
     iocRun: All initialization complete
     epics>
 
-⑤ 🖥 ³ Get PV value
+⑤ 🖥³ Get PV value
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 get a PV ``test:enumExample`` value from the SoftIOC

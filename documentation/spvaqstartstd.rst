@@ -33,7 +33,7 @@ Other Quick Start Guides:
 If you want a pre-setup environment, try the following.  You will need four terminal sessions.
 
 
-① 🖥 ¹ Load image
+① 🖥¹ Load image
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 start new container with pre-built Secure PVAccess and 4 Users
@@ -49,7 +49,7 @@ start new container with pre-built Secure PVAccess and 4 Users
     2025-03-04 20:41:24,820 INFO spawned: 'pvacms' with pid 7
     2025-03-04 20:41:25,957 INFO success: pvacms entered RUNNING state, process has stayed up for > than 1 seconds (startsecs)
 
-② 🖥 ² Log in as Admin
+② 🖥² Log in as Admin
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 log in as pre-configured Admin User, certificate is already configured
@@ -63,7 +63,7 @@ log in as pre-configured Admin User, certificate is already configured
     To run a command as administrator (user "root"), use "sudo <command>".
     See "man sudo_root" for details.
 
-③ 🖥 ³ Log in as Service
+③ 🖥³ Log in as Service
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 log in as softioc service account
@@ -83,7 +83,7 @@ create a server certificate using the Standard Authenticator
     Keychain file created   : /home/softioc/.config/pva/1.3/server.p12
     Certificate identifier  : 47530d89:15756710596521133410
 
-④ 🖥 ⁴ Log in as a Client
+④ 🖥⁴ Log in as a Client
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 log in as a Secure PVAccess client
@@ -104,7 +104,7 @@ create a client certificate using the Standard Authenticator
     Certificate identifier  : 47530d89:7450074183745406049
 
 
-⑤ 🖥 ² Approve Certs
+⑤ 🖥² Approve Certs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 approve the server certificate
@@ -128,7 +128,7 @@ approve the client certificates
     Approve ==> CERT:STATUS:47530d89:7450074183745406049 ==> Completed Successfully
 
 
-⑥ 🖥 ³ Start SoftIOC
+⑥ 🖥³ Start SoftIOC
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 start SoftIOC
@@ -157,7 +157,7 @@ start SoftIOC
     iocRun: All initialization complete
     epics>
 
-⑦ 🖥 ⁴ Get PV value
+⑦ 🖥⁴ Get PV value
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 get a PV ``test:enumExample`` value from the SoftIOC
@@ -212,7 +212,7 @@ verify that connection is TLS
 1️⃣ Select Docker Image
 ------------------------------------------
 
-① 🖥 ¹ Use a pre-built pvxs image compiled with TLS enabled
+① 🖥¹ Use a pre-built pvxs image compiled with TLS enabled
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: shell
@@ -229,7 +229,7 @@ this configuration to understand how to configure EPICS agents in
 your environment.
 
 
-① 🖥 ¹ Set up environment
+① 🖥¹ Set up environment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: shell
@@ -241,7 +241,7 @@ your environment.
 
 .. _spva_qs_std_admin:
 
-② 🖥 ¹ Add PVACMS
+② 🖥¹ Add PVACMS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 add user and when prompted use "PVACMS" as Full Name
@@ -345,7 +345,7 @@ create admin certificate:
 
     logout
 
-③ 🖥 ¹ Add an Administrator
+③ 🖥¹ Add an Administrator
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 add user and when prompted use "ADMIN User" as Full Name
@@ -409,7 +409,7 @@ copy admin certificate from pvacms
 
 .. _spva_qs_std_server:
 
-④ 🖥 ¹ Add a Secure EPICS Server Agent - SoftIOC
+④ 🖥¹ Add a Secure EPICS Server Agent - SoftIOC
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 add user and when prompted use "SOFTIOC Server" as Full Name
@@ -464,7 +464,7 @@ set up environment for softioc server
 
 .. _spva_qs_std_client:
 
-⑤ 🖥 ¹ Add a Secure PVAccess Client
+⑤ 🖥¹ Add a Secure PVAccess Client
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 add user and when prompted use "SPVA client" as Full Name
@@ -521,7 +521,7 @@ set up environment for client
 3️⃣ Run PVACMS
 ---------------
 
-① 🖥 ² Login as pvacms in a new shell
+① 🖥² Login as pvacms in a new shell
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 in a different terminal log in as the pvacms user in the same container:
@@ -530,7 +530,7 @@ in a different terminal log in as the pvacms user in the same container:
 
     docker exec -it --user pvacms spva_std /bin/bash
 
-② 🖥 ² Run PVACMS
+② 🖥² Run PVACMS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 run pvacms:
@@ -563,7 +563,7 @@ Leave this PVACMS service running while running SoftIOC and SPVA client below.
 4️⃣ Run SoftIOC Server
 -------------------------------
 
-① 🖥 ³ Login as softioc in a new shell
+① 🖥³ Login as softioc in a new shell
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: shell
@@ -571,7 +571,7 @@ Leave this PVACMS service running while running SoftIOC and SPVA client below.
     docker exec -it --user softioc spva_std /bin/bash
 
 
-② 🖥 ³ Create Server Certificate
+② 🖥³ Create Server Certificate
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - create a softioc server certificate
@@ -596,7 +596,7 @@ Leave this PVACMS service running while running SoftIOC and SPVA client below.
     Write down the certificate ID ``46093d7c:13415272142438558829`` (<issuer_id>:<serial_number>).
     You will need this ID to carry out operations on this certificate including APPROVING it.
 
-③ 🖥 ³ Verify that certificate is created pending approval
+③ 🖥³ Verify that certificate is created pending approval
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 get the current status of a certificate
@@ -615,14 +615,14 @@ get the current status of a certificate
     Status Expires: Sat Mar 08 13:01:11 2025 UTC
     --------------------------------------------
 
-④ 🖥 ⁴ Login as admin in a new shell
+④ 🖥⁴ Login as admin in a new shell
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: shell
 
     docker exec -it --user admin spva_std /bin/bash
 
-⑤ 🖥 ⁴ Approve certificate
+⑤ 🖥⁴ Approve certificate
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: shell
@@ -633,7 +633,7 @@ get the current status of a certificate
 
     Approve ==> CERT:STATUS:46093d7c:13415272142438558829 ==> Completed Successfully
 
-⑥ 🖥 ⁴ Check the certificate status has changed
+⑥ 🖥⁴ Check the certificate status has changed
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: shell
@@ -651,7 +651,7 @@ get the current status of a certificate
     --------------------------------------------
 
 
-⑦ 🖥 ³ Run Secure PVAccess Service
+⑦ 🖥³ Run Secure PVAccess Service
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 back in the server shell start the service
@@ -683,14 +683,14 @@ back in the server shell start the service
 5️⃣ SPVA client
 ----------------------
 
-① 🖥 ⁵ Login as client in a new shell
+① 🖥⁵ Login as client in a new shell
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: shell
 
     docker exec -it --user client spva_std /bin/bash
 
-② 🖥 ⁵ Create Certificate
+② 🖥⁵ Create Certificate
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - create a client certificate
@@ -715,7 +715,7 @@ back in the server shell start the service
     Write down the certificate ID ``46093d7c:5283204721404445451`` (<issuer_id>:<serial_number>).
     You will need this ID to carry out operations on this certificate including APPROVING it.
 
-③ 🖥 ⁴ Approve certificate
+③ 🖥⁴ Approve certificate
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 in the admin shell again, approve the certificate
@@ -729,7 +729,7 @@ in the admin shell again, approve the certificate
     Approve ==> CERT:STATUS:46093d7c:5283204721404445451 ==> Completed Successfully
 
 
-④ 🖥 ⁵ Run an SPVA client
+④ 🖥⁵ Run an SPVA client
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 back to the client shell again to get a value
