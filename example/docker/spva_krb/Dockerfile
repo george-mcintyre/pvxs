@@ -32,7 +32,7 @@ COPY krb5-kdc-supervisor.conf /etc/supervisor/conf.d/krb5kdc.conf
 
 RUN echo 'environment=KRB5_KTNAME="/home/pvacms/.config/krb5/pvacms.keytab",KRB5_CLIENT_KTNAME="/home/pvacms/.config/krb5/pvacms.keytab",EPICS_AUTH_KRB_REALM="EPICS.ORG"' >> /etc/supervisor/conf.d/pvacms.conf
 
-# Ensure the pvacms userr's config directory is created
+# Ensure the pvacms user's config directory is created
 RUN mkdir -p /home/pvacms/.config/krb5/
 
 # Ensure Kerberos services are available before modifying the database

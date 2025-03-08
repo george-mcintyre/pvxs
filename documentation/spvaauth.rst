@@ -1,7 +1,7 @@
 .. _authn_and_authz:
 
-SPVA AuthN and AuthZ
-=====================
+Authentication and Authorization
+=====================================
 
 `AutheNtication` and `AuthoriZation` with Secure PVAccess.
 
@@ -14,7 +14,6 @@ SPVA enhances :ref:`epics_security` with fine-grained control based on:
 - *Transport Type* - for unauthenticated clients provide access based on transport - legacy (not `isTLS`), or tls encapsulated (`isTLS`)
 - *Encapsulation Mode* - packets are encrypted (`tls`),  or unencrypted (`tcp`)
 
-
 .. _authentication_modes:
 
 Authentication Modes
@@ -25,7 +24,6 @@ Authentication Modes
 - `Un-authenticated`: Credentials supplied in AUTHZ message (legacy: Method is `ca`)
 - `Unknown`: No credentials (legacy: Method is `anonymous`)
 
-
 .. _determining_identity:
 
 Legacy Authentication Mode
@@ -34,30 +32,29 @@ Legacy Authentication Mode
 - `Un-authenticated`
 - `Unknown`
 
-
 .. image:: pvaident.png
    :alt: Identity in PVAccess
    :align: center
 
 1. Optional AUTHZ message from client:
 
-    .. code-block:: shell
+.. code-block:: shell
 
-        AUTHZ method: ca
-        AUTHZ user: george
-        AUTHZ host: McInPro.level-n.com
+    AUTHZ method: ca
+    AUTHZ user: george
+    AUTHZ host: McInPro.level-n.com
 
 2. Server uses PeerInfo structure:
 
-    .. code-block:: c++
+.. code-block:: c++
 
-        struct PeerInfo {
-            std::string peer;      // network address
-            std::string transport; // protocol (e.g., "pva")
-            std::string authority; // auth mechanism
-            std::string realm;     // authority scope
-            std::string account;   // user name
-        }
+    struct PeerInfo {
+        std::string peer;      // network address
+        std::string transport; // protocol (e.g., "pva")
+        std::string authority; // auth mechanism
+        std::string realm;     // authority scope
+        std::string account;   // user name
+    }
 
 3. PeerInfo fields map to `asAddClient()` parameters ...
 4. for authorization through the ACF definitions of UAGs and ASGs ...
@@ -75,27 +72,27 @@ Secure PVAccess Authentication Mode
 
 1. Client Identity optionally established via X.509 certificate during TLS handshake:
 
-    .. code-block:: shell
+.. code-block:: shell
 
-        CN: greg
-        O: SLAC.stanford.edu
-        OU: SLAC National Accelerator Laboratory
-        C: US
+    CN: greg
+    O: SLAC.stanford.edu
+    OU: SLAC National Accelerator Laboratory
+    C: US
 
 2. EPICS agent optionally verifies certificate via trust chain
 
 3. PeerCredentials structure provides peer information:
 
-    .. code-block:: c++
+.. code-block:: c++
 
-        struct PeerCredentials {
-            std::string peer;      // network address
-            std::string iface;     // network interface
-            std::string method;    // "anonymous", "ca", or "x509"
-            std::string authority; // CA common name for x509 if mode is `Mutual` or blank
-            std::string account;   // User account if mode is `Mutual` or blank
-            bool isTLS;            // Secure transport status.  True is mode is `Mutual` or `Server-Only`
-        };
+    struct PeerCredentials {
+        std::string peer;      // network address
+        std::string iface;     // network interface
+        std::string method;    // "anonymous", "ca", or "x509"
+        std::string authority; // CA common name for x509 if mode is `Mutual` or blank
+        std::string account;   // User account if mode is `Mutual` or blank
+        bool isTLS;            // Secure transport status.  True is mode is `Mutual` or `Server-Only`
+    };
 
 4. Extended ``asAddClientX()`` function provides ...
 5. authorization control (enhanced with `isTls`, `METHOD`, and `AUTHORITY`) through the ACF definitions of UAGs and ASGs ...
@@ -231,24 +228,30 @@ It can be used to create a certificate with a username and hostname.
 Uses the standard ``EPICS_PVA_TLS_<name>`` environment variables to determine the keychain,
 and password file locations.
 
-    .. code-block:: shell
+.. code-block:: shell
 
-        Usage: authnstd <opts>
+    authnstd - Secure PVAccess with Standard Authentication
 
-          -v          Make more noise.
-          -h          Show this help message and exit
-          -d          Shorthand for $PVXS_LOG="pvxs.*=DEBUG".  Make a lot of noise.
-          -V          Show version and exit
-          -u <usage>  Usage. client, server, or hybrid
-          -n <name>   Name override the CN subject field
-          -o <name>   Org override the O subject field
-          --ou <name> Override the OU subject field
+    Generates client, server, or hybrid certificates based on the standard authentication method.
+    Uses specified parameters to create certificates that require administrator APPROVAL before becoming VALID.
 
-        ENVIRONMENT VARIABLES: at least one mandatory variable must be set
-            EPICS_PVA_TLS_KEYCHAIN              Set name and location of client keychain file (mandatory for clients)
-            EPICS_PVAS_TLS_KEYCHAIN             Set name and location of server keychain file (mandatory for server)
-            EPICS_PVA_TLS_KEYCHAIN_PWD_FILE     Set name and location of client keychain password file (optional)
-            EPICS_PVAS_TLS_KEYCHAIN_PWD_FILE    Set name and location of server keychain password file (optional)
+    usage:
+      authnstd [options]                          Create certificate in PENDING_APPROVAL state
+      authnstd (-h | --help)                      Show this help message and exit
+      authnstd (-V | --version)                   Print version and exit
+
+    options:
+      (-u | --cert-usage) <usage>                Specify the certificate usage.  client|server|hybrid.  Default `client`
+      (-n | --name) <name>                       Specify common name of the certificate. Default <logged-in-username>
+      (-o | --organization) <organization>       Specify organisation name for the certificate. Default <hostname>
+      --ou <org-unit>                            Specify organisational unit for the certificate. Default <blank>
+      (-c | --country) <country>                 Specify country for the certificate. Default locale setting if detectable otherwise `US`
+      (-t | --time) <minutes>                    Duration of the certificate in minutes
+      (-D | --daemon)                            Start a daemon that re-requests a certificate on expiration`
+      --add-config-uri                           Add a config uri to the generated certificate
+      --config-uri-base <config_uri_base>        Specifies the config URI base to add to a certificate.  Default `CERT:CONFIG`
+      (-v | --verbose)                           Verbose mode
+      (-d | --debug)                             Debug mode
 
 **Environment Variables for authnstd**
 
@@ -297,21 +300,21 @@ and password file locations.
 
 **Examples**
 
-    .. code-block:: shell
+.. code-block:: shell
 
-        # create a client certificate for greg@slac.stanford.edu
-        authnstd -u client -n greg -o slac.stanford.edu
+    # create a client certificate for greg@slac.stanford.edu
+    authnstd -u client -n greg -o slac.stanford.edu
 
-    .. code-block:: shell
+.. code-block:: shell
 
-        # create a server certificate for IOC1
-        authnstd -u server -n IOC1 -o "KLI:LI01:10" --ou "FACET"
+    # create a server certificate for IOC1
+    authnstd -u server -n IOC1 -o "KLI:LI01:10" --ou "FACET"
 
 
-    .. code-block:: shell
+.. code-block:: shell
 
-        # create a hybrid certificate for gateway1
-        authnstd -u hybrid -n gateway1 -o bridge.ornl.gov --ou "Networking"
+    # create a hybrid certificate for gateway1
+    authnstd -u hybrid -n gateway1 -o bridge.ornl.gov --ou "Networking"
 
 
 authkrb Configuration and Usage
@@ -323,9 +326,9 @@ It can be used to create a certificate from a Kerberos ticket.
 A user will need to have a Kerberos ticket to use this Authenticator typically
 using the ``kinit`` command.
 
-    .. code-block:: shell
+.. code-block:: shell
 
-        kinit -l 24h greg@SLAC.STANFORD.EDU
+    kinit -l 24h greg@SLAC.STANFORD.EDU
 
 - `CN` field in the certificate will be kerberos username
 - `O` field in the certificate will be the kerberos realm
@@ -338,17 +341,27 @@ using the ``kinit`` command.
 Uses the standard ``EPICS_PVA_TLS_<name>`` environment variables to determine the keychain,
 and password file locations.
 
-    .. code-block:: shell
+.. code-block:: shell
 
-        authnkrb <opts>
+    authnkrb - Secure PVAccess with Kerberos Authentication
 
-        Options:
-        -h show help
-        -v verbose output
-        -t {client | server}     Client or server certificate certificate type
-        -C                       Create a certificate and exit
+    Generates client, server, or hybrid certificates based on the kerberos authentication method.
+    Uses current kerberos ticket to create certificates with the same validity as the ticket.
 
+    usage:
+      authnkrb [options]                          Create certificate
+      authnkrb (-h | --help)                      Show this help message and exit
+      authnkrb (-V | --version)                   Print version and exit
 
+    options:
+      (-u | --cert-usage) <usage>                Specify the certificate usage.  client|server|hybrid.  Default `client`
+      (-s | --validator-service) <service-name>  Specify kerberos validator service.  Default `pvacms`
+      (-r | --realm) <krb-realm>                 Specify the kerberos realm.  Default `EPICS.ORG`
+      (-D | --daemon)                            Start a daemon that re-requests a certificate on expiration`
+      --add-config-uri                           Add a config uri to the generated certificate
+      --config-uri-base <config_uri_base>        Specifies the config URI base to add to a certificate.  Default `CERT:CONFIG`
+      (-v | --verbose)                           Verbose mode
+      (-d | --debug)                             Debug mode
 
 **Environment Variables for PVACMS AuthnKRB Verifier**
 
@@ -404,9 +417,9 @@ A user will be prompted to log in to the LDAP directory service to verify their 
 Uses the standard ``EPICS_PVA_TLS_<name>`` environment variables to determine the keychain,
 and password file locations.
 
-    .. code-block:: shell
+.. code-block:: shell
 
-        authnldap <opts>
+    authnldap <opts>
 
     Options:
     -h show help
@@ -459,13 +472,13 @@ on the configuration of the authnjwt verifier.
 
 You could test this by posting a JWT token to the authentication daemon as follows:
 
-    .. code-block:: shell
+.. code-block:: shell
 
-        authnjwt -D &
+    authnjwt -D &
 
-        curl -X POST http://localhost:8080 \
-        -H "Content-Type: application/json" \
-        -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE"
+    curl -X POST http://localhost:8080 \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer YOUR_JWT_TOKEN_HERE"
 
 .. note::
 
@@ -482,17 +495,17 @@ You could test this by posting a JWT token to the authentication daemon as follo
 Uses the standard ``EPICS_PVA_TLS_<name>`` environment variables to determine the keychain,
 and password file locations.
 
-    .. code-block:: shell
+.. code-block:: shell
 
-        authnjwt <opts>
+    authnjwt <opts>
 
-        Options:
-        -h show help
-        -v verbose output
-        -t {client | server}     Client or server certificate certificate type
-        -C                       Create a certificate and exit
-        -D                       Start authentication daemon web service to receive
-                                JWT tokens and create certificates.
+    Options:
+    -h show help
+    -v verbose output
+    -t {client | server}     Client or server certificate certificate type
+    -C                       Create a certificate and exit
+    -D                       Start authentication daemon web service to receive
+                            JWT tokens and create certificates.
 
 **Environment Variables for PVACMS AuthnJWT Verifier**
 
@@ -572,41 +585,41 @@ Access Control File (ACF)
 
 Example ACF showing new security features:
 
-    .. code-block:: text
+.. code-block:: text
 
-        UAG(bar) {boss}
-        UAG(foo) {testing}
-        UAG(ops) {geek}
+    UAG(bar) {boss}
+    UAG(foo) {testing}
+    UAG(ops) {geek}
 
-        ASG(DEFAULT) {
-            RULE(0,NONE,NOTRAPWRITE)
+    ASG(DEFAULT) {
+        RULE(0,NONE,NOTRAPWRITE)
+    }
+
+    ASG(ro) {
+        RULE(0,NONE,NOTRAPWRITE)
+        RULE(1,READ,ISTLS) {
+            UAG(foo,ops)
+            METHOD("ca")
         }
+    }
 
-        ASG(ro) {
-            RULE(0,NONE,NOTRAPWRITE)
-            RULE(1,READ,ISTLS) {
-                UAG(foo,ops)
-                METHOD("ca")
-            }
+    ASG(rw) {
+        RULE(0,NONE,NOTRAPWRITE)
+        RULE(1,WRITE,TRAPWRITE) {
+            UAG(foo)
+            METHOD("x509")
+            AUTHORITY("Epics Org CA")
         }
+    }
 
-        ASG(rw) {
-            RULE(0,NONE,NOTRAPWRITE)
-            RULE(1,WRITE,TRAPWRITE) {
-                UAG(foo)
-                METHOD("x509")
-                AUTHORITY("Epics Org CA")
-            }
+    ASG(rwx) {
+        RULE(0,NONE,NOTRAPWRITE)
+        RULE(1,RPC,NOTRAPWRITE) {
+            UAG(bar)
+            METHOD("x509")
+            AUTHORITY("Epics Org CA","ORNL Org CA")
         }
-
-        ASG(rwx) {
-            RULE(0,NONE,NOTRAPWRITE)
-            RULE(1,RPC,NOTRAPWRITE) {
-                UAG(bar)
-                METHOD("x509")
-                AUTHORITY("Epics Org CA","ORNL Org CA")
-            }
-        }
+    }
 
 .. _new_epics_yaml_acf_file_format:
 
@@ -615,66 +628,66 @@ EPICS YAML ACF Format
 
 Alternative YAML format for improved readability:
 
-    .. code-block:: yaml
+.. code-block:: yaml
 
-        # EPICS YAML
-        version: 1.0
+    # EPICS YAML
+    version: 1.0
 
-        uags:
-          - name: bar
-            users:
-              - boss
-          - name: foo
-            users:
-              - testing
-          - name: ops
-            users:
-              - geek
+    uags:
+      - name: bar
+        users:
+          - boss
+      - name: foo
+        users:
+          - testing
+      - name: ops
+        users:
+          - geek
 
-        asgs:
-          - name: ro
-            rules:
-              - level: 0
-                access: NONE
-                trapwrite: false
-              - level: 1
-                access: READ
-                isTLS: true
-                uags:
-                  - foo
-                  - ops
-                methods:
-                  - ca
+    asgs:
+      - name: ro
+        rules:
+          - level: 0
+            access: NONE
+            trapwrite: false
+          - level: 1
+            access: READ
+            isTLS: true
+            uags:
+              - foo
+              - ops
+            methods:
+              - ca
 
-          - name: rw
-            rules:
-              - level: 0
-                access: NONE
-                trapwrite: false
-              - level: 1
-                access: WRITE
-                trapwrite: true
-                uags:
-                  - foo
-                methods:
-                  - x509
-                authorities:
-                  - SLAC Certificate Authority
+      - name: rw
+        rules:
+          - level: 0
+            access: NONE
+            trapwrite: false
+          - level: 1
+            access: WRITE
+            trapwrite: true
+            uags:
+              - foo
+            methods:
+              - x509
+            authorities:
+              - SLAC Certificate Authority
 
-          - name: rwx
-            rules:
-              - level: 0
-                access: NONE
-                trapwrite: false
-              - level: 1
-                access: RPC
-                trapwrite: true
-                uags:
-                  - bar
-                methods:
-                  - x509
-                authorities:
-                  - SLAC Certificate Authority
-                  - ORNL Org CA
+      - name: rwx
+        rules:
+          - level: 0
+            access: NONE
+            trapwrite: false
+          - level: 1
+            access: RPC
+            trapwrite: true
+            uags:
+              - bar
+            methods:
+              - x509
+            authorities:
+              - SLAC Certificate Authority
+              - ORNL Org CA
 
 

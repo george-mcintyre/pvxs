@@ -23,9 +23,9 @@ Other Quick Start Guides:
 🎓 What you will learn:
 -------------------------------------
 
-- :ref:`Configuring a Secure PVAccess network administrator<spva_qs_admin>`
-- Configuration of EPICS agents: :ref:`Client<spva_qs_client>` and :ref:`Server<spva_qs_server>`
-- :ref:`Creating Certificates using the Standard Authenticator<spva_qs_authnstd>`
+- :ref:`Configuring a Secure PVAccess network administrator<spva_qs_std_admin>`
+- Configuration of EPICS agents: :ref:`Client<spva_qs_std_client>` and :ref:`Server<spva_qs_std_server>`
+- Creating Certificates using the Standard Authenticator
 
 ⏩ Pre-Built
 ------------------------------
@@ -208,7 +208,6 @@ verify that connection is TLS
   - The Server end of the channel has been authenticated by the Root CA `EPICS Root CA`
   - The Server end of the channel's name has been authenticated as `softioc` and is connecting from host ``172.17.0.2``
 
-.. _quick_start_std_1:
 
 1️⃣ Select Docker Image
 ------------------------------------------
@@ -219,9 +218,6 @@ verify that connection is TLS
 .. code-block:: shell
 
     docker run -it --name spva_std georgeleveln/pvxs:latest
-
-
-.. _spva_qs_add_users:
 
 
 2️⃣ Configure EPICS Agents
@@ -243,7 +239,7 @@ your environment.
     export PATH="$(echo ${PROJECT_HOME}/pvxs/bin/*):$PATH"
 
 
-.. _spva_qs_admin:
+.. _spva_qs_std_admin:
 
 ② 🖥 ¹ Add PVACMS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -411,7 +407,7 @@ copy admin certificate from pvacms
     chown admin ~admin/.config/pva/1.3/client.p12
     chmod 400 ~admin/.config/pva/1.3/client.p12
 
-.. _spva_qs_server:
+.. _spva_qs_std_server:
 
 ④ 🖥 ¹ Add a Secure EPICS Server Agent - SoftIOC
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -466,7 +462,7 @@ set up environment for softioc server
 
     logout
 
-.. _spva_qs_client:
+.. _spva_qs_std_client:
 
 ⑤ 🖥 ¹ Add a Secure PVAccess Client
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -521,7 +517,6 @@ set up environment for client
 
     logout
 
-.. _spva_qs_pvacms:
 
 3️⃣ Run PVACMS
 ---------------

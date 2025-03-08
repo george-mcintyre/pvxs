@@ -30,7 +30,7 @@ Other Quick Start Guides:
 
 - :ref:`Building and Deploying epics-base and the PVXS libraries and executables <spva_qs_build_and_deploy>`,
 - :ref:`Running PVACMS to manage certificates <spva_qs_pvacms>`,
-- :ref:`Hands on experience with Certificate Management<spva_qs_administer>`
+- :ref:`Hands on experience with Certificate Management<spva_qs_admin>`
 
 ⏩ Pre-built
 -------------------------------------
@@ -528,7 +528,7 @@ or new RULES section*
   - `2535f0b8:7810503273530005364`  : Admin User Certificate
   - `2535f0b8:15782598755272381308` : PVACMS Server Certificate
 
-.. _spva_qs_administer:
+.. _spva_qs_admin:
 
 4️⃣ Test
 ------------------------------------------------------
