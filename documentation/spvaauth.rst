@@ -29,7 +29,7 @@ Authentication Modes
 .. _determining_identity:
 
 Legacy Authentication Mode
-^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - `Un-authenticated`
 - `Unknown`
@@ -41,7 +41,7 @@ Legacy Authentication Mode
 
 1. Optional AUTHZ message from client:
 
-    .. code-block:: sh
+    .. code-block:: shell
 
         AUTHZ method: ca
         AUTHZ user: george
@@ -64,7 +64,7 @@ Legacy Authentication Mode
 5. to control access to PVs
 
 Secure PVAccess Authentication Mode
-^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - `Mutual`
 - `Server-only`
@@ -75,7 +75,7 @@ Secure PVAccess Authentication Mode
 
 1. Client Identity optionally established via X.509 certificate during TLS handshake:
 
-    .. code-block:: sh
+    .. code-block:: shell
 
         CN: greg
         O: SLAC.stanford.edu
@@ -105,38 +105,38 @@ Secure PVAccess Authentication Mode
 .. _site_authentication_methods:
 
 Authentication Methods
---------------------
+-----------------------
 
 A new authentication method is added with SPVA - `x509`.  This supercedes the legacy `ca`, and
 `anonymous` authentication methods.  With `x509` EPICS clients can use a variety of Site Authentication Methods that
 all integrate with Secure PVAccess via a PKCS#12 keychain file ( :ref:`glossary_pkcs12` ) and the certificate and keys that it contains.
 
-**Site Authentication Methods**:
+**Authenticator**:
 
-Site Authentication Methods are ways of generating the PKCS#12 keychain file by
+Authenticators are ways of generating the PKCS#12 keychain file by
 using credentials (tickets, tokens, or other identity-affirming methods) from existing authentication methods
-that may be in use in a particular installation site.  The simplest is called "Standard" (`std`) and it
+that may be in use in a particular installation site.  The simplest is called "Standard Authenticator" (`std`) and it
 allows a user to create an arbitrary x509 certificate that has to be approved by a network administrator before
 it is allowed on the network.
 
-Tools that start with `authn` e.g. `authnstd` are the commandline interfaces to these site authentication methods.
+Tools that start with `authn` e.g. `authnstd` are the commandline interfaces to these Authenticators.
 
-Implementing a new site authentication method requires:
+Each new Authenticator requires:
 
-Site Authentication Method Implementation
+1. Authenticator Implementation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Create under ``/certs/authn/<name>``:
 
 - `authnmain.cpp` - Main runner (copy from template)
-- `authn<name>.cpp` - Main implementation subclassing ``Authn``
+- `authn<name>.cpp` - Main implementation subclassing ``Authn``, includes registration
 - `authn<name>.h` - Header file
 - `config<name>.cpp` - Configuration interface subclassing ``AuthnConfig``
 - `config<name>.h` - Header file
 - `Makefile` - Build configuration
 - `README.md` - Documentation
 
-CCR Message Verifier
+2. CCR Message Verifier
 ^^^^^^^^^^^^^^^^^^^^
 
 Create under `/certs/authn/<name>`:
@@ -147,7 +147,7 @@ Create under `/certs/authn/<name>`:
 - `<name>VERIFIER_CONFIG` - Makefile configuration for :ref:`pvacms`
 
 
-Site Authentication Method Types
+Authenticators
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. _pvacms_type_0_auth_methods:
@@ -190,24 +190,20 @@ TYPE ``2`` - Source Verifiable Tokens
 - :ref:`pvacms` uses method-specific libraries for verification
 
 
-Included Reference Site Authentication Methods
+Included Reference Authenticators
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Though it is recommended that you create your own site-specific authentication methods PVXS provides four reference implementations:
+Though it is recommended that you create your own site-specific Authenticators PVXS provides four reference implementations:
 
-- ``authnstd`` : Standard - Basic credentials
-- ``authnkrb`` : Kerberos - Kerberos credentials
-- ``authnldap``: LDAP     - Kerberos credentials verified in LDAP directory
-- ``authnjwt`` : JWT      - JWT tokens
-
-As a norm you should generate certificates in the ``PENDING_APPROVAL`` state unless the authentication mechanism includes
-a verifier.
-
+- ``authnstd`` : Standard Authenticator - Uses explcitly specified and unverified credentials
+- ``authnkrb`` : Kerberos Authenticator - Kerberos credentials verified by the KDC
+- ``authnldap``: LDAP Authenticator     - Login to LDAP directory to establish identity
+- ``authnjwt`` : JWT Authenticator      - JWT tokens obtained by OAuth and verified against the token issuer
 
 authstd Configuration and Usage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This authentication method is used for basic credentials.
+This Authenticator is used for explicitly specified and unverified credentials.
 It can be used to create a certificate with a username and hostname.
 
 - `CN` field in the certificate will be the logged in username
@@ -235,7 +231,7 @@ It can be used to create a certificate with a username and hostname.
 Uses the standard ``EPICS_PVA_TLS_<name>`` environment variables to determine the keychain,
 and password file locations.
 
-    .. code-block:: sh
+    .. code-block:: shell
 
         Usage: authnstd <opts>
 
@@ -301,18 +297,18 @@ and password file locations.
 
 **Examples**
 
-    .. code-block:: sh
+    .. code-block:: shell
 
         # create a client certificate for greg@slac.stanford.edu
         authnstd -u client -n greg -o slac.stanford.edu
 
-    .. code-block:: sh
+    .. code-block:: shell
 
         # create a server certificate for IOC1
         authnstd -u server -n IOC1 -o "KLI:LI01:10" --ou "FACET"
 
 
-    .. code-block:: sh
+    .. code-block:: shell
 
         # create a hybrid certificate for gateway1
         authnstd -u hybrid -n gateway1 -o bridge.ornl.gov --ou "Networking"
@@ -321,13 +317,13 @@ and password file locations.
 authkrb Configuration and Usage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This authentication method is a TYPE ``2`` authentication method.
+This Authenticator is a TYPE ``2`` Authenticator.
 It can be used to create a certificate from a Kerberos ticket.
 
-A user will need to have a Kerberos ticket to use this authentication method typically
+A user will need to have a Kerberos ticket to use this Authenticator typically
 using the ``kinit`` command.
 
-    .. code-block:: sh
+    .. code-block:: shell
 
         kinit -l 24h greg@SLAC.STANFORD.EDU
 
@@ -342,7 +338,7 @@ using the ``kinit`` command.
 Uses the standard ``EPICS_PVA_TLS_<name>`` environment variables to determine the keychain,
 and password file locations.
 
-    .. code-block:: sh
+    .. code-block:: shell
 
         authnkrb <opts>
 
@@ -392,19 +388,13 @@ that contains a working kerberos KDC with the following characteristics:
 authldap Configuration and Usage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This authentication method is a TYPE ``2`` authentication method.
-It can be used to create a certificate from a Kerberos ticket that is
-verified against an LDAP server.
+This Authenticator is a TYPE ``2`` Authenticator.
+It can be used to create a certificate by logging in to the LDAP directory service.
 
-A user will need to have a Kerberos ticket to use this authentication method typically
-using the ``kinit`` command.
+A user will be prompted to log in to the LDAP directory service to verify their identity.
 
-    .. code-block:: sh
-
-        kinit -l 24h greg@SLAC.STANFORD.EDU
-
-- `CN` field in the certificate will be kerberos username
-- `O` field in the certificate will be the kerberos realm
+- `CN` field in the certificate will be LDAP username
+- `O` field in the certificate will be the LDAP domain parts concatenated with "."
 - `OU` field in the certificate will not be set
 - `C` field in the certificate will be set to the local country code
 
@@ -414,9 +404,9 @@ using the ``kinit`` command.
 Uses the standard ``EPICS_PVA_TLS_<name>`` environment variables to determine the keychain,
 and password file locations.
 
-    .. code-block:: sh
+    .. code-block:: shell
 
-        authnkrb <opts>
+        authnldap <opts>
 
     Options:
     -h show help
@@ -453,7 +443,7 @@ LDAP Credentials Verifier for :ref:`pvacms` at runtime in addition to the AuthnK
 authjwt Configuration and Usage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This authentication method is a TYPE ``1`` authentication method.
+This Authenticator is a TYPE ``1`` Authenticator.
 It can be used to create a certificate from a JWT token.
 
 The daemon will create a rest service that will allow posting of JWT tokens
@@ -469,7 +459,7 @@ on the configuration of the authnjwt verifier.
 
 You could test this by posting a JWT token to the authentication daemon as follows:
 
-    .. code-block:: sh
+    .. code-block:: shell
 
         authnjwt -D &
 
@@ -492,7 +482,7 @@ You could test this by posting a JWT token to the authentication daemon as follo
 Uses the standard ``EPICS_PVA_TLS_<name>`` environment variables to determine the keychain,
 and password file locations.
 
-    .. code-block:: sh
+    .. code-block:: shell
 
         authnjwt <opts>
 
@@ -545,7 +535,7 @@ New AUTHORIZATION mechanisms integrate with EPICS Security through four access c
 METHOD
 ^^^^^^
 
-Defines access permissions based on authentication method:
+Defines access permissions based on Authenticator:
 
 - ``x509``: Certificate-based authentication
 - ``ca``: Legacy PVAccess AUTHZ with user-specified account

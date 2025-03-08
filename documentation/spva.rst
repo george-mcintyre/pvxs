@@ -85,6 +85,7 @@ Environment Variables
 The following environment variables control SPVA behavior:
 
 .. note::
+
    There is an implied hierarchy to the applicability of the environment variables such that
    the PVAS version supersedes a PVA version.
    So, if an EPICS server agent wants to specify its keychain file location it can simply
@@ -505,7 +506,7 @@ For detailed TLS traffic analysis:
 
 2. Configure runtime logging:
 
-    .. code-block:: sh
+    .. code-block:: shell
 
         export SSLKEYLOGFILE=/tmp/sslkeylog.log
 
@@ -522,28 +523,28 @@ Enable detailed PVXS debug logging:
 
 1. Environment variable method:
 
-    .. code-block:: sh
+    .. code-block:: shell
 
         export PVXS_LOG="pvxs.stapling*=DEBUG"
 
 1. Command line option with pvxcert:
 
-    .. code-block:: sh
+    .. code-block:: shell
 
         pvxcert -d ...
 
 New Debug Categories:
 
-- ``pvxs.certs.auth``          - Authentication mechanisms
+- ``pvxs.certs.auth``          - Authenticators
 - ``pvxs.auth.cfg``            - Authn configuration
-- ``pvxs.auth.cms``            - CMS authentication
-- ``pvxs.auth.jwt``            - JWT authentication mechanism
-- ``pvxs.auth.krb``            - Kerberos authentication mechanism
-- ``pvxs.auth.mon``            - Authn monitoring
-- ``pvxs.auth.stat``           - Authn status
-- ``pvxs.auth.std``            - Basic credentials authentication mechanism
-- ``pvxs.auth.tool``           - Authn tools (``pvacert``)
-- ``pvxs.certs.status``        - Certificate management
+- ``pvxs.auth.cms``            - CMS
+- ``pvxs.auth.jwt``            - JWT Authenticator
+- ``pvxs.auth.krb``            - Kerberos Authenticator
+- ``pvxs.auth.mon``            - Certificate Status Monitoring
+- ``pvxs.auth.stat``           - Certificate Status
+- ``pvxs.auth.std``            - Stanard Authenticator
+- ``pvxs.auth.tool``           - Certificate Management Tools (``pvacert``)
+- ``pvxs.certs.status``        - Certificate Status Management
 - ``pvxs.ossl.init``           - TLS initialization
 - ``pvxs.ossl.io``             - TLS I/O
 - ``pvxs.stapling``            - OCSP stapling
@@ -555,7 +556,7 @@ Monitor connection state transitions:
 
 1. Enable connection tracing:
 
-   .. code-block:: sh
+   .. code-block:: shell
 
        export PVXS_LOG="pvxs.connection=DEBUG"
 

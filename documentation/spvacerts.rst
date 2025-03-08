@@ -67,10 +67,10 @@ Request structure:
             UInt32     not_after          # Validity end time (epoch seconds)
             string     pub_key            # Public key data
             enum_t     status_monitoring_extension  # Include status monitoring
-            structure  verifier           # Optional: Authentication data
+            structure  verifier           # Optional: Authenticator specific data
 
 The ``verifier`` sub-structure is only present if the ``type`` field references a
- :ref:`pvacms_type_1_auth_methods`, or :ref:`pvacms_type_2_auth_methods` authentication mechanism.
+ :ref:`pvacms_type_1_auth_methods`, or :ref:`pvacms_type_2_auth_methods` Authenticator.
 
 
 Certificate Management Operations
@@ -80,19 +80,19 @@ Certificate Management Operations
 
 Approval:
 
-    .. code-block:: sh
+    .. code-block:: shell
 
         pvxcert -A <certid>    # Approve certificate
 
 Denial:
 
-    .. code-block:: sh
+    .. code-block:: shell
 
         pvxcert -D <certid>    # Deny certificate (sets REVOKED)
 
 Revocation:
 
-    .. code-block:: sh
+    .. code-block:: shell
 
         pvxcert -R <certid>    # Permanently revoke certificate
 
@@ -274,6 +274,7 @@ PVACMS Configuration
 The environment variables in the following table configure the :ref:`pvacms` at runtime.
 
 .. note::
+
    There is also an implied hierarchy to their applicability such that :ref:`pvacms`
    supersedes the PVAS version which in turn, supersedes the PVA version.
    So, if a :ref:`pvacms` wants to specify its keychain file location it can simply
@@ -347,10 +348,10 @@ Extensions to Config for PVACMS
     - The number of minutes that the certificate status is valid for.
     - Default: 30
 - `cert_client_require_approval`
-    - If ``true`` then authstd (basic authentication) generated client certificates must be approved before they can be used.
+    - If ``true`` then authstd (Standard Authenticator) generated client certificates must be approved before they can be used.
     - Default: ``true``
 - `cert_server_require_approval`
-    - If ``true`` then authstd (basic authentication) generated server certificates must be approved before they can be used.
+    - If ``true`` then authstd (Standard Authenticator) generated server certificates must be approved before they can be used.
     - Default: ``true``
 - `cert_status_subscription`
     - If ``Yes`` then the :ref:`pvacms` will embed the certificate status monitoring extension in all certificates it issues by default.
