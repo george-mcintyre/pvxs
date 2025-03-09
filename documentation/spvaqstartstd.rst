@@ -1,6 +1,6 @@
 .. _quick_start_std:
 
-⚡ Standard Authenticator
+⚡ Std. Authenticator
 ========================================
 
 This section contains a Quick Start Guide (⚡) for the Secure PVAccess *Standard Authenticator*.

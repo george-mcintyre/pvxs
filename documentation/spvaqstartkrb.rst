@@ -1,6 +1,6 @@
 .. _quick_start_krb:
 
-⚡ Kerberos Authenticator
+⚡ KRB Authenticator
 ==================================================
 
 This section contains a Quick Start Guide (⚡) for the Secure PVAccess *Kerberos Authenticator*.

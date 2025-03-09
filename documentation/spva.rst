@@ -542,7 +542,7 @@ New Debug Categories:
 - ``pvxs.auth.krb``            - Kerberos Authenticator
 - ``pvxs.auth.mon``            - Certificate Status Monitoring
 - ``pvxs.auth.stat``           - Certificate Status
-- ``pvxs.auth.std``            - Stanard Authenticator
+- ``pvxs.auth.std``            - Standard Authenticator
 - ``pvxs.auth.tool``           - Certificate Management Tools (``pvacert``)
 - ``pvxs.certs.status``        - Certificate Status Management
 - ``pvxs.ossl.init``           - TLS initialization
