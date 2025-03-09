@@ -1,6 +1,6 @@
 .. _secure_pvaccess:
 
-Secure PVAccess
+|security| Secure PVAccess
 ===============
 
 Secure PVAccess (SPVA) enhances the existing PVAccess protocol by integrating :ref:`transport_layer_security` (TLS)

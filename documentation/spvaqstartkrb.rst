@@ -1,9 +1,9 @@
 .. _quick_start_krb:
 
-⚡ KRB Authenticator
+|guide| KRB Authenticator
 ==================================================
 
-This section contains a Quick Start Guide (⚡) for the Secure PVAccess *Kerberos Authenticator*.
+This section contains a Quick Start |guide| for the Secure PVAccess *Kerberos Authenticator*.
 
     The Kerberos Authenticator is an Authenticator that uses a kerberos ticket to create an X.509
     certificate.
@@ -16,7 +16,7 @@ This section contains a Quick Start Guide (⚡) for the Secure PVAccess *Kerbero
     is sent to the PVACMS which validates that the request is authentic and the credentials
     correct by contacting the KDC.  If all checks-out then certificates are generated in the ``VALID`` state.
 
-Our starting point for this Quick Start Guide is the end of the :ref:`_quick_start_std` so if you haven't gone through it yet
+Our starting point for this Quick Start Guide is the end of the :ref:`quick_start_std` so if you haven't gone through it yet
 do that now then come back here.  You need to have users's configured (``pvacms``, ``admin``, ``softioc``, and ``client``).
 We will set up a containerised KDC and configure it so that the users can get tickets.  We will create
 a pvacms Kerberos service and provide PVACMS a keytab for passwordless authentication so that it can verify CCRs presented
@@ -30,8 +30,8 @@ Other Quick Start Guides:
 - :ref:`quick_start_std`
 - :ref:`quick_start_ldap`
 
-🎓 What you will learn:
--------------------------------------
+|learn| You will learn:
+******************************
 
 - :ref:`Creating a containerised KDC <spva_qs_krb_kdc>`,
 - :ref:`Building PVXS with Kerberos Authenticator support <spva_qs_krb_build>`,
@@ -39,15 +39,16 @@ Other Quick Start Guides:
 - :ref:`Creating certificates using the Kerberos Authenticator<spva_qs_krb_server>` and
 - :ref:`Connecting a Kerberos Client to an SPVA Server<spva_qs_krb_client>`
 
-⏩ Pre-Built
+|pre-packaged|\Prepackaged
+******************************
+
+If you want a prepackaged environment, try the following.  You will need three terminal sessions.
+
+|1| Load image
 ------------------------------
 
-If you want a pre-setup environment, try the following.  You will need three terminal sessions.
-
-① 🖥¹ Load image
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-start new container with pre-built Secure PVAccess with Kerberos Authenticator and 4 Users
+- |terminal|\¹
+- start new container with Prepackaged Secure PVAccess with Kerberos Authenticator and 4 Users
 
 .. code-block:: shell
 
@@ -67,16 +68,17 @@ start new container with pre-built Secure PVAccess with Kerberos Authenticator a
     2025-03-08 14:40:45,589 INFO success: krb5-kdc entered RUNNING state, process has stayed up for > than 1 seconds (startsecs)
     2025-03-08 14:40:45,589 INFO success: pvacms entered RUNNING state, process has stayed up for > than 1 seconds (startsecs)
 
-② 🖥² Log in as Service
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+|2| Service
+------------------------------
 
-log in as softioc service account
+- |terminal|\²
+- log in as softioc service account
 
 .. code-block:: shell
 
     docker exec -it --user softioc spva_krb /bin/bash
 
-get a kerberos ticket.  Enter "secret" as the password when prompted
+- get a kerberos ticket.  Enter "secret" as the password when prompted
 
 .. code-block:: shell
 
@@ -101,7 +103,7 @@ get a kerberos ticket.  Enter "secret" as the password when prompted
     03/08/25 15:23:21  03/09/25 15:23:09  pvacms/cluster@EPICS.ORG
     	renew until 03/08/25 15:23:09
 
-create a server certificate using the Kerberos Authenticator
+- create a server certificate using the Kerberos Authenticator
 
 .. code-block:: shell
 
@@ -134,16 +136,17 @@ create a server certificate using the Kerberos Authenticator
     Status Expires: Sat Mar 08 16:17:14 2025 UTC
     --------------------------------------------
 
-③ 🖥³ Log in as a Client
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+|3| Client
+------------------------------
 
-log in as a Secure PVAccess client
+- |terminal|\³
+- log in as a Secure PVAccess client
 
 .. code-block:: shell
 
     docker exec -it --user client spva_krb /bin/bash
 
-get a kerberos ticket.  Enter "secret" as the password when prompted
+- get a kerberos ticket.  Enter "secret" as the password when prompted
 
 .. code-block:: shell
 
@@ -166,7 +169,7 @@ get a kerberos ticket.  Enter "secret" as the password when prompted
     03/08/25 15:27:50  03/09/25 15:27:50  krbtgt/EPICS.ORG@EPICS.ORG
     	renew until 03/08/25 15:27:50
 
-create a client certificate using the Kerberos Authenticator
+- create a client certificate using the Kerberos Authenticator
 
 .. code-block:: shell
 
@@ -200,10 +203,11 @@ create a client certificate using the Kerberos Authenticator
     --------------------------------------------
 
 
-④ 🖥² Start SoftIOC
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+|4| Start SoftIOC
+------------------------------
 
-start SoftIOC
+- |terminal|\²
+- start SoftIOC
 
 .. code-block:: shell
 
@@ -229,10 +233,11 @@ start SoftIOC
     iocRun: All initialization complete
     epics>
 
-⑤ 🖥³ Get PV value
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+|5| Get PV value
+------------------------------
 
-get a PV ``test:enumExample`` value from the SoftIOC
+- |terminal|\³
+- get a PV ``test:enumExample`` value from the SoftIOC
 
 .. code-block:: shell
 
@@ -272,11 +277,83 @@ get a PV ``test:enumExample`` value from the SoftIOC
         } display
     }
 
-verify that connection is TLS
+- verify that connection is TLS
 
 - `TLS x509:EPICS Root CA/softioc @ 172.17.0.2` indicates that:
 
   - The connection is `TLS`,
   - The Server end of the channel has been authenticated by the Root CA `EPICS Root CA`
   - The Server end of the channel's name has been authenticated as `softioc` and is connecting from host ``172.17.0.2``
+
+|step-by-step| Step-By-Step
+********************************
+
+|step| Docker Image
+------------------------------------------
+
+|1| Use a Prepackaged spva_std image
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- |terminal|\¹
+- Load image
+
+|step| Kerberos KDC
+------------------------------------------
+
+- Install KDC
+- Create princpals
+- |terminal|\²
+- Run services
+
+|step| EPICS Agents
+------------------------------------------
+
+|1| Rebuild pvxs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- |terminal|\¹
+- rebuild pvxs with Kerberos Authenticator support
+
+|2| PVACMS
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Copy keytab
+- Configure (point to keytab)
+
+|3| SoftIOC
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Create certificate
+
+|4| Client
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Create certificate
+
+|step| Run PVACMS
+------------------------------------------
+
+|1| Run PVACMS
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- |terminal|\³
+- Run PVACMS
+
+|step| Run SoftIOC
+------------------------------------------
+
+|1| Run SoftIOC
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- |terminal|\⁴
+- Run SoftIOC
+
+|step| SPVA Client
+------------------------------------------
+
+|1| Get Value
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- |terminal|\⁵
+- Get PV values
 

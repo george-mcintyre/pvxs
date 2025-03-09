@@ -1,31 +1,40 @@
 .. _quick_start_ldap:
 
-⚡ LDAP Authenticator
+|guide| LDAP Authenticator
 ===============================
 
-This section contains a Quick Start Guide (⚡) for the Secure PVAccess *LDAP Authenticator*.
+This section contains a Quick Start |guide| for the Secure PVAccess *LDAP Authenticator*.
 
     The LDAP Authenticator is an Authenticator that creates an X.509
     certificate from LDAP credentials.
 
-    It prompts the user to log in to the LDAP directory service and update its public key
-    entry (or create one if it does not exist).  It then signs a certificate creation request
-    with its private key and passes it to the PVACMS, which decodes it with the public key
-    it finds in the LDAP directory entry for the user.  If this suceeeds it means that the
+    It prompts the user to log in to the LDAP directory service.
+    It then signs a certificate creation request with its private key and passes
+    it to the PVACMS, which decodes it with the public key that
+    it finds in the LDAP directory entry for the user.  If this succeeds it means that the
     requestor holds the matching private key and so the certificate is generated.
 
     It uses the LDAP username as the ``common name`` and then concatenates all the ``dc`` components it finds
     to create the organisation while leaving the ``organizational unit`` blank.
     e.g. ``dn: uid=admin,dc=epics,dc=org`` becomes ``CN=admin``, ``O=epics.org``.
 
-Our starting point for this Quick Start Guide is the end of the :ref:`_quick_start_std` so if you haven't gone through it yet
-do that now then come back here.  You need to have users's configured (``pvacms``, ``admin``, ``softioc``, and ``client``).
+Our starting point for this Quick Start Guide is the end of the :ref:`quick_start_std` so if you haven't gone through it yet
+do that now then come back here.  You need to have user's configured (``pvacms``, ``admin``, ``softioc``, and ``client``).
 We will set up a containerised LDAP Service and configure it so that the users can log in.
-If you've configured your LDAP server for user login then we will
-show how you could use LDAP login credentials get
-an X.509 certificate.  If, as is normally the case, you use Kerberos for authentication and
-LDAP for user profile information - group, contact details, etc - then use the Kerberos Authenticator
-going forwards.
+
+When to use the LDAP Authenticator?
+
+- Your network uses Kerberos for login
+
+  If, as is normally the case, you use Kerberos for authentication and
+  LDAP for user profile information - *group*, *contact details*, etc - then
+  use the Kerberos Authenticator.
+
+- Your network clients login directly to LDAP
+
+  If you've configured your LDAP server for user login then we will
+  show how you could use LDAP login credentials to get
+  an X.509 certificate.
 
 See :ref:`secure_pvaccess` for general documentation on Secure PVAccess.
 
@@ -35,8 +44,8 @@ Other Quick Start Guides:
 - :ref:`quick_start_std`
 - :ref:`quick_start_krb`
 
-🎓 What you will learn:
--------------------------------------
+|learn| You will learn:
+******************************
 
 - :ref:`Creating a containerised LDAP Service <spva_qs_ldap_ldap>`,
 - :ref:`Building PVXS with LDAP Authenticator support <spva_qs_ldap_build>`,
@@ -44,15 +53,16 @@ Other Quick Start Guides:
 - :ref:`Creating certificates using the LDAP Authenticator<spva_qs_ldap_server>` and
 - :ref:`Connecting a LDAP Client to an SPVA Server<spva_qs_ldap_client>`
 
-⏩ Pre-Built
+|pre-packaged|\Prepackaged
+*********************************
+
+If you want a prepackaged environment, try the following.  You will need three terminal sessions.
+
+|1| Load image
 ------------------------------
 
-If you want a pre-setup environment, try the following.  You will need three terminal sessions.
-
-① 🖥¹ Load image
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-start new container with pre-built Secure PVAccess with LDAP Authenticator and 4 Users
+- |terminal|\¹
+- start new container with Prepackaged Secure PVAccess with LDAP Authenticator and 4 Users
 
 .. code-block:: shell
 
@@ -72,10 +82,11 @@ start new container with pre-built Secure PVAccess with LDAP Authenticator and 4
     2025-03-08 19:53:47,688 INFO success: pvacms entered RUNNING state, process has stayed up for > than 1 seconds (startsecs)
     2025-03-08 19:53:47,688 INFO success: sssd entered RUNNING state, process has stayed up for > than 1 seconds (startsecs)
 
-② 🖥² Log in as Service
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+|2| Service
+------------------------------
 
-log in as softioc service account
+- |terminal|\²
+- log in as softioc service account
 
 .. code-block:: shell
 
@@ -116,16 +127,17 @@ create a server certificate using the LDAP Authenticator, enter ``secret`` when 
     Status Expires: Sat Mar 08 20:27:22 2025 UTC
     --------------------------------------------
 
-③ 🖥³ Log in as a Client
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+|3| Client
+------------------------------
 
-log in as a Secure PVAccess client
+- |terminal|\³
+- log in as a Secure PVAccess client
 
 .. code-block:: shell
 
     docker exec -it --user client spva_ldap /bin/bash
 
-create a client certificate using the LDAP Authenticator, enter ``secret`` when prompted for LDAP password
+- create a client certificate using the LDAP Authenticator, enter ``secret`` when prompted for LDAP password
 
 .. code-block:: shell
 
@@ -160,10 +172,11 @@ create a client certificate using the LDAP Authenticator, enter ``secret`` when 
     --------------------------------------------
 
 
-④ 🖥² Start SoftIOC
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+|4| Start SoftIOC
+------------------------------
 
-start SoftIOC
+- |terminal|\²
+- start SoftIOC
 
 .. code-block:: shell
 
@@ -189,10 +202,11 @@ start SoftIOC
     iocRun: All initialization complete
     epics>
 
-⑤ 🖥³ Get PV value
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+|5| Get PV value
+------------------------------
 
-get a PV ``test:enumExample`` value from the SoftIOC
+- |terminal|\³
+- get a PV ``test:enumExample`` value from the SoftIOC
 
 .. code-block:: shell
 
@@ -232,11 +246,85 @@ get a PV ``test:enumExample`` value from the SoftIOC
         } display
     }
 
-verify that connection is TLS
+- verify that connection is TLS
 
 - `TLS x509:EPICS Root CA/softioc @ 172.17.0.2` indicates that:
 
   - The connection is `TLS`,
   - The Server end of the channel has been authenticated by the Root CA `EPICS Root CA`
   - The Server end of the channel's name has been authenticated as `softioc` and is connecting from host ``172.17.0.2``
+
+
+
+|step-by-step| Step-By-Step
+********************************
+
+|step| Docker Image
+------------------------------------------
+
+|1| Use a Prepackaged spva_std image
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- |terminal|\¹
+- Load image
+
+|step| LDAP
+------------------------------------------
+
+- Install LDAP
+- Create and apply custom LDAP Authenticator schema addition
+- Load User Data LDIF
+- |terminal|\²
+- Run LDAP Service
+
+|step| EPICS Agents
+------------------------------------------
+
+|1| Rebuild pvxs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- |terminal|\¹
+- rebuild pvxs with LDAP Authenticator support
+
+|2| PVACMS
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Configure point to LDAP Service
+
+|3| SoftIOC
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Create certificate
+
+|4| Client
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Create certificate
+
+|step| Run PVACMS
+------------------------------------------
+
+|1| Run PVACMS
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- |terminal|\³
+- Run PVACMS
+
+|step| Run SoftIOC
+------------------------------------------
+
+|1| Run SoftIOC
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- |terminal|\⁴
+- Run SoftIOC
+
+|step| SPVA Client
+------------------------------------------
+
+|1| Get Value
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- |terminal|\⁵
+- Get PV values
 

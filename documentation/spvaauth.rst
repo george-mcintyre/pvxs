@@ -1,11 +1,11 @@
 .. _authn_and_authz:
 
-Authentication and Authorization
+|security| AuthN & AuthZ
 =====================================
 
 `AutheNtication` and `AuthoriZation` with Secure PVAccess.
 
-*Authentication* determines the identity of a client or server. *Authorization* determines access rights to PV resources.
+*AutheNtication* determines the identity of a client or server. *AuthoriZation* determines access rights to PV resources.
 SPVA enhances :ref:`epics_security` with fine-grained control based on:
 
 - *Authentication Mode* - choose between `server-only`, `mutual`, or `none`

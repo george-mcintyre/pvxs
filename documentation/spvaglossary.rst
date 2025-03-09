@@ -1,6 +1,6 @@
 .. _glossary:
 
-SPVA Glossary
+|security| SPVA Glossary
 =============
 
 .. _glossary_auth_vs_authz:
