@@ -759,7 +759,50 @@ then generate X.509 certificates.
 
     docker exec -it --user softioc spva_ldap /bin/bash
 
-|2| Get Certificate
+|2| Verify LDAP config
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- read out entry for softioc from LDAP directory
+
+.. code-block:: shell
+
+    ldapsearch -x -LLL -b "ou=People,dc=epics,dc=org" "(uid=softioc)"
+
+.. code-block:: console
+
+    dn: uid=softioc,ou=People,dc=epics,dc=org
+    objectClass: inetOrgPerson
+    objectClass: posixAccount
+    objectClass: shadowAccount
+    objectClass: epicsAuxiliary
+    cn: softioc
+    sn: softioc
+    uid: softioc
+    uidNumber: 1003
+    gidNumber: 1003
+    homeDirectory: /home/softioc
+    loginShell: /bin/bash
+
+.. code-block:: shell
+
+    ldapsearch -x -LLL -b "ou=People,dc=epics,dc=org" "(uid=softioc)"
+
+.. code-block:: console
+
+    dn: uid=softioc,ou=People,dc=epics,dc=org
+    objectClass: inetOrgPerson
+    objectClass: posixAccount
+    objectClass: shadowAccount
+    objectClass: epicsAuxiliary
+    cn: softioc
+    sn: softioc
+    uid: softioc
+    uidNumber: 1003
+    gidNumber: 1003
+    homeDirectory: /home/softioc
+    loginShell: /bin/bash
+
+|3| Get Certificate
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - create a softioc server certificate.  Enter "secret" when prompted for password
@@ -777,7 +820,7 @@ then generate X.509 certificates.
     Keychain file created   : /home/softioc/.config/pva/1.3/server.p12
     Certificate identifier  : b271f07a:13935791733272200197
 
-|3| Check the certificate status is VALID
+|4| Check the certificate status is VALID
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - check that the generated certificate is ``VALID``
@@ -808,7 +851,7 @@ then generate X.509 certificates.
     Status Expires: Mon Mar 10 13:19:37 2025 UTC
     --------------------------------------------
 
-|4| Run Secure PVAccess Service
+|5| Run Secure PVAccess Service
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - start the service
@@ -851,8 +894,43 @@ then generate X.509 certificates.
 
     docker exec -it --user client spva_ldap /bin/bash
 
+|2| Verify LDAP config
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-|2| Get Certificate
+- read out entry for client from LDAP directory
+
+.. code-block:: shell
+
+    ldapsearch -x -LLL -b "ou=People,dc=epics,dc=org" "(uid=client)"
+
+.. code-block:: console
+
+    dn: uid=client,ou=People,dc=epics,dc=org
+    objectClass: inetOrgPerson
+    objectClass: posixAccount
+    objectClass: shadowAccount
+    objectClass: epicsAuxiliary
+    cn: client
+    sn: client
+    uid: client
+    uidNumber: 1004
+    gidNumber: 1004
+    homeDirectory: /home/client
+    loginShell: /bin/bash
+
+.. code-block:: shell
+
+    ldapsearch -x -LLL -b "ou=People,dc=epics,dc=org" "(uid=client)"
+
+.. code-block:: console
+
+    dn: cn=client,ou=Groups,dc=epics,dc=org
+    objectClass: posixGroup
+    cn: client
+    gidNumber: 1004
+    memberUid: client
+
+|3| Get Certificate
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - create a client certificate.  Enter "secret" when prompted for a password
@@ -870,7 +948,7 @@ then generate X.509 certificates.
     Keychain file created   : /home/client/.config/pva/1.3/client.p12
     Certificate identifier  : b271f07a:4841285184560088877
 
-|3| Check the certificate status is VALID
+|4| Check the certificate status is VALID
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - check that the generated certificate is ``VALID``
@@ -901,7 +979,7 @@ then generate X.509 certificates.
     Status Expires: Mon Mar 10 04:03:58 2025 UTC
     --------------------------------------------
 
-|4| Test TLS client operations
+|5| Test TLS client operations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: shell
