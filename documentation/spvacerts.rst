@@ -1,6 +1,6 @@
 .. _certificate_management:
 
-|security| Certificate Management
+|security| Cert Management
 =====================
 
 Certificate States

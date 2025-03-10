@@ -35,10 +35,8 @@ If you want a prepackaged environment, try the following.  You will need four te
 
 |1| Load image
 -------------------------------------
-
 - |terminal|\¹
 - start new container with Prepackaged Secure PVAccess and 4 Users
-
 .. code-block:: shell
 
     docker run -it --name spva_std georgeleveln/spva_std:latest
@@ -52,10 +50,8 @@ If you want a prepackaged environment, try the following.  You will need four te
 
 |2| Administrator
 -------------------------------------
-
 - |terminal|\²
 - log in as pre-configured Admin User, certificate is already configured
-
 .. code-block:: shell
 
     docker exec -it --user admin spva_std /bin/bash
@@ -67,16 +63,13 @@ If you want a prepackaged environment, try the following.  You will need four te
 
 |3| Service
 -------------------------------------
-
 - |terminal|\³
 - log in as softioc service account
-
 .. code-block:: shell
 
     docker exec -it --user softioc spva_std /bin/bash
 
 - create a server certificate using the Standard Authenticator
-
 .. code-block:: shell
 
     authnstd -u server
@@ -88,16 +81,13 @@ If you want a prepackaged environment, try the following.  You will need four te
 
 |4| Client
 -------------------------------------
-
 - |terminal|\⁴
 - log in as a Secure PVAccess client
-
 .. code-block:: shell
 
     docker exec -it --user client spva_std /bin/bash
 
 - create a client certificate using the Standard Authenticator
-
 .. code-block:: shell
 
     authnstd
@@ -110,10 +100,8 @@ If you want a prepackaged environment, try the following.  You will need four te
 
 |5| Approve Certs
 -------------------------------------
-
 - |terminal|\²
 - approve the server certificate
-
 .. code-block:: shell
 
     pvxcert --approve 47530d89:15756710596521133410
@@ -123,7 +111,6 @@ If you want a prepackaged environment, try the following.  You will need four te
     Approve ==> CERT:STATUS:47530d89:15756710596521133410 ==> Completed Successfully
 
 - approve the client certificate
-
 .. code-block:: shell
 
     pvxcert --approve 47530d89:7450074183745406049
@@ -135,10 +122,8 @@ If you want a prepackaged environment, try the following.  You will need four te
 
 |6| Start SoftIOC
 -------------------------------------
-
 - |terminal|\³
 - start SoftIOC
-
 .. code-block:: shell
 
     softIocPVX \
@@ -165,10 +150,8 @@ If you want a prepackaged environment, try the following.  You will need four te
 
 |7| Get PV value
 -------------------------------------
-
 - |terminal|\⁴
 - get a PV ``test:enumExample`` value from the SoftIOC
-
 .. code-block:: shell
 
     pvxinfo -v test:enumExample
@@ -209,11 +192,11 @@ If you want a prepackaged environment, try the following.  You will need four te
 
 - verify that connection is TLS
 
-  - `TLS x509:EPICS Root CA/softioc @ 172.17.0.2` indicates that:
+  - ``TLS x509:EPICS Root CA/softioc @ 172.17.0.2`` indicates that:
 
-    - The connection is `TLS`,
-    - The Server end of the channel has been authenticated by the Root CA `EPICS Root CA`
-    - The Server end of the channel's name has been authenticated as `softioc` and is connecting from host ``172.17.0.2``
+    - The connection is ``TLS``,
+    - The Server end of the channel has been authenticated by the Root CA ``EPICS Root CA``
+    - The Server end of the channel's name has been authenticated as ``softioc`` and is connecting from host ``172.17.0.2``
 
 |step-by-step| Step-By-Step
 ********************************
@@ -317,16 +300,16 @@ log back in as pvacms with environment set by ``.bashrc``
   - create PVACMS certificate database
 
     - creates database if does not exist
-    - at location pointed to by `EPICS_PVACMS_DB` or ``${XDG_DATA_HOME}/pva/1.3/certs.db`` by default
+    - at location pointed to by ``EPICS_PVACMS_DB`` or ``${XDG_DATA_HOME}/pva/1.3/certs.db`` by default
 
   - creates root CA if does not exist
 
     - creates root CA if does not exist,
-    - at location specified by `EPICS_CA_TLS_KEYCHAIN` or ``${XDG_CONFIG_HOME}/pva/1.3/ca.p12`` by default
-    - with `CN` specified by `EPICS_CA_NAME`
-    - with  `O` specified by `EPICS_CA_ORGANIZATION`
-    - with `OU` specified by `EPICS_CA_ORGANIZATIONAL_UNIT`
-    - with  `C` specified by `EPICS_CA_COUNTRY`
+    - at location specified by ``EPICS_CA_TLS_KEYCHAIN`` or ``${XDG_CONFIG_HOME}/pva/1.3/ca.p12`` by default
+    - with ``CN`` specified by ``EPICS_CA_NAME``
+    - with  ``O`` specified by ``EPICS_CA_ORGANIZATION``
+    - with ``OU`` specified by ``EPICS_CA_ORGANIZATIONAL_UNIT``
+    - with  ``C`` specified by ``EPICS_CA_COUNTRY``
 
   - create the default ACF file that controls permissions for the PVACMS service
 
@@ -421,7 +404,7 @@ log back in as pvacms with environment set by ``.bashrc``
 
 .. _spva_qs_std_server:
 
-|4| Add a Secure EPICS Server Agent - SoftIOC
+|4| Add a Secure PVAccess Server Agent - SoftIOC
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - add user and when prompted use "SOFTIOC Server" as Full Name
@@ -857,11 +840,11 @@ Leave this PVACMS service running while running SoftIOC and SPVA client below.
 
 .. note::
 
-  - `TLS x509:EPICS Root CA/softioc @ 172.17.0.2` indicates that:
+  - ``TLS x509:EPICS Root CA/softioc @ 172.17.0.2`` indicates that:
 
-    - The connection is `TLS`,
-    - The Server end of the channel has been authenticated by the Root CA `EPICS Root CA`
-    - The Server end of the channel's name has been authenticated as `softioc` and is connecting from host ``172.17.0.2``
+    - The connection is ``TLS``,
+    - The Server end of the channel has been authenticated by the Root CA ``EPICS Root CA``
+    - The Server end of the channel's name has been authenticated as ``softioc`` and is connecting from host ``172.17.0.2``
 
 
 |step| Permissions
@@ -870,7 +853,7 @@ Leave this PVACMS service running while running SoftIOC and SPVA client below.
 |1| Security Configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- field test:spec is defined in testioc.db and protected by the ``SPECIAL`` security group
+- field ``test:spec`` is defined in ``testioc.db`` and protected by the ``SPECIAL`` security group
 
 .. code-block:: shell
 
@@ -926,7 +909,7 @@ Leave this PVACMS service running while running SoftIOC and SPVA client below.
     test:spec
         value double = 0
 
-- show that we cannot set (PUT) the value with, or without TLS if we are not identified as "michael"
+- show that we cannot set (``PUT``) the value with, or without TLS if we are not identified as "michael"
 
 .. code-block:: shell
 
@@ -974,7 +957,7 @@ Leave this PVACMS service running while running SoftIOC and SPVA client below.
 - show that we can set the value if
 
   - we are identified as "michael"
-  - using an X.509 certificate
+  - using an ``X.509`` certificate
   - created by the *EPICS Root CA*
 
 .. code-block:: shell

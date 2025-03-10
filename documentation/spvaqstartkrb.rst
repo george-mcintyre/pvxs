@@ -279,11 +279,11 @@ If you want a prepackaged environment, try the following.  You will need three t
 
 - verify that connection is TLS
 
-- `TLS x509:EPICS Root CA/softioc @ 172.17.0.2` indicates that:
+- ``TLS x509:EPICS Root CA/softioc @ 172.17.0.2`` indicates that:
 
-  - The connection is `TLS`,
-  - The Server end of the channel has been authenticated by the Root CA `EPICS Root CA`
-  - The Server end of the channel's name has been authenticated as `softioc` and is connecting from host ``172.17.0.2``
+  - The connection is ``TLS``,
+  - The Server end of the channel has been authenticated by the Root CA ``EPICS Root CA``
+  - The Server end of the channel's name has been authenticated as ``softioc`` and is connecting from host ``172.17.0.2``
 
 |step-by-step| Step-By-Step
 ********************************
