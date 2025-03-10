@@ -699,11 +699,11 @@ using the Kerberos Authenticator.
 |4| Check the certificate status is VALID
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- check that the generated certificate is valid
-- note that the name is ``softioc`` - picked up from principal in kerberos ticket
-- note that the organization ins ``EPICS.ORG`` - picked up from REALM in kerberos ticket
-- note that the expiration date is the same as the expiration of the kerberos ticket
-- note that the start date is from the date if certificate issuance
+- check that the generated certificate is ``VALID``
+- note that the *name* is ``softioc`` - picked up from ``principal`` in kerberos ticket
+- note that the *organization* is ``EPICS.ORG`` - picked up from ``REALM`` in kerberos ticket
+- note that the *expiration date* is the same as the expiration of the kerberos ticket
+- note that the *start date* is set to the date of certificate issuance
 
 .. code-block:: shell
 
@@ -819,11 +819,11 @@ using the Kerberos Authenticator.
 |4| Check the certificate status is VALID
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- check that the generated certificate is valid
-- note that the name is ``client`` - picked up from principal in kerberos ticket
-- note that the organization ins ``EPICS.ORG`` - picked up from REALM in kerberos ticket
-- note that the expiration date is the same as the expiration of the kerberos ticket
-- note that the start date is from the date if certificate issuance
+- check that the generated certificate is ``VALID``
+- note that the *name* is ``client`` - picked up from ``principal`` in kerberos ticket
+- note that the *organization* is ``EPICS.ORG`` - picked up from ``REALM`` in kerberos ticket
+- note that the *expiration date* is the same as the expiration of the kerberos ticket
+- note that the *start date* is set to the date of certificate issuance
 
 .. code-block:: shell
 
