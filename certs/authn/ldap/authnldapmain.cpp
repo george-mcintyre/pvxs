@@ -234,6 +234,11 @@ int main(int argc, char *argv[]) {
         AuthNLdap authenticator{};
         // Add configuration to authenticator
         authenticator.configure(config);
+
+        if (verbose) {
+            std::cout << "Effective config\n" << config << std::endl;
+        }
+
         const std::string tls_keychain_file = IS_FOR_A_SERVER_(cert_usage) ? config.tls_srv_keychain_file : config.tls_keychain_file;
         const std::string tls_keychain_pwd = IS_FOR_A_SERVER_(cert_usage) ? config.tls_srv_keychain_pwd : config.tls_keychain_pwd;
 

@@ -2162,14 +2162,34 @@ int main(int argc, char *argv[]) {
         pva_server.addPV(RPC_CERT_CREATE, create_pv).addPV(GET_MONITOR_CERT_STATUS_PV, status_pv).addPV(kCertRoot, root_pv);
         root_pv.open(root_pv_value);
 
+        // Log the effective config
         if (verbose) {
-            std::cout << "Effective config\n" << config;
+            std::cout << "Effective config\n" << config << std::endl;
         }
 
+        // Get the subject of the certificate authority certificate
+        pvxs::ossl_ptr<BIO> io( BIO_new(BIO_s_mem()));
+        X509_NAME_print_ex(io.get(), X509_get_subject_name(cert_auth_cert.get()), 0, XN_FLAG_ONELINE);
+        char *data = nullptr;
+        auto len = BIO_get_mem_data(io.get(), &data);
+        auto subject_string = std::string(data, len);
+
         try {
-            std::cout << "PVACMS [" << our_issuer_id << "] Service Running" << std::endl;
+            std::cout << "+=======================================+" << std::endl;
+            std::cout << "| PVACMS Certificate Management Service |" << std::endl;
+            std::cout << "+---------------------------------------+" << std::endl;
+            std::cout << "| Certificate Database                  : " << config.certs_db_filename << std::endl;
+            std::cout << "| Certificate Authority                 : " << subject_string << std::endl;
+            std::cout << "| Certificate Authority Keychain File   : " << config.cert_auth_keychain_file << std::endl;
+            std::cout << "| PVACMS Keychain File                  : " << config.tls_keychain_file << std::endl;
+            std::cout << "| PVACMS Access Control File            : " << config.pvacms_acf_filename << std::endl;
+            std::cout << "+---------------------------------------+" << std::endl;
+            std::cout << "| PVACMS [" << our_issuer_id << "] Service Running     |" << std::endl;
+            std::cout << "+=======================================+" << std::endl;
             pva_server.run();
-            std::cout << "PVACMS [" << our_issuer_id << "] Service Exiting" << std::endl;
+            std::cout << "\n+=======================================+" << std::endl;
+            std::cout << "| PVACMS [" << our_issuer_id << "] Service Exiting     |" << std::endl;
+            std::cout << "+=======================================+" << std::endl;
         } catch (const std::exception &e) {
             log_err_printf(pvacms, "PVACMS error: %s\n", e.what());
         }

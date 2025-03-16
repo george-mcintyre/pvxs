@@ -96,6 +96,22 @@ class AuthNKrb final : public Auth {
     }
 
     /**
+     * Update the definitions with the kerberos authenticator specific definitions.
+     *
+     * This function is called from PVACMS to update the definitions with the kerberos authenticator specific definitions.
+     * It updates the definitions with the kerberos keytab file, the kerberos client keytab file,
+     * the kerberos validator service name, and the kerberos realm. 
+     *
+     * @param defs the definitions to update with the kerberos authenticator specific definitions
+     */
+    void updateDefs(client::Config::defs_t & defs) const override {
+        defs["KRB5_KTNAME"] = krb_keytab_file;
+        defs["KRB5_CLIENT_KTNAME"] = krb_keytab_file;
+        defs["EPICS_AUTH_KRB_VALIDATOR_SERVICE"] = krb_validator_service_name;
+        defs["EPICS_AUTH_KRB_REALM"] = krb_realm;
+    }
+
+    /**
      * Get the heading for the Kerberos options section of the help text for PVACMS when compiled with the kerberos authenticator.
      *
      * This function returns the heading for the Kerberos options section of the help text for PVACMS when compiled with the kerberos authenticator.

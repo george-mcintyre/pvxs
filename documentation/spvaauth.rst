@@ -270,28 +270,28 @@ Common Environment Variables for all Authenticators
 +----------------------+------------------------------------+-----------------------------------------------------------------------+
 | Name                 | Keys and Values                    | Description                                                           |
 +======================+====================================+=======================================================================+
-|| EPICS_PVA_AUTH_STD  || {name to use}                     || Name to use in new certificates                                      |
+|| EPICS_PVA_AUTH      || {name to use}                     || Name to use in new certificates                                      |
 || _NAME               || e.g. ``archiver``                 ||                                                                      |
 +----------------------+  e.g. ``IOC1``                     ||                                                                      |
-|| EPICS_PVAS_AUTH_STD || e.g. ``greg``                     ||                                                                      |
+|| EPICS_PVAS_AUTH     || e.g. ``greg``                     ||                                                                      |
 || _NAME               ||                                   ||                                                                      |
 +----------------------+------------------------------------+-----------------------------------------------------------------------+
-|| EPICS_PVA_AUTH_STD  || {organization to use}             || Organization to use in new certificates                              |
-|| _ORG                || e.g. ``site.epics.org``           ||                                                                      |
+|| EPICS_PVA_AUTH      || {organization to use}             || Organization to use in new certificates                              |
+|| _ORGANIZATION       || e.g. ``site.epics.org``           ||                                                                      |
 +----------------------+  e.g. ``SLAC.STANFORD.EDU``        ||                                                                      |
-|| EPICS_PVAS_AUTH_STD || e.g. ``KLYS:LI01:101``            ||                                                                      |
-|| _ORG                || e.g. ``centos07``                 ||                                                                      |
+|| EPICS_PVAS_AUTH     || e.g. ``KLYS:LI01:101``            ||                                                                      |
+|| _ORGANIZATION       || e.g. ``centos07``                 ||                                                                      |
 +----------------------+------------------------------------+-----------------------------------------------------------------------+
-|| EPICS_PVA_AUTH_STD  || {organization unit to use}        || Organization Unit to use in new certificates                         |
-|| _ORG_UNIT           || e.g. ``data center``              ||                                                                      |
+|| EPICS_PVA_AUTH_     || {organization unit to use}        || Organization Unit to use in new certificates                         |
+|| ORGANIZATIONAL_UNIT || e.g. ``data center``              ||                                                                      |
 +----------------------+  e.g. ``ops``                      ||                                                                      |
-|| EPICS_PVAS_AUTH_STD || e.g. ``prod``                     ||                                                                      |
-|| _ORG_UNIT           || e.g. ``remote``                   ||                                                                      |
+|| EPICS_PVAS_AUTH_     || e.g. ``prod``                     ||                                                                      |
+|| _ORGANIZATIONAL_UNIT|| e.g. ``remote``                   ||                                                                      |
 +----------------------+------------------------------------+-----------------------------------------------------------------------+
-|| EPICS_PVA_AUTH_STD  || {country to use}                  || Country to use in new certificates.                                  |
+|| EPICS_PVA_AUTH      || {country to use}                  || Country to use in new certificates.                                  |
 || _COUNTRY            || e.g. ``US``                       || Must be a two digit country code                                     |
 +----------------------+  e.g. ``CA``                       ||                                                                      |
-|| EPICS_PVAS_AUTH_STD ||                                   ||                                                                      |
+|| EPICS_PVAS_AUTH     ||                                   ||                                                                      |
 || _COUNTRY            ||                                   ||                                                                      |
 +----------------------+------------------------------------+-----------------------------------------------------------------------+
 
@@ -315,22 +315,22 @@ It can be used to create a certificate with a username and hostname.
 - `CN` field in the certificate will be the logged in username
 
   - unless the `-n` `--name` commandline option is set
-  - unless the `EPICS_PVA_AUTH_STD_NAME`, `EPICS_PVAS_AUTH_STD_NAME` environment variable is set
+  - unless the `EPICS_PVA_AUTH_NAME`, `EPICS_PVAS_AUTH_NAME` environment variable is set
 
 - `O` field in the certificate will be the hostname or ip address
 
   - unless the `-o` `--organization`  commandline option is set
-  - unless the `EPICS_PVA_AUTH_STD_ORG`, `EPICS_PVAS_AUTH_STD_ORG` environment variable is set
+  - unless the `EPICS_PVA_AUTH_ORGANIZATION`, `EPICS_PVAS_AUTH_ORGANIZATION` environment variable is set
 
 - `OU` field in the certificate will not be set
 
   - unless the `--ou`  commandline option is set
-  - unless the `EPICS_PVA_AUTH_STD_ORG_UNIT`, `EPICS_PVAS_AUTH_STD_ORG_UNIT` environment variable is set
+  - unless the `EPICS_PVA_AUTH_ORGANIZATIONAL_UNIT`, `EPICS_PVAS_AUTH_ORGANIZATIONAL_UNIT` environment variable is set
 
 - `C` field in the certificate will be set to the local country code
 
   - unless the `-c` `--country`  commandline option is set
-  - unless the `EPICS_PVA_AUTH_STD_COUNTRY`, `EPICS_PVAS_AUTH_STD_COUNTRY` environment variable is set
+  - unless the `EPICS_PVA_AUTH_COUNTRY`, `EPICS_PVAS_AUTH_COUNTRY` environment variable is set
 
 **usage**
 
@@ -367,7 +367,7 @@ and password file locations.
 +----------------------+------------------------------------+-----------------------------------------------------------------------+
 | Name                 | Keys and Values                    | Description                                                           |
 +======================+====================================+=======================================================================+
-|| EPICS_AUTH_STD      || <number of minutes>               || Amount of minutes before the certificate expires.                    |
+|| EPICS_AUTH_         || <number of minutes>               || Amount of minutes before the certificate expires.                    |
 || _CERT_VALIDITY_MINS || e.g. ``525960`` for 1 year        ||                                                                      |
 +----------------------+------------------------------------+-----------------------------------------------------------------------+
 
