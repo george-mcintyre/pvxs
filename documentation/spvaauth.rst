@@ -503,7 +503,7 @@ and password file locations.
     options:
       (-u | --cert-usage) <usage>                Specify the certificate usage.  client|server|hybrid.  Default `client`
       (-s | --validator-service) <service-name>  Specify kerberos validator service.  Default `pvacms`
-      (-r | --realm) <krb-realm>                 Specify the kerberos realm
+      (-r | --realm) <krb-realm>                 Specify the kerberos realm.  If not specified we'll take it from the ticket
       (-D | --daemon)                            Start a daemon that re-requests a certificate on expiration`
       --add-config-uri                            Add a config uri to the generated certificate
       --config-uri-base <config_uri_base>         Specifies the config URI base to add to a certificate.  Default `CERT:CONFIG`
