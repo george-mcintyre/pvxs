@@ -48,7 +48,7 @@ void ConfigLdap::fromLdapEnv(const std::map<std::string, std::string> &defs) {
  *
  * @param defs the definitions to update with the LDAP authenticator specific definitions
  */
-void ConfigLdap::updateDefs(defs_t& defs) const {
+void ConfigLdap::updateDefs(defs_t &defs) const {
     ConfigAuthN::updateDefs(defs);
     if (!ldap_account_password.empty()) defs["EPICS_AUTH_LDAP_ACCOUNT_PWD_FILE"] = "<password read>";
     defs["EPICS_AUTH_LDAP_HOST"] = ldap_host;

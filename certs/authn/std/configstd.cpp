@@ -32,11 +32,10 @@ void ConfigStd::fromStdEnv(const std::map<std::string, std::string> &defs) {
  *
  * @param defs the definitions to update with the standard authenticator specific definitions
  */
-void ConfigStd::updateDefs(defs_t& defs) const {
+void ConfigStd::updateDefs(defs_t &defs) const {
     ConfigAuthN::updateDefs(defs);
     defs["EPICS_AUTH_CERT_VALIDITY_MINS"] = SB() << cert_validity_mins;
 }
-
 
 }  // namespace certs
 }  // namespace pvxs

@@ -84,12 +84,12 @@ void ConfigAuthN::fromAuthEnv(const std::map<std::string, std::string> &defs) {
  * Update the definitions with the generic authenticator definitions.
  *
  * This function is called from each authenticator to update the definitions with the generic authenticator definitions.
- * It updates the definitions with the name, server name, organization, server organization, 
+ * It updates the definitions with the name, server name, organization, server organization,
  * organizational unit, server organizational unit, country, server country, and TLS keychain file.
  *
  * @param defs the definitions to update with the generic authenticator definitions
- */ 
-void ConfigAuthN::updateDefs(defs_t& defs) const {
+ */
+void ConfigAuthN::updateDefs(defs_t &defs) const {
     Config::updateDefs(defs);
     defs["EPICS_PVA_AUTH_NAME"] = name;
     defs["EPICS_PVAS_AUTH_NAME"] = server_name;

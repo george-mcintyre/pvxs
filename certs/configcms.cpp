@@ -7,6 +7,7 @@
 #include "configcms.h"
 
 #include <authregistry.h>
+
 #include <pvxs/log.h>
 
 DEFINE_LOGGER(cert_cfg, "pvxs.certs.cfg");
@@ -160,23 +161,24 @@ void ConfigCms::fromCmsEnv(const std::map<std::string, std::string> &defs) {
  * This function is called from PVACMS to update the definitions with the PVACMS specific definitions.
  * It updates the definitions with the TLS stop if no cert, the ACF file, the certs database file, the certificate authority keychain file,
  * the admin keychain file, the certificate authority name, the certificate authority organization, the certificate authority organizational unit,
- * the certificate authority country, the certificate validity minutes, the client require approval, the server require approval, 
+ * the certificate authority country, the certificate validity minutes, the client require approval, the server require approval,
  * the hybrid require approval, and the certificate status subscription.
- * 
+ *
  * It also adds any defs for any registered authn methods
  *
  * @param defs the definitions to update with the PVACMS specific definitions
  */
-void ConfigCms::updateDefs(defs_t& defs) const {
+void ConfigCms::updateDefs(defs_t &defs) const {
     Config::updateDefs(defs);
-    defs["EPICS_PVACMS_TLS_STOP_IF_NO_CERT"] =  tls_stop_if_no_cert ? "YES" : "NO";
+    defs["EPICS_PVACMS_TLS_STOP_IF_NO_CERT"] = tls_stop_if_no_cert ? "YES" : "NO";
     defs["EPICS_PVACMS_ACF"] = pvacms_acf_filename;
     defs["EPICS_PVACMS_DB"] = certs_db_filename;
     defs["EPICS_CERT_AUTH_TLS_KEYCHAIN"] = cert_auth_keychain_file;
     defs["EPICS_ADMIN_TLS_KEYCHAIN"] = admin_keychain_file;
     defs["EPICS_CERT_AUTH_NAME"] = cert_auth_name;
     defs["EPICS_CERT_AUTH_ORGANIZATION"] = defs["EPICS_PVAS_AUTH_ORGANIZATION"] = defs["EPICS_PVA_AUTH_ORGANIZATION"] = cert_auth_organization;
-    defs["EPICS_CERT_AUTH_ORGANIZATIONAL_UNIT"] = defs["EPICS_PVAS_AUTH_ORGANIZATIONAL_UNIT"] = defs["EPICS_PVA_AUTH_ORGANIZATIONAL_UNIT"] = cert_auth_organizational_unit;
+    defs["EPICS_CERT_AUTH_ORGANIZATIONAL_UNIT"] = defs["EPICS_PVAS_AUTH_ORGANIZATIONAL_UNIT"] = defs["EPICS_PVA_AUTH_ORGANIZATIONAL_UNIT"] =
+        cert_auth_organizational_unit;
     defs["EPICS_CERT_AUTH_COUNTRY"] = defs["EPICS_PVAS_AUTH_COUNTRY"] = defs["EPICS_PVAS_AUTH_COUNTRY"] = cert_auth_country;
     defs["EPICS_PVACMS_CERT_STATUS_VALIDITY_MINS"] = SB() << cert_status_validity_mins;
     defs["EPICS_PVACMS_REQUIRE_CLIENT_APPROVAL"] = cert_client_require_approval ? "YES" : "NO";
@@ -186,9 +188,7 @@ void ConfigCms::updateDefs(defs_t& defs) const {
 
     // Add any defs for any registered authn methods
     for (auto &authn_entry : AuthRegistry::getRegistry()) authn_entry.second->updateDefs(defs);
-
 }
-
 
 }  // namespace certs
 }  // namespace pvxs

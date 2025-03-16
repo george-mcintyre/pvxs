@@ -9,7 +9,7 @@
 namespace pvxs {
 namespace certs {
 
-void ConfigKrb::fromKrbEnv(const std::map<std::string, std::string> &defs) {
+void ConfigKrb::fromKrbEnv(const std::map<std::string, std::string>& defs) {
     PickOne pickone{defs, true};
 
     // KRB5_KTNAME
@@ -45,7 +45,6 @@ void ConfigKrb::updateDefs(defs_t& defs) const {
     defs["EPICS_AUTH_KRB_VALIDATOR_SERVICE"] = krb_validator_service;
     defs["EPICS_AUTH_KRB_REALM"] = krb_realm;
 }
-
 
 }  // namespace certs
 }  // namespace pvxs

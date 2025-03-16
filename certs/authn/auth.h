@@ -13,8 +13,8 @@
 
 #include <certstatusfactory.h>
 
-#include <pvxs/data.h>
 #include <pvxs/client.h>
+#include <pvxs/data.h>
 
 #include <CLI/App.hpp>
 
@@ -164,8 +164,7 @@ class Auth {
      *
      * @param defs the definitions to update with the authenticator specific definitions
      */
-    virtual void updateDefs(client::Config::defs_t& defs) const {
-    }
+    virtual void updateDefs(client::Config::defs_t &defs) const {}
 
     /**
      * @brief Registration of all supported auth methods.
