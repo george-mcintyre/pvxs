@@ -227,15 +227,14 @@ int main(const int argc, char *argv[]) {
         const auto parse_result = readParameters(argc, argv, config, verbose, debug, cert_usage, daemon_mode);
         if (parse_result) exit(parse_result);
 
-        if (verbose) logger_level_set("pvxs.auth.std*", pvxs::Level::Info);
-        if (debug) logger_level_set("pvxs.auth.std*", pvxs::Level::Debug);
-
-        // Standard authenticator
         AuthNStd authenticator{};
+
+        if (verbose) logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Info);
+        if (debug) logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Debug);
+
         // Add configuration to authenticator
         authenticator.configure(config);
 
-        // log the effective config
         if (verbose) {
             std::cout << "Effective config\n" << config << std::endl;
         }
@@ -244,7 +243,6 @@ int main(const int argc, char *argv[]) {
         const std::string tls_keychain_file = IS_FOR_A_SERVER_(cert_usage) ? config.tls_srv_keychain_file : config.tls_keychain_file;
         const std::string tls_keychain_pwd = IS_FOR_A_SERVER_(cert_usage) ? config.tls_srv_keychain_pwd : config.tls_keychain_pwd;
 
-        // Get the Standard authenticator credentials
         CertData cert_data;
         try {
             if (daemon_mode) {
@@ -267,7 +265,6 @@ int main(const int argc, char *argv[]) {
                                                                    tls_keychain_pwd);
                                          });
         }
-
         return 0;
     } catch (std::exception &e) {
         if (retrieved_credentials)

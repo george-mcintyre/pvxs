@@ -224,14 +224,15 @@ int main(int argc, char *argv[]) {
         bool verbose{false}, debug{false}, daemon_mode{false};
         uint16_t cert_usage{pvxs::ssl::kForClient};
 
-        auto parse_result = readParameters(argc, argv, config, verbose, debug, cert_usage, daemon_mode);
+        const auto parse_result = readParameters(argc, argv, config, verbose, debug, cert_usage, daemon_mode);
         if (parse_result) exit(parse_result);
-
-        if (verbose) logger_level_set("pvxs.auth.ldap*", pvxs::Level::Info);
-        if (debug) logger_level_set("pvxs.auth.ldap*", pvxs::Level::Debug);
 
         // Standard authenticator
         AuthNLdap authenticator{};
+
+        if (verbose) logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Info);
+        if (debug) logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Debug);
+
         // Add configuration to authenticator
         authenticator.configure(config);
 
@@ -239,11 +240,10 @@ int main(int argc, char *argv[]) {
             std::cout << "Effective config\n" << config << std::endl;
         }
 
+        // Get the keychain file and password based on the certificate usage
         const std::string tls_keychain_file = IS_FOR_A_SERVER_(cert_usage) ? config.tls_srv_keychain_file : config.tls_keychain_file;
         const std::string tls_keychain_pwd = IS_FOR_A_SERVER_(cert_usage) ? config.tls_srv_keychain_pwd : config.tls_keychain_pwd;
 
-        // Get the Standard authenticator credentials
-        // Get the Standard authenticator credentials
         CertData cert_data;
         try {
             if (daemon_mode) {
@@ -259,9 +259,9 @@ int main(int argc, char *argv[]) {
 
         if (!cert_data.cert) cert_data = getCertificate(retrieved_credentials, config, cert_usage, authenticator, tls_keychain_file, tls_keychain_pwd);
 
-        if (daemon_mode) {
+        if (cert_data.cert && daemon_mode) {
             authenticator.runAuthNDaemon(config, IS_USED_FOR_(cert_usage, pvxs::ssl::kForClient), std::move(cert_data),
-                                         [&retrieved_credentials, config, cert_usage, authenticator, tls_keychain_file, tls_keychain_pwd]() {
+                                         [&retrieved_credentials, config, cert_usage, authenticator, tls_keychain_file, tls_keychain_pwd] {
                                              return getCertificate(retrieved_credentials, config, cert_usage, authenticator, tls_keychain_file,
                                                                    tls_keychain_pwd);
                                          });

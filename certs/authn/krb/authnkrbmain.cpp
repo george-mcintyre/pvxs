@@ -214,24 +214,24 @@ using namespace pvxs::certs;
  */
 int main(const int argc, char *argv[]) {
     pvxs::logger_config_env();
-    bool retrieved_credentials{false}, daemon_mode{false};
+    bool retrieved_credentials{false};
 
     try {
         pvxs::ossl::sslInit();
 
         auto config = ConfigKrb::fromEnv();
 
-        bool verbose{false}, debug{false};
+        bool verbose{false}, debug{false}, daemon_mode{false};
         uint16_t cert_usage{pvxs::ssl::kForClient};
 
         const auto parse_result = readParameters(argc, argv, config, verbose, debug, cert_usage, daemon_mode);
         if (parse_result) exit(parse_result);
 
-        if (verbose) logger_level_set("pvxs.auth.krb*", pvxs::Level::Info);
-        if (debug) logger_level_set("pvxs.auth.krb*", pvxs::Level::Debug);
-
         // Kerberos authenticator
         AuthNKrb authenticator{};
+
+        if (verbose) logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Info);
+        if (debug) logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Debug);
 
         // If the realm is not set, use the realm from the kerberos ticket
         if (config.krb_realm.empty()) config.krb_realm = authenticator.getRealm();
