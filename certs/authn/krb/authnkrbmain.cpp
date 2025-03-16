@@ -227,7 +227,6 @@ int main(const int argc, char *argv[]) {
         const auto parse_result = readParameters(argc, argv, config, verbose, debug, cert_usage, daemon_mode);
         if (parse_result) exit(parse_result);
 
-        // Kerberos authenticator
         AuthNKrb authenticator{};
 
         if (verbose) logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Info);
@@ -239,7 +238,6 @@ int main(const int argc, char *argv[]) {
         // Add configuration to authenticator
         authenticator.configure(config);
 
-        // Log the effective config
         if (verbose) {
             std::cout << "Effective config\n" << config << std::endl;
         }
@@ -248,7 +246,6 @@ int main(const int argc, char *argv[]) {
         const std::string tls_keychain_file = IS_FOR_A_SERVER_(cert_usage) ? config.tls_srv_keychain_file : config.tls_keychain_file;
         const std::string tls_keychain_pwd = IS_FOR_A_SERVER_(cert_usage) ? config.tls_srv_keychain_pwd : config.tls_keychain_pwd;
 
-        // Get the Standard authenticator credentials
         CertData cert_data;
         try {
             if (daemon_mode) {
@@ -264,7 +261,7 @@ int main(const int argc, char *argv[]) {
 
         if (!cert_data.cert) cert_data = getCertificate(retrieved_credentials, config, cert_usage, authenticator, tls_keychain_file, tls_keychain_pwd);
 
-        if (daemon_mode) {
+        if (cert_data.cert && daemon_mode) {
             authenticator.runAuthNDaemon(config, IS_USED_FOR_(cert_usage, pvxs::ssl::kForClient), std::move(cert_data),
                                          [&retrieved_credentials, config, cert_usage, authenticator, tls_keychain_file, tls_keychain_pwd] {
                                              return getCertificate(retrieved_credentials, config, cert_usage, authenticator, tls_keychain_file,

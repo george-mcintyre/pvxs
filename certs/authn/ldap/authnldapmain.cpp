@@ -227,7 +227,6 @@ int main(int argc, char *argv[]) {
         const auto parse_result = readParameters(argc, argv, config, verbose, debug, cert_usage, daemon_mode);
         if (parse_result) exit(parse_result);
 
-        // Standard authenticator
         AuthNLdap authenticator{};
 
         if (verbose) logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Info);
@@ -266,7 +265,6 @@ int main(int argc, char *argv[]) {
                                                                    tls_keychain_pwd);
                                          });
         }
-
         return 0;
     } catch (std::exception &e) {
         if (retrieved_credentials)
