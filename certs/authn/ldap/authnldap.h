@@ -32,13 +32,13 @@ namespace certs {
  * The subclass of Credentials that contains the AuthNLdap specific
  * identification object
  */
-struct LdapCredentials : Credentials {
+struct LdapCredentials final : Credentials {
     std::string password{};
     std::string ldap_server{};
     unsigned short ldap_port = 389;
 };
 
-class AuthNLdap : public Auth {
+class AuthNLdap final : public Auth {
    public:
     // Constructor
     AuthNLdap() : Auth(PVXS_LDAP_AUTH_TYPE, {Member(TypeCode::String, "signature")}) {};

@@ -180,15 +180,19 @@ below:
 
 .. code-block:: c++
 
-    class AuthNLdap : public Auth {
+    class AuthNLdap final : public Auth {
       public:
+        // Copy config settings into the Authenticator
         void configure(const client::Config &config) override {
             auto &config_ldap = dynamic_cast<const ConfigLdap &>(config);
             ldap_server = config_ldap.ldap_host;
             ldap_port = config_ldap.ldap_port;
         };
 
+        // Define placeholder text e.g. `command [placeholder] [options] positional parameters`
         std::string getOptionsPlaceholderText() override { return " [ldap options]"; }
+
+        // Define the help text for the options
         std::string getOptionsHelpText() override {
             return "\n"
                    "ldap options\n"
@@ -196,11 +200,82 @@ below:
                    "        --ldap-port <port>                   LDAP port.  Default 389\n";
         }
 
+        // Add options to given commandline parser
         void addOptions(CLI::App &app, std::map<const std::string, std::unique_ptr<client::Config>> &authn_config_map) override {
             auto &config = authn_config_map.at(PVXS_LDAP_AUTH_TYPE);
             auto config_ldap = dynamic_cast<const ConfigLdap &>(*config);
             app.add_option("--ldap-host", config_ldap.ldap_host, "Specify LDAP hostname or IP address");
             app.add_option("--ldap-port", config_ldap.ldap_port, "Specify LDAP port number");
+        }
+    };
+
+
+5. Extra environment variables for PVACMS
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you need to add some environment variables for PVACMS for your Authenticator
+just override these methods in the base ``Auth`` and ``ConfigAuthN`` classes.
+e.g. for Kerberos shown below.
+
+.. code-block:: c++
+
+    class AuthNKrb final : public Auth {
+      public:
+        // Copy config settings into the Authenticator
+        void configure(const client::Config &config) override {
+            auto &config_krb = dynamic_cast<const ConfigKrb &>(config);
+            krb_validator_service_name = SB() << config_krb.krb_validator_service << PVXS_KRB_DEFAULT_VALIDATOR_CLUSTER_PART << config_krb.krb_realm;
+            krb_realm = config_krb.krb_realm;
+            krb_keytab_file = config_krb.krb_keytab;
+        }
+
+        // Update the definitions map for display of effective config
+        void updateDefs(client::Config::defs_t &defs) const override {
+            defs["KRB5_KTNAME"] = krb_keytab_file;
+            defs["KRB5_CLIENT_KTNAME"] = krb_keytab_file;
+            defs["EPICS_AUTH_KRB_VALIDATOR_SERVICE"] = krb_validator_service_name;
+            defs["EPICS_AUTH_KRB_REALM"] = krb_realm;
+        }
+
+        // Construct a new AuthNKrb, configured from the environment
+        void fromEnv(std::unique_ptr<client::Config> &config) override { config.reset(new ConfigKrb(ConfigKrb::fromEnv())); }
+    };
+
+    class ConfigKrb final : public ConfigAuthN {
+      public:
+        ConfigKrb& applyEnv() {
+            Config::applyEnv(true, CLIENT);
+            return *this;
+        }
+
+        // Make a new config containing the base classes environment settings plus any
+        // environment variables for this Authenticator
+        static ConfigKrb fromEnv() {
+            auto config = ConfigKrb{}.applyEnv();
+            const auto defs = std::map<std::string, std::string>();
+            config.fromAuthEnv(defs);
+            config.fromKrbEnv(defs);
+            return config;
+        }
+
+        void ConfigKrb::fromKrbEnv(const std::map<std::string, std::string>& defs) {
+            PickOne pickone{defs, true};
+
+            // KRB5_KTNAME
+            // This is the environment variable defined by krb5
+            if (pickone({"KRB5_KTNAME", "KRB5_CLIENT_KTNAME"})) {
+                krb_keytab = pickone.val;
+            }
+
+            // EPICS_AUTH_KRB_REALM
+            if (pickone({"EPICS_AUTH_KRB_VALIDATOR_SERVICE"})) {
+                krb_validator_service = pickone.val;
+            }
+
+            // EPICS_AUTH_KRB_REALM
+            if (pickone({"EPICS_AUTH_KRB_REALM"})) {
+                krb_realm = pickone.val;
+            }
         }
     };
 
