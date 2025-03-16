@@ -338,9 +338,9 @@ TYPE ``2`` - Source Verifiable Tokens
 
 
 Common Environment Variables for all Authenticators
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**Environment Variables for authnstd**
+**Configuration options for Standard Authenticator**
 
 +----------------------+------------------------------------+-----------------------------------------------------------------------+
 | Name                 | Keys and Values                    | Description                                                           |
@@ -360,8 +360,8 @@ Common Environment Variables for all Authenticators
 || EPICS_PVA_AUTH_     || {organization unit to use}        || Organization Unit to use in new certificates                         |
 || ORGANIZATIONAL_UNIT || e.g. ``data center``              ||                                                                      |
 +----------------------+  e.g. ``ops``                      ||                                                                      |
-|| EPICS_PVAS_AUTH_     || e.g. ``prod``                     ||                                                                      |
-|| _ORGANIZATIONAL_UNIT|| e.g. ``remote``                   ||                                                                      |
+|| EPICS_PVAS_AUTH_    || e.g. ``prod``                     ||                                                                      |
+|| ORGANIZATIONAL_UNIT || e.g. ``remote``                   ||                                                                      |
 +----------------------+------------------------------------+-----------------------------------------------------------------------+
 || EPICS_PVA_AUTH      || {country to use}                  || Country to use in new certificates.                                  |
 || _COUNTRY            || e.g. ``US``                       || Must be a two digit country code                                     |
@@ -369,7 +369,6 @@ Common Environment Variables for all Authenticators
 || EPICS_PVAS_AUTH     ||                                   ||                                                                      |
 || _COUNTRY            ||                                   ||                                                                      |
 +----------------------+------------------------------------+-----------------------------------------------------------------------+
-
 
 Included Reference Authenticators
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -491,9 +490,9 @@ and password file locations.
 
 .. code-block:: shell
 
-    authnkrb - Secure PVAccess with Kerberos Authentication
+    authnkrb - Secure PVAccess Kerberos Authenticator
 
-    Generates client, server, or hybrid certificates based on the kerberos authentication method.
+    Generates client, server, or hybrid certificates based on the kerberos Authenticator.
     Uses current kerberos ticket to create certificates with the same validity as the ticket.
 
     usage:
@@ -513,19 +512,24 @@ and password file locations.
 
 **Environment Variables for PVACMS AuthnKRB Verifier**
 
-The environment variables in the following table configure the Kerberos
+The environment variables and parameters in the following table configure the Kerberos
 Credentials Verifier for :ref:`pvacms` at runtime.
 
-
-+-----------------+--------------------------------------+---------------------------------------------------------------------+
-| Name            | Keys and Values                      | Description                                                         |
-+=================+======================================+=====================================================================+
-|| EPICS_AUTH_KRB || {string location of keytab file}    || This is the keytab file shared with :ref:`pvacms` by the KDC so .  |
-|| _KEYTAB        || e.g. ``/etc/security/keytab``       || that it can verify kerberos tickets                                |
-+-----------------+--------------------------------------+---------------------------------------------------------------------+
-|| EPICS_AUTH_KRB || {this is the kerberos realm to use} || This is the kerberos realm to use when verifying kerberos tickets. |
-|| _REALM         || e.g. ``SLAC.STANFORD.EDU``          || Overrides the verifier fields if specified.                        |
-+-----------------+--------------------------------------+---------------------------------------------------------------------+
++----------------------+---------------------+--------------------------+----------------------+--------------------------------------+-----------------------------------------------------------------------+
+| Env. *authnkrb*      | Env. *pvacms*       | Params. *authkrb*        | Params. *pvacms*     | Keys and Values                      | Description                                                           |
++======================+=====================+==========================+======================+======================================+=======================================================================+
+||                     || KRB5_KTNAME        ||                         ||                     || {string location of keytab file}    || This is the keytab file shared with :ref:`pvacms` by the KDC so      |
+||                     ||                    ||                         ||                     || e.g. ``/etc/security/keytab``       || that it can verify kerberos tickets                                  |
+||                     +---------------------+--------------------------+|                     ||                                     ||                                                                      |
+||                     || KRB5_CLIENT_KTNAME ||                         ||                     ||                                     ||                                                                      |
+||                     ||                    ||                         ||                     ||                                     ||                                                                      |
++----------------------+---------------------+--------------------------+----------------------+--------------------------------------+-----------------------------------------------------------------------+
+|| EPICS_AUTH_KRB_VALIDATOR_SERVICE          || ``-s``                  || ``--krb-service``   || {this is service name}              || The name of the service user created in the KDC that the pvacms      |
+||                                           || ``--validator-service`` ||                     || e.g. ``pvacms/cluster@EPICS.ORG``   || service will log in as                                               |
++--------------------------------------------+--------------------------+----------------------+--------------------------------------+-----------------------------------------------------------------------+
+|| EPICS_AUTH_KRB_REALM                      || ``-r``                  || ``--krb-realm``     || e.g. ``EPICS.ORG``                  || Kerberos REALM authenticate against                                  |
+||                                           || ``--realm``             ||                     ||                                     ||                                                                      |
++--------------------------------------------+--------------------------+----------------------+--------------------------------------+-----------------------------------------------------------------------+
 
 **Setup of Kerberos in Docker Container for testing**
 
@@ -534,7 +538,7 @@ that contains a working kerberos KDC with the following characteristics:
 
 - users (both unix and kerberos principals)
 
-  - pvacms - service principal with private keytab file for authentication in ~/.config
+  - pvacms - service principal with private keytab file for authentication in ~/.config/pva/1.3/pvacms.keytab
   - admin - principal with password "secret" (includes a configured PVACMS administrator certificate)
   - softioc - service principal with password "secret"
   - client - principal with password "secret"
@@ -567,38 +571,52 @@ and password file locations.
 
 .. code-block:: shell
 
-    authnldap <opts>
+    authnldap - Secure PVAccess LDAP Authenticator
 
-    Options:
-    -h show help
-    -v verbose output
-    -t {client | server}     Client or server certificate certificate type
-    -C                       Create a certificate and exit
+    Generates client, server, or hybrid certificates based on the LDAP credentials.
 
+    usage:
+      authnldap [options]                        Create certificate in PENDING_APPROVAL state
+      authnldap (-h | --help)                    Show this help message and exit
+      authnldap (-V | --version)                 Print version and exit
 
-**Environment Variables for PVACMS AuthnLDAP Verifier**
+    options:
+      (-u | --cert-usage) <usage>                Specify the certificate usage.  client|server|hybrid.  Default `client`
+      (-n | --name) <name>                       Specify LDAP username for common name in the certificate.
+                                                 e.g. name ==> LDAP: uid=name, ou=People ==> Cert: CN=name
+                                                 Default <logged-in-username>
+      (-o | --organization) <organization>       Specify LDAP org for organization in the certificate.
+                                                 e.g. epics.org ==> LDAP: dc=epics, dc=org ==> Cert: O=epics.org
+                                                 Default <hostname>
+      (-p | --password) <name>                   Specify LDAP password. If not specified will prompt for password
+      (     --ldap-host) <hostname>              LDAP server host
+      (     --ldap-port) <port>                  LDAP serever port
+      (-D | --daemon)                            Start a daemon that re-requests a certificate on expiration`
+      --add-config-uri                           Add a config uri to the generated certificate
+      --config-uri-base <config_uri_base>        Specifies the config URI base to add to a certificate.  Default `CERT:CONFIG`
+      (-v | --verbose)                           Verbose mode
+      (-d | --debug)                             Debug mode
 
-The environment variables in the following table configure the
-LDAP Credentials Verifier for :ref:`pvacms` at runtime in addition to the AuthnKrb environment variables.
+**Environment Variables for authnldap and PVACMS AuthnLDAP Verifier**
 
-+--------------------+---------------------------------------+------------------------------------------------------------+
-| Name               | Keys and Values                       | Description                                                |
-+====================+=======================================+============================================================+
-|| EPICS_AUTH_LDAP   || <account>                            || The admin account to use to access the LDAP server.       |
-|| _ACCOUNT          || e.g. ``admin``                       || when verifying LDAP credentials.                          |
-+--------------------+---------------------------------------+------------------------------------------------------------+
-|| EPICS_AUTH_LDAP   || {location of password file}          || file containing password for the given LDAP admin account |
-|| _ACCOUNT_PWD_FILE || e.g. ``~/.config/ldap.pass/``        ||                                                           |
-+--------------------+---------------------------------------+------------------------------------------------------------+
-|| EPICS_AUTH_LDAP   || {hostname of LDAP server}            || Trusted hostname of the LDAP server                       |
-|| _HOST             || e.g. ``ldap.stanford.edu``           ||                                                           |
-+--------------------+---------------------------------------+------------------------------------------------------------+
-|| EPICS_AUTH_LDAP   || <port_number>                        || LDAP server port number. Default is 389                   |
-|| _PORT             || e.g. ``389``                         ||                                                           |
-+--------------------+---------------------------------------+------------------------------------------------------------+
-|| EPICS_AUTH_LDAP   || {LDAP directory name to search from} || LDAP directory name to search from.                       |
-|| _SEARCH_ROOT      || e.g. ``dc=slac,dc=stanford,dc=edu``  ||                                                           |
-+--------------------+---------------------------------------+------------------------------------------------------------+
+The environment variables and parameters in the following table configure the authnldap client and
+LDAP Credentials Verifier for :ref:`pvacms` at runtime.
+
++--------------------+--------------------------+--------------------------+--------------------------+---------------------------------------+------------------------------------------------------------+
+| Env. *authnldap*   | Env. *pvacms*            | Params. *authldap*       | Params. *pvacms*         | Keys and Values                       | Description                                                |
++====================+==========================+==========================+==========================+=======================================+============================================================+
+|| EPICS_AUTH_LDAP   ||                         ||                         ||                         || {location of password file}          || file containing password for the given LDAP user account  |
+|| _ACCOUNT_PWD_FILE ||                         ||                         ||                         || e.g. ``~/.config/ldap.pass/``        ||                                                           |
++--------------------+--------------------------+--------------------------+--------------------------+---------------------------------------+------------------------------------------------------------+
+||                   ||                         || ``-p``                  ||                         || {LDAP account password}              || password for the given LDAP user account                  |
+||                   ||                         || ``--password``          ||                         || e.g. ``secret``                      ||                                                           |
++--------------------+--------------------------+--------------------------+--------------------------+---------------------------------------+------------------------------------------------------------+
+|| EPICS_AUTH_LDAP_HOST                         ||                                                    || {hostname of LDAP server}            || Trusted hostname of the LDAP server                       |
+||                                              || ``--ldap-host``                                    || e.g. ``ldap.stanford.edu``           ||                                                           |
++-----------------------------------------------+-----------------------------------------------------+---------------------------------------+------------------------------------------------------------+
+|| EPICS_AUTH_LDAP_PORT                         ||                                                    || <port_number>                        || LDAP server port number. Default is 389                   |
+||                                              || ``--ldap-port``                                    || e.g. ``389``                         ||                                                           |
++-----------------------------------------------+-----------------------------------------------------+---------------------------------------+------------------------------------------------------------+
 
 
 authjwt Configuration and Usage

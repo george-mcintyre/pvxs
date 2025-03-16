@@ -159,7 +159,7 @@ class AuthNKrb final : public Auth {
     gss_OID_desc krb5_oid_desc{};
     std::string krb_validator_service_name{PVXS_KRB_DEFAULT_VALIDATOR_SERVICE_NAME};
     std::string krb_keytab_file{};
-    std::string krb_realm{"EPICS.ORG"};
+    std::string krb_realm{PVXS_KRB_DEFAULT_VALIDATOR_REALM };
 
     static std::string gssErrorDescription(OM_uint32 major_status, OM_uint32 minor_status);
 
