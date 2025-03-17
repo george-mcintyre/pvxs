@@ -213,67 +213,10 @@ using namespace pvxs::certs;
  * @return the exit status
  */
 int main(const int argc, char *argv[]) {
-    pvxs::logger_config_env();
-    bool retrieved_credentials{false};
-
-    try {
-        pvxs::ossl::sslInit();
-
-        auto config = ConfigKrb::fromEnv();
-
-        bool verbose{false}, debug{false}, daemon_mode{false};
-        uint16_t cert_usage{pvxs::ssl::kForClient};
-
-        const auto parse_result = readParameters(argc, argv, config, verbose, debug, cert_usage, daemon_mode);
-        if (parse_result) exit(parse_result);
-
-        AuthNKrb authenticator{};
-
-        if (verbose) logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Info);
-        if (debug) logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Debug);
-
-        // If the realm is not set, use the realm from the kerberos ticket
-        if (config.krb_realm.empty()) config.krb_realm = authenticator.getRealm();
-
-        // Add configuration to authenticator
-        authenticator.configure(config);
-
-        if (verbose) {
-            std::cout << "Effective config\n" << config << std::endl;
-        }
-
-        // Get the keychain file and password based on the certificate usage
-        const std::string tls_keychain_file = IS_FOR_A_SERVER_(cert_usage) ? config.tls_srv_keychain_file : config.tls_keychain_file;
-        const std::string tls_keychain_pwd = IS_FOR_A_SERVER_(cert_usage) ? config.tls_srv_keychain_pwd : config.tls_keychain_pwd;
-
-        CertData cert_data;
-        try {
-            if (daemon_mode) {
-                auto new_cert_data = IdFileFactory::create(tls_keychain_file, tls_keychain_pwd)->getCertDataFromFile();
-                const auto now = time(nullptr);
-                const auto not_after_time = CertFactory::getNotAfterTimeFromCert(new_cert_data.cert);
-                if (not_after_time > now) {
-                    cert_data = std::move(new_cert_data);
-                }
+    return runAuthenticator<ConfigKrb, AuthNKrb>(argc, argv, [](ConfigKrb& config, AuthNKrb& auth) {
+            if (config.krb_realm.empty()) {
+                config.krb_realm = auth.getRealm();
             }
-        } catch (std::exception &) {
         }
-
-        if (!cert_data.cert) cert_data = getCertificate(retrieved_credentials, config, cert_usage, authenticator, tls_keychain_file, tls_keychain_pwd);
-
-        if (cert_data.cert && daemon_mode) {
-            authenticator.runAuthNDaemon(config, IS_USED_FOR_(cert_usage, pvxs::ssl::kForClient), std::move(cert_data),
-                                         [&retrieved_credentials, config, cert_usage, authenticator, tls_keychain_file, tls_keychain_pwd] {
-                                             return getCertificate(retrieved_credentials, config, cert_usage, authenticator, tls_keychain_file,
-                                                                   tls_keychain_pwd);
-                                         });
-        }
-        return 0;
-    } catch (std::exception &e) {
-        if (retrieved_credentials)
-            log_warn_printf(auth, "%s\n", e.what());
-        else
-            log_err_printf(auth, "%s\n", e.what());
-    }
-    return -1;
+);
 }

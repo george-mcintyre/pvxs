@@ -22,6 +22,9 @@
 #include "certfactory.h"
 #include "configstd.h"
 #include "security.h"
+#include "sslinit.h"
+
+#pragma once
 
 namespace pvxs {
 namespace certs {
@@ -334,6 +337,83 @@ template <typename S, typename C>
 std::shared_ptr<S> castAs(const std::shared_ptr<C> &baseClass) {
     static_assert(std::is_base_of<C, S>::value, "not a subclass");
     return std::dynamic_pointer_cast<S>(baseClass);
+}
+
+template<typename ConfigT, typename AuthT>
+int runAuthenticator(int argc, char *argv[],
+                    std::function<void(ConfigT&, AuthT&)> preConfigureHook = nullptr);
+
+template<typename ConfigT, typename AuthT>
+int runAuthenticator(int argc, char *argv[],
+                    std::function<void(ConfigT&, AuthT&)> preConfigureHook) {
+    logger_config_env();
+    bool retrieved_credentials{false};
+    AuthT authenticator{};
+
+    try {
+        ossl::sslInit();
+
+        auto config = ConfigT::fromEnv();
+
+        bool verbose{false}, debug{false}, daemon_mode{false};
+        uint16_t cert_usage{pvxs::ssl::kForClient};
+
+        const auto parse_result = readParameters(argc, argv, config, verbose, debug, cert_usage, daemon_mode);
+        if (parse_result) return parse_result;
+
+
+        if (verbose) logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Info);
+        if (debug) logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Debug);
+
+        // Execute special case hook if provided
+        if (preConfigureHook) {
+            preConfigureHook(config, authenticator);
+        }
+
+        authenticator.configure(config);
+
+        if (verbose) {
+            std::cout << "Effective config\n" << config << std::endl;
+        }
+
+        const std::string tls_keychain_file = IS_FOR_A_SERVER_(cert_usage) ? config.tls_srv_keychain_file : config.tls_keychain_file;
+        const std::string tls_keychain_pwd = IS_FOR_A_SERVER_(cert_usage) ? config.tls_srv_keychain_pwd : config.tls_keychain_pwd;
+
+        CertData cert_data;
+        try {
+            if (daemon_mode) {
+                auto new_cert_data = IdFileFactory::create(tls_keychain_file, tls_keychain_pwd)->getCertDataFromFile();
+                const auto now = time(nullptr);
+                const auto not_after_time = CertFactory::getNotAfterTimeFromCert(new_cert_data.cert);
+                if (not_after_time > now) {
+                    cert_data = std::move(new_cert_data);
+                }
+            }
+        } catch (std::exception &) {
+        }
+
+        if (!cert_data.cert) {
+            cert_data = getCertificate(retrieved_credentials, config, cert_usage, authenticator,
+                                     tls_keychain_file, tls_keychain_pwd);
+        }
+
+        if (cert_data.cert && daemon_mode) {
+            authenticator.runAuthNDaemon(config, IS_USED_FOR_(cert_usage, pvxs::ssl::kForClient),
+                std::move(cert_data),
+                [&retrieved_credentials, config, cert_usage, authenticator, tls_keychain_file, tls_keychain_pwd] {
+                    return getCertificate(retrieved_credentials, config, cert_usage, authenticator,
+                                        tls_keychain_file, tls_keychain_pwd);
+                });
+        }
+        return 0;
+    } catch (std::exception &e) {
+        DEFINE_LOGGER(auth, std::string("pvxs.auth." + authenticator.type_).c_str());;
+        if (retrieved_credentials)
+            log_warn_printf(auth, "%s\n", e.what());
+        else
+            log_err_printf(auth, "%s\n", e.what());
+        return -1;
+    }
 }
 
 }  // namespace certs
