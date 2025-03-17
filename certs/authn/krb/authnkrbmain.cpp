@@ -4,35 +4,80 @@
  * in file LICENSE that is included with this distribution.
  */
 
-#include <cstring>
-#include <stdexcept>
-#include <string>
-
-#include "authnkrb.h"
-
-#ifdef __APPLE__
-#include <GSS/gssapi.h>
-#else
-#include <gssapi/gssapi.h>
-#endif
-
-#include <pvxs/config.h>
-#include <pvxs/sslinit.h>
-
 #include <CLI/CLI.hpp>
 
+#include "authnkrb.h"
 #include "authregistry.h"
-#include "certfilefactory.h"
-#include "certstatusfactory.h"
 #include "configkrb.h"
 #include "openssl.h"
 #include "p12filefactory.h"
-#include "utilpvt.h"
-
-DEFINE_LOGGER(auth, "pvxs.auth.krb");
 
 namespace pvxs {
 namespace certs {
+
+/**
+ * @brief Define the options for the authnkrb tool
+ *
+ * This function defines the options for the authnkrb tool.
+ *
+ * @param app the CLI::App object to add the options to
+ * @param config the configuration to override with command line parameters
+ * @param verbose the verbose flag to set the logger level
+ * @param debug the debug flag to set the logger level
+ * @param daemon_mode the daemon mode flag to set daemon mode
+ * @param show_version the show version flag to show version and exit
+ * @param help the help flag to show this help message and exit
+ * @param add_config_uri the add config uri flag to add a config uri to the generated certificate
+ * @param usage the certificate usage client, server, or hybrid
+ */
+void defineOptions(CLI::App &app, ConfigKrb &config, bool &verbose, bool &debug, bool &daemon_mode, bool &show_version, bool &help, bool &add_config_uri,
+                   std::string &usage) {
+    app.set_help_flag("", "");  // deactivate built-in help
+
+    app.add_flag("-h,--help", help);
+    app.add_flag("-v,--verbose", verbose, "Make more noise");
+    app.add_flag("-d,--debug", debug, "Debug mode");
+    app.add_flag("-V,--version", show_version, "Print version and exit.");
+
+    app.add_flag("-D,--daemon", daemon_mode, "Daemon mode");
+    app.add_flag("--add-config-uri", add_config_uri, "Add a config uri to the generated certificate");
+    app.add_option("--config-uri-base", config.config_uri_base, "Specifies the config URI base to add to a certificate.  Default `CERT:CONFIG`");
+
+    app.add_option("-u,--cert-usage", usage, "Certificate usage.  `server`, `client`, `hybrid`");
+
+    app.add_option("--krb-validator", config.krb_validator, "Specify kerberos validator name.  Default `pvacms`");
+    app.add_option("--krb-realm", config.krb_realm, "Specify the kerberos realm.  If not specified we'll take it from the ticket");
+}
+
+/**
+ * @brief Show the help message for the authnkrb tool
+ *
+ * This function shows the help message for the authnkrb tool.
+ *
+ * @param program_name the program name
+ */
+void showHelp(const char *const program_name) {
+    std::cout << "authnkrb - Secure PVAccess Kerberos Authenticator\n"
+              << std::endl
+              << "Generates client, server, or hybrid certificates based on the kerberos Authenticator. \n"
+              << "Uses current kerberos ticket to create certificates with the same validity as the ticket.\n"
+              << std::endl
+              << "usage:\n"
+              << "  " << program_name << " [options]                          Create certificate\n"
+              << "  " << program_name << " (-h | --help)                      Show this help message and exit\n"
+              << "  " << program_name << " (-V | --version)                   Print version and exit\n"
+              << std::endl
+              << "options:\n"
+              << "  (-u | --cert-usage) <usage>                Specify the certificate usage.  client|server|hybrid.  Default `client`\n"
+              << "  --krb-validator <service-name>             Specify kerberos validator name.  Default `pvacms`\n"
+              << "  --krb-realm <krb-realm>                    Specify the kerberos realm.  If not specified we'll take it from the ticket\n"
+              << "  (-D | --daemon)                            Start a daemon that re-requests a certificate on expiration`\n"
+              << "  --add-config-uri                           Add a config uri to the generated certificate\n"
+              << "  --config-uri-base <config_uri_base>        Specifies the config URI base to add to a certificate.  Default `CERT:CONFIG`\n"
+              << "  (-v | --verbose)                           Verbose mode\n"
+              << "  (-d | --debug)                             Debug mode\n"
+              << std::endl;
+}
 
 /*
  * @brief Read the command line parameters
@@ -52,48 +97,14 @@ int readParameters(const int argc, char *argv[], ConfigKrb &config, bool &verbos
 
     CLI::App app{"authnkrb - Secure PVAccess Kerberos Authenticator"};
 
-    // Define options
-    app.set_help_flag("", "");  // deactivate built-in help
-
-    app.add_flag("-h,--help", help);
-    app.add_flag("-v,--verbose", verbose, "Make more noise");
-    app.add_flag("-d,--debug", debug, "Debug mode");
-    app.add_flag("-V,--version", show_version, "Print version and exit.");
-
-    app.add_flag("-D,--daemon", daemon_mode, "Daemon mode");
-    app.add_flag("--add-config-uri", add_config_uri, "Add a config uri to the generated certificate");
-    app.add_option("--config-uri-base", config.config_uri_base, "Specifies the config URI base to add to a certificate.  Default `CERT:CONFIG`");
-
-    app.add_option("-u,--cert-usage", usage, "Certificate usage.  `server`, `client`, `hybrid`");
-
-    app.add_option("--krb-validator", config.krb_validator, "Specify kerberos validator name.  Default `pvacms`");
-    app.add_option("--krb-realm", config.krb_realm, "Specify the kerberos realm.  If not specified we'll take it from the ticket");
+    defineOptions(app, config, verbose, debug, daemon_mode, show_version, help, add_config_uri, usage);
 
     CLI11_PARSE(app, argc, argv);
 
     // The built-in help from CLI11 is pretty lame, so we'll do our own
     // Make sure we update this help text when options change
     if (help) {
-        std::cout << "authnkrb - Secure PVAccess Kerberos Authenticator\n"
-                  << std::endl
-                  << "Generates client, server, or hybrid certificates based on the kerberos Authenticator. \n"
-                  << "Uses current kerberos ticket to create certificates with the same validity as the ticket.\n"
-                  << std::endl
-                  << "usage:\n"
-                  << "  " << program_name << " [options]                          Create certificate\n"
-                  << "  " << program_name << " (-h | --help)                      Show this help message and exit\n"
-                  << "  " << program_name << " (-V | --version)                   Print version and exit\n"
-                  << std::endl
-                  << "options:\n"
-                  << "  (-u | --cert-usage) <usage>                Specify the certificate usage.  client|server|hybrid.  Default `client`\n"
-                  << "  --krb-validator <service-name>             Specify kerberos validator name.  Default `pvacms`\n"
-                  << "  --krb-realm <krb-realm>                    Specify the kerberos realm.  If not specified we'll take it from the ticket\n"
-                  << "  (-D | --daemon)                            Start a daemon that re-requests a certificate on expiration`\n"
-                  << "  --add-config-uri                           Add a config uri to the generated certificate\n"
-                  << "  --config-uri-base <config_uri_base>        Specifies the config URI base to add to a certificate.  Default `CERT:CONFIG`\n"
-                  << "  (-v | --verbose)                           Verbose mode\n"
-                  << "  (-d | --debug)                             Debug mode\n"
-                  << std::endl;
+        showHelp(program_name);
         exit(0);
     }
 
@@ -116,7 +127,7 @@ int readParameters(const int argc, char *argv[], ConfigKrb &config, bool &verbos
         }
     } else if (usage == "client") {
         cert_usage = ssl::kForClient;
-        if (config.tls_srv_keychain_file.empty()) {
+        if (config.tls_keychain_file.empty()) {
             std::cerr << "You must set EPICS_PVA_TLS_KEYCHAIN environment variable to create client certificates" << std::endl;
             return 11;
         }
@@ -134,72 +145,6 @@ int readParameters(const int argc, char *argv[], ConfigKrb &config, bool &verbos
     return 0;
 }
 
-CertData getCertificate(bool &retrieved_credentials, ConfigKrb config, uint16_t cert_usage, const AuthNKrb &authenticator, const std::string &tls_keychain_file,
-                        const std::string &tls_keychain_pwd) {
-    CertData cert_data{};
-
-    // Get the kerberos credentials (from the kerberos ticket)
-    if (auto credentials = authenticator.getCredentials(config, IS_USED_FOR_(cert_usage, pvxs::ssl::kForClient))) {
-        std::shared_ptr<KeyPair> key_pair;
-        log_debug_printf(auth, "Credentials retrieved for: %s authenticator\n", authenticator.type_.c_str());
-        retrieved_credentials = true;
-
-        // Get or create the key pair.  Store it in the keychain file if not already present
-        try {
-            // Check if the key pair exists
-            key_pair = IdFileFactory::create(tls_keychain_file, tls_keychain_pwd)->getKeyFromFile();
-        } catch (std::exception &e) {
-            // Make a new key pair file
-            try {
-                log_debug_printf(auth, "%s\n", e.what());
-                key_pair = IdFileFactory::createKeyPair();
-            } catch (std::exception &new_e) {
-                throw std::runtime_error(SB() << "Error creating client key: " << new_e.what());
-            }
-        }
-
-        // Create a certificate creation request using the credentials and key pair
-        auto cert_creation_request = authenticator.createCertCreationRequest(credentials, key_pair, cert_usage);
-
-        log_debug_printf(auth, "CCR created for: %s Authenticator\n", authenticator.type_.c_str());
-
-        // Attempt to create a certificate with the certificate creation request
-        auto p12_pem_string = authenticator.processCertificateCreationRequest(cert_creation_request, config.request_timeout_specified);
-
-        // If the certificate was created successfully,
-        if (!p12_pem_string.empty()) {
-            log_debug_printf(auth, "Cert generated by PVACMS and successfully received: %s\n", p12_pem_string.c_str());
-
-            // Attempt to write the certificate and private key
-            // to a cert file protected by the configured password
-            auto file_factory = IdFileFactory::create(tls_keychain_file, tls_keychain_pwd, key_pair, nullptr, nullptr, p12_pem_string);
-            file_factory->writeIdentityFile();
-
-            // Read file back for info, and to check that it was written correctly
-            cert_data = IdFileFactory::create(tls_keychain_file, tls_keychain_pwd)->getCertDataFromFile();
-            auto serial_number = CertStatusFactory::getSerialNumber(cert_data.cert);
-            auto issuer_id = CertStatus::getIssuerId(cert_data.ca);
-
-            // Log the certificate information to console
-            std::string from = std::ctime(&credentials->not_before);
-            std::string to = std::ctime(&credentials->not_after);
-            log_info_printf(auth, "%s\n", (pvxs::SB() << "CERT_ID: " << issuer_id << ":" << serial_number).str().c_str());
-            log_info_printf(auth, "%s\n", (pvxs::SB() << "TYPE: " << authenticator.type_).str().c_str());
-            log_info_printf(auth, "%s\n", (pvxs::SB() << "OUTPUT TO: " << tls_keychain_file).str().c_str());
-            log_info_printf(auth, "%s\n", (pvxs::SB() << "NAME: " << credentials->name).str().c_str());
-            log_info_printf(auth, "%s\n", (pvxs::SB() << "ORGANIZATION: " << credentials->organization).str().c_str());
-            log_info_printf(auth, "%s\n", (pvxs::SB() << "ORGANIZATIONAL UNIT: " << credentials->organization_unit).str().c_str());
-            log_info_printf(auth, "%s\n", (pvxs::SB() << "COUNTRY: " << credentials->country).str().c_str());
-            log_info_printf(auth, "%s\n",
-                            (pvxs::SB() << "VALIDITY: " << from.substr(0, from.size() - 1) << " to " << to.substr(0, to.size() - 1)).str().c_str());
-            std::cout << "Certificate identifier  : " << issuer_id << ":" << serial_number << std::endl;
-
-            log_info_printf(auth, "--------------------------------------%s", "\n");
-        }
-    }
-    return cert_data;
-}
-
 }  // namespace certs
 }  // namespace pvxs
 
@@ -213,10 +158,9 @@ using namespace pvxs::certs;
  * @return the exit status
  */
 int main(const int argc, char *argv[]) {
-    return runAuthenticator<ConfigKrb, AuthNKrb>(argc, argv, [](ConfigKrb& config, AuthNKrb& auth) {
-            if (config.krb_realm.empty()) {
-                config.krb_realm = auth.getRealm();
-            }
+    return runAuthenticator<ConfigKrb, AuthNKrb>(argc, argv, [](ConfigKrb &config, AuthNKrb &auth) {
+        if (config.krb_realm.empty()) {
+            config.krb_realm = auth.getRealm();
         }
-);
+    });
 }
