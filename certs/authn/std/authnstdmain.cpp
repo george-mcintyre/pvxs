@@ -30,7 +30,7 @@ namespace certs {
  * @param add_config_uri the add config uri flag to add a config uri to the generated certificate
  * @param usage the certificate usage client, server, or hybrid
  */
-void defineOptions(CLI::App &app, ConfigStd &config, bool &verbose, bool &debug, bool &daemon_mode, bool &show_version, bool &help, bool &add_config_uri,
+void defineOptions(CLI::App &app, ConfigStd &config, bool &verbose, bool &debug, bool &daemon_mode, bool &force, bool &show_version, bool &help, bool &add_config_uri,
                    std::string &usage) {
     app.set_help_flag("", "");  // deactivate built-in help
 
@@ -38,6 +38,7 @@ void defineOptions(CLI::App &app, ConfigStd &config, bool &verbose, bool &debug,
     app.add_flag("-v,--verbose", verbose, "Make more noise");
     app.add_flag("-d,--debug", debug, "Debug mode");
     app.add_flag("-V,--version", show_version, "Print version and exit.");
+    app.add_flag("--force", force, "Force overwrite if certificate exists.");
 
     app.add_flag("-D,--daemon", daemon_mode, "Daemon mode");
     app.add_flag("--add-config-uri", add_config_uri, "Add a config uri to the generated certificate");
@@ -81,6 +82,7 @@ void showHelp(const char *program_name) {
               << "  (-D | --daemon)                            Start a daemon that re-requests a certificate on expiration`\n"
               << "        --add-config-uri                     Add a config uri to the generated certificate\n"
               << "        --config-uri-base <config_uri_base>  Specifies the config URI base to add to a certificate.  Default `CERT:CONFIG`\n"
+              << "        --force                              Force overwrite if certificate exists\n"
               << "  (-v | --verbose)                           Verbose mode\n"
               << "  (-d | --debug)                             Debug mode\n"
               << std::endl;
@@ -97,14 +99,14 @@ void showHelp(const char *program_name) {
  * @param cert_usage the certificate usage client, server, or hybrid
  * @return the exit status 0 if successful, non-zero if an error occurs and we should exit
  */
-int readParameters(int argc, char *argv[], ConfigStd &config, bool &verbose, bool &debug, uint16_t &cert_usage, bool &daemon_mode) {
+int readParameters(int argc, char *argv[], ConfigStd &config, bool &verbose, bool &debug, uint16_t &cert_usage, bool &daemon_mode, bool &force) {
     auto program_name = argv[0];
     bool show_version{false}, help{false}, add_config_uri{false};
     std::string usage{"client"};
 
     CLI::App app{"authnstd - Secure PVAccess Standard Authenticator"};
 
-    defineOptions(app, config, verbose, debug, daemon_mode, show_version, help, add_config_uri, usage);
+    defineOptions(app, config, verbose, debug, daemon_mode, force, show_version, help, add_config_uri, usage);
 
     CLI11_PARSE(app, argc, argv);
 

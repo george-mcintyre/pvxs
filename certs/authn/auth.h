@@ -454,10 +454,10 @@ int runAuthenticator(int argc, char *argv[], std::function<void(ConfigT &, AuthT
 
         auto config = ConfigT::fromEnv();
 
-        bool verbose{false}, debug{false}, daemon_mode{false};
+        bool verbose{false}, debug{false}, daemon_mode{false}, force{false};
         uint16_t cert_usage{pvxs::ssl::kForClient};
 
-        const auto parse_result = readParameters(argc, argv, config, verbose, debug, cert_usage, daemon_mode);
+        const auto parse_result = readParameters(argc, argv, config, verbose, debug, cert_usage, daemon_mode, force);
         if (parse_result) return parse_result;
 
         if (verbose) logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Info);
@@ -479,19 +479,19 @@ int runAuthenticator(int argc, char *argv[], std::function<void(ConfigT &, AuthT
 
         CertData cert_data;
         try {
-            if (daemon_mode) {
-                auto new_cert_data = IdFileFactory::create(tls_keychain_file, tls_keychain_pwd)->getCertDataFromFile();
-                const auto now = time(nullptr);
-                const auto not_after_time = CertFactory::getNotAfterTimeFromCert(new_cert_data.cert);
-                if (not_after_time > now) {
-                    cert_data = std::move(new_cert_data);
-                }
+            auto new_cert_data = IdFileFactory::create(tls_keychain_file, tls_keychain_pwd)->getCertDataFromFile();
+            const auto now = time(nullptr);
+            const auto not_after_time = CertFactory::getNotAfterTimeFromCert(new_cert_data.cert);
+            if (not_after_time > now) {
+                cert_data = std::move(new_cert_data);
             }
         } catch (std::exception &) {
         }
 
-        if (!cert_data.cert) {
+        if (!cert_data.cert || force) {
             cert_data = getCertificate(retrieved_credentials, config, cert_usage, authenticator, tls_keychain_file, tls_keychain_pwd);
+        } else if (!daemon_mode ) {
+            log_warn_printf(auth, "Valid Certificate Exists: Use --force flag to overwrite%s", "\n");
         }
 
         if (cert_data.cert && daemon_mode) {

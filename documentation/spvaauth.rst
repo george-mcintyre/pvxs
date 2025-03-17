@@ -433,6 +433,7 @@ and password file locations.
       (-D | --daemon)                            Start a daemon that re-requests a certificate on expiration`
             --add-config-uri                     Add a config uri to the generated certificate
             --config-uri-base <config_uri_base>  Specifies the config URI base to add to a certificate.  Default `CERT:CONFIG`
+            --force                              Force overwrite if certificate exists
       (-v | --verbose)                           Verbose mode
       (-d | --debug)                             Debug mode
 
@@ -507,6 +508,7 @@ and password file locations.
       (-D | --daemon)                            Start a daemon that re-requests a certificate on expiration`
             --add-config-uri                     Add a config uri to the generated certificate
             --config-uri-base <config_uri_base>  Specifies the config URI base to add to a certificate.  Default `CERT:CONFIG`
+            --force                              Force overwrite if certificate exists
       (-v | --verbose)                           Verbose mode
       (-d | --debug)                             Debug mode
 
@@ -593,6 +595,7 @@ and password file locations.
       (-D | --daemon)                            Start a daemon that re-requests a certificate on expiration`
             --add-config-uri                     Add a config uri to the generated certificate
             --config-uri-base <config_uri_base>  Specifies the config URI base to add to a certificate.  Default `CERT:CONFIG`
+            --force                              Force overwrite if certificate exists
       (-v | --verbose)                           Verbose mode
       (-d | --debug)                             Debug mode
 
