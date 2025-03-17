@@ -1,4 +1,4 @@
-name: Docker Multi-Platform Build Pipeline
+name: docker multi-platform pvxs build
 
 on:
   workflow_dispatch:
