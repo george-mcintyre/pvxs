@@ -28,10 +28,10 @@ jobs:
   build-pvxs:
     needs: [build-epics-base]
     runs-on: ubuntu-latest
-    if: |
-      github.event.inputs.build_target == 'pvxs' || 
-      github.event.inputs.build_target == 'all' ||
-      (needs.build-epics-base.result == 'success')
+#    if: |
+#      github.event.inputs.build_target == 'pvxs' ||
+#      github.event.inputs.build_target == 'all' ||
+#      (needs.build-epics-base.result == 'success')
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
