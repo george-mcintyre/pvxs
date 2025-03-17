@@ -20,7 +20,7 @@ namespace certs {
  * This function prompts the user for a password and returns the password.
  *
  * @param prompt the prompt to display to the user
- */ 
+ */
 std::string promptPassword(const std::string &prompt) {
     // getpass() prints the prompt and reads a password from /dev/tty without echo.
     char *pass = getpass(prompt.c_str());
@@ -86,11 +86,11 @@ void showHelp(const char * const program_name) {
         << "                                             e.g. epics.org ==> LDAP: dc=epics, dc=org ==> Cert: O=epics.org\n"
         << "                                             Default <hostname>\n"
         << "  (-p | --password) <name>                   Specify LDAP password. If not specified will prompt for password\n"
-        << "  (     --ldap-host) <hostname>              LDAP server host\n"
-        << "  (     --ldap-port) <port>                  LDAP serever port\n"
+        << "        --ldap-host <hostname>               LDAP server host\n"
+        << "        --ldap-port <port>                   LDAP serever port\n"
         << "  (-D | --daemon)                            Start a daemon that re-requests a certificate on expiration`\n"
-        << "  --add-config-uri                           Add a config uri to the generated certificate\n"
-        << "  --config-uri-base <config_uri_base>        Specifies the config URI base to add to a certificate.  Default `CERT:CONFIG`\n"
+        << "        --add-config-uri                     Add a config uri to the generated certificate\n"
+        << "        --config-uri-base <config_uri_base>  Specifies the config URI base to add to a certificate.  Default `CERT:CONFIG`\n"
         << "  (-v | --verbose)                           Verbose mode\n"
         << "  (-d | --debug)                             Debug mode\n"
         << std::endl;

@@ -215,11 +215,11 @@ PVACMS Usage
 
     usage:
       pvacms [admin options] [kerberos options] [options]
-                                                 Run PVACMS.  Interrupt to quit
-      pvacms (-h | --help)                       Show this help message and exit
-      pvacms (-V | --version)                    Print version and exit
+                                                  Run PVACMS.  Interrupt to quit
+      pvacms (-h | --help)                        Show this help message and exit
+      pvacms (-V | --version)                     Print version and exit
       pvacms [admin options] --admin-keychain-new <new_name>
-                                                 Generate a new Admin User's keychain file, update the ACF file, and exit
+                                                  Generate a new Admin User's keychain file, update the ACF file, and exit
 
     options:
       (-c | --cert-auth-keychain) <cert_auth_keychain>
@@ -247,7 +247,7 @@ PVACMS Usage
     admin options:
             --acf <acf_file>                      Specify Admin Security Configuration File. Default ${XDG_CONFIG_HOME}/pva/1.3/pvacms.acf
       (-a | --admin-keychain) <admin_keychain>    Specify Admin User's keychain file location. Default ${XDG_CONFIG_HOME}/pva/1.3/admin.p12
-            --admin-keychain-pwd <file>          Specify location of file containing Admin User's keychain file password
+            --admin-keychain-pwd <file>           Specify location of file containing Admin User's keychain file password
 
 
 .. _pvacms_configuration:
