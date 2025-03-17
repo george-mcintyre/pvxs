@@ -491,7 +491,7 @@ int runAuthenticator(int argc, char *argv[], std::function<void(ConfigT &, AuthT
         if (!cert_data.cert || force) {
             cert_data = getCertificate(retrieved_credentials, config, cert_usage, authenticator, tls_keychain_file, tls_keychain_pwd);
         } else if (!daemon_mode ) {
-            log_warn_printf(auth, "Valid Certificate Exists: Use --force flag to overwrite%s", "\n");
+            log_warn_printf(auth, "%s: Valid certificate found: Use `--force` flag to overwrite\n", tls_keychain_file.c_str());
         }
 
         if (cert_data.cert && daemon_mode) {
