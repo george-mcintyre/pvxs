@@ -1,0 +1,3 @@
+.. |terminal_icon| raw:: html
+
+   <i class="material-icons" style="vertical-align: middle;">computer</i>
