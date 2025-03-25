@@ -48,8 +48,8 @@ jobs:
 
   build-epics-base:
     if: |
-      github.event.inputs.build_target == 'epics-base' ||
-      github.event.inputs.build_target == 'all'
+      github.event_name == 'workflow_dispatch' && 
+      (github.event.inputs.build_target == 'epics-base' || github.event.inputs.build_target == 'all')
     uses: george-mcintyre/epics-base/.github/workflows/docker-pub-epics-base.yml@7.0-method_and_authority
     secrets:
       DOCKER_USERNAME: ${{ vars.DOCKER_USERNAME }}
@@ -58,7 +58,8 @@ jobs:
   build-pvxs:
     needs: check_docker_changes
     if: |
-      github.event.inputs.build_target == 'pvxs' || 
+      (github.event_name == 'workflow_dispatch' && 
+       (github.event.inputs.build_target == 'pvxs' || github.event.inputs.build_target == 'all')) || 
       (github.event_name == 'push' && 
        needs.check_docker_changes.outputs.non_docker_changed == 'true' && 
        needs.check_docker_changes.outputs.spva_std_changed != 'true' && 
@@ -75,7 +76,9 @@ jobs:
   build-pvxs-after-base:
     needs: [check_docker_changes, build-epics-base]
     if: |
-      needs.build-epics-base.result == 'success'
+      needs.build-epics-base.result == 'success' && 
+      (github.event_name == 'workflow_dispatch' && 
+       (github.event.inputs.build_target == 'pvxs' || github.event.inputs.build_target == 'all'))
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -88,10 +91,9 @@ jobs:
     needs: [check_docker_changes, build-pvxs, build-pvxs-after-base]
     runs-on: ubuntu-latest
     if: |
-      github.event.inputs.build_target == 'spva_std' || 
-      needs.check_docker_changes.outputs.spva_std_changed == 'true' ||
-      needs.build-pvxs.result == 'success' ||
-      needs.build-pvxs-after-base.result == 'success'
+      (github.event_name == 'workflow_dispatch' && 
+       (github.event.inputs.build_target == 'spva_std' || github.event.inputs.build_target == 'all')) || 
+      (github.event_name == 'push' && needs.check_docker_changes.outputs.spva_std_changed == 'true')
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -102,9 +104,9 @@ jobs:
     needs: [check_docker_changes, build-spva-std]
     runs-on: ubuntu-latest
     if: |
-      github.event.inputs.build_target == 'spva_krb' ||
-      needs.check_docker_changes.outputs.spva_krb_changed == 'true' ||
-      needs.build-spva-std.result == 'success'
+      (github.event_name == 'workflow_dispatch' && 
+       (github.event.inputs.build_target == 'spva_krb' || github.event.inputs.build_target == 'all')) || 
+      (github.event_name == 'push' && needs.check_docker_changes.outputs.spva_krb_changed == 'true')
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -115,9 +117,9 @@ jobs:
     needs: [check_docker_changes, build-spva-std]
     runs-on: ubuntu-latest
     if: |
-      github.event.inputs.build_target == 'spva_ldap' || 
-      needs.check_docker_changes.outputs.spva_ldap_changed == 'true' ||
-      needs.build-spva-std.result == 'success'
+      (github.event_name == 'workflow_dispatch' && 
+       (github.event.inputs.build_target == 'spva_ldap' || github.event.inputs.build_target == 'all')) || 
+      (github.event_name == 'push' && needs.check_docker_changes.outputs.spva_ldap_changed == 'true')
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
