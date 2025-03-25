@@ -34,7 +34,8 @@ jobs:
           filters: |
             non_docker:
               - '**'
-              - '!example/docker/**'
+              - '!example/**'
+              - '!.github/**'
             spva_std:
               - 'example/docker/spva_std/**'
             spva_krb:
@@ -55,7 +56,11 @@ jobs:
     needs: check_docker_changes
     if: |
       github.event.inputs.build_target == 'pvxs' || 
-      (github.event_name == 'push' && needs.check_docker_changes.outputs.non_docker_changed == 'true')
+      (github.event_name == 'push' && 
+       needs.check_docker_changes.outputs.non_docker_changed == 'true' && 
+       needs.check_docker_changes.outputs.spva_std_changed != 'true' && 
+       needs.check_docker_changes.outputs.spva_krb_changed != 'true' && 
+       needs.check_docker_changes.outputs.spva_ldap_changed != 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
