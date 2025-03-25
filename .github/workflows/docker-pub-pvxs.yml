@@ -28,10 +28,12 @@ jobs:
       spva_ldap_changed: ${{ steps.filter.outputs.spva_ldap }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need at least 2 commits for comparison
       - uses: dorny/paths-filter@v2
         id: filter
         with:
-          base: 'HEAD^1'
+          base: ${{ github.event.before }}  # Use the previous commit SHA
           filters: |
             non_docker:
               - '**'
