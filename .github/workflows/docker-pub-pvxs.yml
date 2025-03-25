@@ -20,7 +20,7 @@ on:
 
 jobs:
   check_docker_changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       non_docker_changed: ${{ steps.filter.outputs.non_docker }}
       spva_std_changed: ${{ steps.filter.outputs.spva_std }}
@@ -65,7 +65,7 @@ jobs:
        needs.check_docker_changes.outputs.spva_std_changed != 'true' && 
        needs.check_docker_changes.outputs.spva_krb_changed != 'true' && 
        needs.check_docker_changes.outputs.spva_ldap_changed != 'true')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -79,7 +79,7 @@ jobs:
       needs.build-epics-base.result == 'success' && 
       (github.event_name == 'workflow_dispatch' && 
        (github.event.inputs.build_target == 'pvxs' || github.event.inputs.build_target == 'all'))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -89,7 +89,7 @@ jobs:
 
   build-spva-std:
     needs: [check_docker_changes, build-pvxs, build-pvxs-after-base]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     if: |
       (github.event_name == 'workflow_dispatch' && 
        (github.event.inputs.build_target == 'spva_std' || github.event.inputs.build_target == 'all')) || 
@@ -102,7 +102,7 @@ jobs:
 
   build-spva-krb:
     needs: [check_docker_changes, build-spva-std]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     if: |
       (github.event_name == 'workflow_dispatch' && 
        (github.event.inputs.build_target == 'spva_krb' || github.event.inputs.build_target == 'all')) || 
@@ -115,7 +115,7 @@ jobs:
 
   build-spva-ldap:
     needs: [check_docker_changes, build-spva-std]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     if: |
       (github.event_name == 'workflow_dispatch' && 
        (github.event.inputs.build_target == 'spva_ldap' || github.event.inputs.build_target == 'all')) || 
