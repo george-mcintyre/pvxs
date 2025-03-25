@@ -58,4 +58,4 @@ COPY pvacms-supervisor.conf /etc/supervisor/conf.d/pvacms.conf
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
 
-# Test comment to verify spva_std changes are detected
+# Test comment to verify spva_std changes
