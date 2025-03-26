@@ -36,10 +36,9 @@ jobs:
           filters: |
             non_docker:
               - '**'
-              - '!example/**'
+              - '!example/docker/**'
               - '!.github/**'
               - '!documentation/**'
-              - '!.github/workflows/**'
               - '!.ci/**'
               - '!.ci-local/**'
             spva_std:
