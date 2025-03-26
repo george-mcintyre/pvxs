@@ -198,7 +198,7 @@ jobs:
       - name: Build spva_ldap
         run: echo "Building spva_ldap"
 
-   build-krb-after-std-after-pvxs:
+  build-krb-after-std-after-pvxs:
     needs: [build-std-after-pvxs]
     if: |
       needs.build-std-after-pvxs.result == 'success'
