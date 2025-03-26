@@ -1,0 +1,70 @@
+name: Docker Dependent Builds Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      pvxs_status:
+        required: true
+        type: string
+      spva_std_status:
+        required: true
+        type: string
+      spva_krb_status:
+        required: true
+        type: string
+      spva_ldap_status:
+        required: true
+        type: string
+
+jobs:
+  build-pvxs-after-base:
+    if: inputs.pvxs_status == 'success'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: tls-dev
+          submodules: recursive
+      # Add your build steps here
+      - name: Build pvxs after base
+        run: echo "Building pvxs after base"
+
+  build-spva-std-after-pvxs:
+    needs: build-pvxs-after-base
+    if: inputs.spva_std_status == 'success'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: tls-dev
+      # Add your build steps here
+      - name: Build spva_std
+        run: echo "Building spva_std after pvxs"
+
+  build-spva-krb-after-std:
+    needs: build-spva-std-after-pvxs
+    if: inputs.spva_krb_status == 'success'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: tls-dev
+      # Add your build steps here
+      - name: Build spva_krb
+        run: echo "Building spva_krb after std"
+
+  build-spva-ldap-after-std:
+    needs: build-spva-std-after-pvxs
+    if: inputs.spva_ldap_status == 'success'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: tls-dev
+      # Add your build steps here
+      - name: Build spva_ldap
+        run: echo "Building spva_ldap after std"
