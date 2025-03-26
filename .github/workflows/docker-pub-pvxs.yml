@@ -15,7 +15,7 @@ on:
           - spva_ldap
   push:
     branches:
-      - 'tls-dev'
+      - 'tls'
 
 jobs:
   check_docker_changes:
@@ -71,7 +71,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: tls-dev
+          ref: tls
           submodules: recursive
       # Add your build steps here
       - name: Build pvxs
@@ -94,7 +94,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: tls-dev
+          ref: tls
       # Add your build steps here
       - name: Build spva_std
         run: echo "Building spva_std"
@@ -116,7 +116,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: tls-dev
+          ref: tls
       # Add your build steps here
       - name: Build spva_krb
         run: echo "Building spva_krb"
@@ -138,7 +138,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: tls-dev
+          ref: tls
       # Add your build steps here
       - name: Build spva_ldap
         run: echo "Building spva_ldap"
