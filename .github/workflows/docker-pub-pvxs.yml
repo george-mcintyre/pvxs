@@ -136,7 +136,7 @@ jobs:
         run: echo "Building spva_ldap"
 
   trigger-pvxs-after-base:
-    needs: [check_docker_changes, build-epics-base]
+    needs: [build-epics-base]
     if: needs.build-epics-base.result == 'success'
     uses: ./.github/workflows/docker-builds.yml
     with:
@@ -147,7 +147,7 @@ jobs:
       spva_ldap_status: null
 
   trigger-builds-after-pvxs:
-    needs: [check_docker_changes, build-pvxs]
+    needs: [build-pvxs]
     if: needs.build-pvxs.result == 'success'
     uses: ./.github/workflows/docker-builds.yml
     with:
@@ -158,10 +158,9 @@ jobs:
       spva_ldap_status: null
 
   trigger-builds-after-std:
-    needs: [check_docker_changes, build-spva-std]
+    needs: [build-spva-std]
     if: |
-      needs.build-spva-std.result == 'success' ||
-      needs.check_docker_changes.outputs.spva_std_changed == 'true'
+      needs.build-spva-std.result == 'success'
     uses: ./.github/workflows/docker-builds.yml
     with:
       epics_base_status: null
@@ -169,29 +168,3 @@ jobs:
       spva_std_status: ${{ needs.build-spva-std.result }}
       spva_krb_status: null
       spva_ldap_status: null
-
-  trigger-builds-after-krb:
-    needs: [check_docker_changes, build-spva-krb]
-    if: |
-      needs.build-spva-krb.result == 'success' ||
-      needs.check_docker_changes.outputs.spva_krb_changed == 'true'
-    uses: ./.github/workflows/docker-builds.yml
-    with:
-      epics_base_status: null
-      pvxs_status: null
-      spva_std_status: null
-      spva_krb_status: ${{ needs.build-spva-krb.result }}
-      spva_ldap_status: null
-
-  trigger-builds-after-ldap:
-    needs: [check_docker_changes, build-spva-ldap]
-    if: |
-      needs.build-spva-ldap.result == 'success' ||
-      needs.check_docker_changes.outputs.spva_ldap_changed == 'true'
-    uses: ./.github/workflows/docker-builds.yml
-    with:
-      epics_base_status: null
-      pvxs_status: null
-      spva_std_status: null
-      spva_krb_status: null
-      spva_ldap_status: ${{ needs.build-spva-ldap.result }} 
