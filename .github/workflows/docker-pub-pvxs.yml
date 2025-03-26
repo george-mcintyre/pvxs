@@ -35,12 +35,11 @@ jobs:
           base: ${{ github.event.before }}
           filters: |
             non_docker:
-              - '**'
+              - 'src/**'
+              - 'include/**'
+              - 'test/**'
+              - 'example/**'
               - '!example/docker/**'
-              - '!.github/**'
-              - '!documentation/**'
-              - '!.ci/**'
-              - '!.ci-local/**'
             spva_std:
               - 'example/docker/spva_std/**'
             spva_krb:
