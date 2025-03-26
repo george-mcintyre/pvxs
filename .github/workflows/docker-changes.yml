@@ -41,7 +41,6 @@ jobs:
               - '!documentation/**'
               - '!.ci/**'
               - '!.ci-local/**'
-              - '.ci-local/**'
             spva_std:
               - 'example/docker/spva_std/**'
             spva_krb:
