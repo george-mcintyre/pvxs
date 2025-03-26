@@ -1,0 +1,56 @@
+name: Docker Dependent Builds Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      pvxs_status:
+        description: 'Status of pvxs build'
+        required: true
+        type: string
+      spva_std_status:
+        description: 'Status of spva_std build'
+        required: true
+        type: string
+
+jobs:
+  build-pvxs-after-base:
+    if: |
+      inputs.pvxs_status == 'success'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: tls-dev
+          submodules: recursive
+      # Add your build steps here
+      - name: Build pvxs after base
+        run: echo "Building pvxs after base"
+
+  build-spva-krb:
+    needs: [build-pvxs-after-base]
+    if: |
+      always() && inputs.spva_std_status == 'success'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: tls-dev
+      # Add your build steps here
+      - name: Build spva_krb
+        run: echo "Building spva_krb"
+
+  build-spva-ldap:
+    needs: [build-pvxs-after-base]
+    if: |
+      always() && inputs.spva_std_status == 'success'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: tls-dev
+      # Add your build steps here
+      - name: Build spva_ldap
+        run: echo "Building spva_ldap"
