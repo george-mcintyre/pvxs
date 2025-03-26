@@ -38,6 +38,10 @@ jobs:
               - '**'
               - '!example/**'
               - '!.github/**'
+              - '!documentation/**'
+              - '!.ci/**'
+              - '!.ci-local/**'
+              - '.ci-local/**'
             spva_std:
               - 'example/docker/spva_std/**'
             spva_krb:
@@ -60,11 +64,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' && 
        github.event.inputs.build_target == 'pvxs') || 
       (github.event_name == 'push' && 
-       (needs.check_docker_changes.outputs.non_docker_changed == 'true' || 
-        (needs.check_docker_changes.outputs.non_docker_changed == 'true' && 
-         (needs.check_docker_changes.outputs.spva_std_changed == 'true' || 
-          needs.check_docker_changes.outputs.spva_krb_changed == 'true' || 
-          needs.check_docker_changes.outputs.spva_ldap_changed == 'true'))))
+       needs.check_docker_changes.outputs.non_docker_changed == 'true')
     runs-on: ubuntu-22.04
     outputs:
       status: ${{ job.status }}
@@ -141,11 +141,10 @@ jobs:
   trigger-dependent-builds:
     needs: [check_docker_changes, build-pvxs, build-spva-std, build-spva-krb, build-spva-ldap]
     if: |
-      always() &&
-      (needs.build-pvxs.result == 'success' || 
+      needs.build-pvxs.result == 'success' || 
        needs.check_docker_changes.outputs.spva_std_changed == 'true' ||
        needs.check_docker_changes.outputs.spva_krb_changed == 'true' ||
-       needs.check_docker_changes.outputs.spva_ldap_changed == 'true')
+       needs.check_docker_changes.outputs.spva_ldap_changed == 'true'
     runs-on: ubuntu-22.04
     steps:
       - name: Trigger dependent builds workflow
