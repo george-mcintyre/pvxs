@@ -39,6 +39,7 @@ jobs:
               - '!example/**'
               - '!.github/**'
               - '!documentation/**'
+              - '!.github/workflows/**'
               - '!.ci/**'
               - '!.ci-local/**'
             spva_std:
