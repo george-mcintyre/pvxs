@@ -75,29 +75,11 @@ jobs:
       - name: Build pvxs
         run: echo "Building pvxs"
 
-  build-spva-std:
-    needs: check_docker_changes
-    if: |
-      (github.event_name == 'workflow_dispatch' && 
-       (github.event.inputs.build_target == 'spva_std' || github.event.inputs.build_target == 'all')) || 
-      (github.event_name == 'push' && needs.check_docker_changes.outputs.spva_std_changed == 'true')
-    runs-on: ubuntu-22.04
-    outputs:
-      status: ${{ job.status }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: tls-dev
-      # Add your build steps here
-      - name: Build spva_std
-        run: echo "Building spva_std"
-
   trigger-dependent-builds:
-    needs: [build-pvxs, build-spva-std]
+    needs: [check_docker_changes, build-pvxs]
     if: |
       always() &&
-      (needs.build-pvxs.result == 'success' || needs.build-spva-std.result == 'success')
+      (needs.build-pvxs.result == 'success' || needs.check_docker_changes.outputs.spva_std_changed == 'true')
     runs-on: ubuntu-22.04
     steps:
       - name: Trigger dependent builds workflow
@@ -110,7 +92,7 @@ jobs:
               workflow_id: 'docker-builds.yml',
               ref: 'tls-dev',
               inputs: {
-                pvxs_status: '${{ needs.build-pvxs.outputs.status }}',
-                spva_std_status: '${{ needs.build-spva-std.outputs.status }}'
+                pvxs_status: '${{ needs.build-pvxs.result }}',
+                spva_std_status: '${{ needs.check_docker_changes.outputs.spva_std_changed }}'
               }
             })
