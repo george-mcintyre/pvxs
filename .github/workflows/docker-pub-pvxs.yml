@@ -56,12 +56,14 @@ jobs:
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
 
   build-pvxs:
-    needs: check_docker_changes
+    needs: [check_docker_changes, build-epics-base]
     if: |
+      always() && 
       (github.event_name == 'workflow_dispatch' && 
        github.event.inputs.build_target == 'pvxs') || 
       (github.event_name == 'push' && 
-       needs.check_docker_changes.outputs.non_docker_changed == 'true')
+       needs.check_docker_changes.outputs.non_docker_changed == 'true') ||
+      needs.build-epics-base.result == 'success'
     runs-on: ubuntu-22.04
     outputs:
       status: ${{ job.status }}
@@ -76,13 +78,15 @@ jobs:
         run: echo "Building pvxs"
 
   build-spva-std:
-    needs: check_docker_changes
+    needs: [check_docker_changes, build-pvxs]
     if: |
+      always() && 
       (github.event_name == 'workflow_dispatch' && 
        github.event.inputs.build_target == 'spva_std') || 
       (github.event_name == 'push' && 
        needs.check_docker_changes.outputs.spva_std_changed == 'true' && 
-       needs.check_docker_changes.outputs.non_docker_changed == 'false')
+       needs.check_docker_changes.outputs.non_docker_changed == 'false') ||
+      needs.build-pvxs.result == 'success'
     runs-on: ubuntu-22.04
     outputs:
       status: ${{ job.status }}
@@ -96,13 +100,15 @@ jobs:
         run: echo "Building spva_std"
 
   build-spva-krb:
-    needs: check_docker_changes
+    needs: [check_docker_changes, build-spva-std]
     if: |
+      always() && 
       (github.event_name == 'workflow_dispatch' && 
        github.event.inputs.build_target == 'spva_krb') || 
       (github.event_name == 'push' && 
        needs.check_docker_changes.outputs.spva_krb_changed == 'true' && 
-       needs.check_docker_changes.outputs.non_docker_changed == 'false')
+       needs.check_docker_changes.outputs.non_docker_changed == 'false') ||
+      needs.build-spva-std.result == 'success'
     runs-on: ubuntu-22.04
     outputs:
       status: ${{ job.status }}
@@ -116,13 +122,15 @@ jobs:
         run: echo "Building spva_krb"
 
   build-spva-ldap:
-    needs: check_docker_changes
+    needs: [check_docker_changes, build-spva-std]
     if: |
+      always() && 
       (github.event_name == 'workflow_dispatch' && 
        github.event.inputs.build_target == 'spva_ldap') || 
       (github.event_name == 'push' && 
        needs.check_docker_changes.outputs.spva_ldap_changed == 'true' && 
-       needs.check_docker_changes.outputs.non_docker_changed == 'false')
+       needs.check_docker_changes.outputs.non_docker_changed == 'false') ||
+      needs.build-spva-std.result == 'success'
     runs-on: ubuntu-22.04
     outputs:
       status: ${{ job.status }}
@@ -134,66 +142,3 @@ jobs:
       # Add your build steps here
       - name: Build spva_ldap
         run: echo "Building spva_ldap"
-
-  build-pvxs-after-base:
-    needs: [build-epics-base]
-    if: always() && needs.build-epics-base.result == 'success'
-    runs-on: ubuntu-22.04
-    outputs:
-      status: ${{ job.status }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: tls-dev
-          submodules: recursive
-      # Add your build steps here
-      - name: Build pvxs
-        run: echo "Building pvxs"
-
-  build-std-after-pvxs:
-    needs: [build-pvxs, build-pvxs-after-base]
-    if: always() && (needs.build-pvxs.result == 'success' || needs.build-pvxs-after-base.result == 'success')
-    runs-on: ubuntu-22.04
-    outputs:
-      status: ${{ job.status }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: tls-dev
-      # Add your build steps here
-      - name: Build spva_std
-        run: echo "Building spva_std"
-
-  build-krb-after-std:
-    needs: [build-spva-std, build-std-after-pvxs]
-    if: always() && (needs.build-spva-std.result == 'success' || needs.build-std-after-pvxs.result == 'success')
-    runs-on: ubuntu-22.04
-    outputs:
-      status: ${{ job.status }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: tls-dev
-      # Add your build steps here
-      - name: Build spva_krb
-        run: echo "Building spva_krb"
-      
-  build-ldap-after-std:
-    needs: [build-spva-std, build-std-after-pvxs]
-    if: always() && (needs.build-spva-std.result == 'success' || needs.build-std-after-pvxs.result == 'success')
-    runs-on: ubuntu-22.04
-    outputs:
-      status: ${{ job.status }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: tls-dev
-      # Add your build steps here
-      - name: Build spva_ldap
-        run: echo "Building spva_ldap"
-
-  
