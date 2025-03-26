@@ -3,6 +3,9 @@ name: Docker Dependent Builds Pipeline
 on:
   workflow_call:
     inputs:
+      epics_base_status:
+        required: true
+        type: string
       pvxs_status:
         required: true
         type: string
@@ -18,7 +21,9 @@ on:
 
 jobs:
   build-pvxs-after-base:
-    if: inputs.pvxs_status == 'success'
+    if: |
+      inputs.epics_base_status == 'success' ||
+      inputs.pvxs_status == 'success'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
