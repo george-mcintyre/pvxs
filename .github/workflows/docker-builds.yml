@@ -11,11 +11,18 @@ on:
         description: 'Status of spva_std build'
         required: true
         type: string
+      spva_krb_status:
+        description: 'Status of spva_krb build'
+        required: true
+        type: string
+      spva_ldap_status:
+        description: 'Status of spva_ldap build'
+        required: true
+        type: string
 
 jobs:
   build-pvxs-after-base:
-    if: |
-      inputs.pvxs_status == 'success'
+    if: inputs.pvxs_status == 'success'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
@@ -29,8 +36,7 @@ jobs:
 
   build-spva-std-after-pvxs:
     needs: [build-pvxs-after-base]
-    if: |
-      always() && inputs.spva_std_status == 'success'
+    if: inputs.spva_std_status == 'success'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
@@ -43,8 +49,7 @@ jobs:
 
   build-spva-krb:
     needs: [build-spva-std-after-pvxs]
-    if: |
-      always() && inputs.spva_std_status == 'success'
+    if: inputs.spva_krb_status == 'success'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
@@ -57,8 +62,7 @@ jobs:
 
   build-spva-ldap:
     needs: [build-spva-std-after-pvxs]
-    if: |
-      always() && inputs.spva_std_status == 'success'
+    if: inputs.spva_ldap_status == 'success'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
