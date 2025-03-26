@@ -142,6 +142,7 @@ jobs:
     needs: [check_docker_changes, build-pvxs, build-spva-std, build-spva-krb, build-spva-ldap]
     if: |
       needs.build-pvxs.result == 'success' || 
+      needs.build-spva-std.result == 'success' ||
       needs.check_docker_changes.outputs.spva_std_changed == 'true' ||
       needs.check_docker_changes.outputs.spva_krb_changed == 'true' ||
       needs.check_docker_changes.outputs.spva_ldap_changed == 'true'

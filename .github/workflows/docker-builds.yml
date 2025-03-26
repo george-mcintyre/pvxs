@@ -45,7 +45,9 @@ jobs:
 
   build-spva-krb-after-std:
     needs: build-spva-std-after-pvxs
-    if: inputs.spva_krb_status == 'success'
+    if: |
+      inputs.spva_std_status == 'success' || 
+      inputs.spva_krb_status == 'success'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
@@ -58,7 +60,9 @@ jobs:
 
   build-spva-ldap-after-std:
     needs: build-spva-std-after-pvxs
-    if: inputs.spva_ldap_status == 'success'
+    if: |
+      inputs.spva_std_status == 'success' || 
+      inputs.spva_ldap_status == 'success'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
