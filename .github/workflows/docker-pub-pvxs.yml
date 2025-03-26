@@ -137,7 +137,7 @@ jobs:
 
   build-pvxs-after-base:
     needs: [build-epics-base]
-    if: needs.build-epics-base.result == 'success'
+    if: always() && needs.build-epics-base.result == 'success'
     runs-on: ubuntu-22.04
     outputs:
       status: ${{ job.status }}
@@ -152,8 +152,8 @@ jobs:
         run: echo "Building pvxs"
 
   build-std-after-pvxs:
-    needs: [build-pvxs]
-    if: needs.build-pvxs.result == 'success'
+    needs: [build-pvxs, build-pvxs-after-base]
+    if: always() && (needs.build-pvxs.result == 'success' || needs.build-pvxs-after-base.result == 'success')
     runs-on: ubuntu-22.04
     outputs:
       status: ${{ job.status }}
@@ -167,9 +167,8 @@ jobs:
         run: echo "Building spva_std"
 
   build-krb-after-std:
-    needs: [build-spva-std]
-    if: |
-      needs.build-spva-std.result == 'success'
+    needs: [build-spva-std, build-std-after-pvxs]
+    if: always() && (needs.build-spva-std.result == 'success' || needs.build-std-after-pvxs.result == 'success')
     runs-on: ubuntu-22.04
     outputs:
       status: ${{ job.status }}
@@ -183,41 +182,8 @@ jobs:
         run: echo "Building spva_krb"
       
   build-ldap-after-std:
-    needs: [build-spva-std]
-    if: |
-      needs.build-spva-std.result == 'success'
-    runs-on: ubuntu-22.04
-    outputs:
-      status: ${{ job.status }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: tls-dev
-      # Add your build steps here
-      - name: Build spva_ldap
-        run: echo "Building spva_ldap"
-
-  build-krb-after-std-after-pvxs:
-    needs: [build-std-after-pvxs]
-    if: |
-      needs.build-std-after-pvxs.result == 'success'
-    runs-on: ubuntu-22.04
-    outputs:
-      status: ${{ job.status }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: tls-dev
-      # Add your build steps here
-      - name: Build spva_krb
-        run: echo "Building spva_krb"
-      
-  build-ldap-after-std-after-pvxs:
-    needs: [build-std-after-pvxs]
-    if: |
-      needs.build-std-after-pvxs.result == 'success'
+    needs: [build-spva-std, build-std-after-pvxs]
+    if: always() && (needs.build-spva-std.result == 'success' || needs.build-std-after-pvxs.result == 'success')
     runs-on: ubuntu-22.04
     outputs:
       status: ${{ job.status }}
