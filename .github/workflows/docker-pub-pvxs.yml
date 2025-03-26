@@ -139,7 +139,7 @@ jobs:
         run: echo "Building spva_ldap"
 
   trigger-dependent-builds:
-    needs: [check_docker_changes, build-epics-base, build-pvxs, build-spva-std, build-spva-krb, build-spva-ldap]
+    needs: check_docker_changes
     if: |
       needs.build-epics-base.result == 'success' ||
       needs.build-pvxs.result == 'success' || 
