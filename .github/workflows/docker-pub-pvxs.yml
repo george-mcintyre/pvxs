@@ -38,8 +38,7 @@ jobs:
               - 'src/**'
               - 'include/**'
               - 'test/**'
-              - 'example/**'
-              - '!example/docker/**'
+              - 'example/[!docker]/**'
             spva_std:
               - 'example/docker/spva_std/**'
             spva_krb:
