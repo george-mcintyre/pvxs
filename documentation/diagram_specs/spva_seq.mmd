@@ -1,56 +1,58 @@
 sequenceDiagram
-    title PV Access TLS
-    
-    participant Client as PV Access Client
-    participant Server as PV Access Server
-    participant ServerB as PV Access Server B
-    participant CA as Certificate Authority
-    participant IOC as IOC
+    title PV Access Protocol Flow with Certificate Status
 
-    Note left of Client: PV Access channel search
-    Client->>Server: Search Request(protocol["tcp","tls"])
-    Server-->>Client: Search Response (protocol: "tls", ipv6_address)
-    ServerB-->>Client: Search Response (protocol: "tcp", ipv6_address)
-    Client->>Client: Select Response
-    Client->>Server: Establish tcp/ip connection
-    Note over Client,Server: tcp/ip connection established
-    
-    Note left of Client: TLS Handshake
-    Client->>+Server: TLS Client Hello record(PV Access Client_random, cipher[], compression[])
-    Server-->>-Client: TLS Server Hello record(PV Access Server_random, session_id, cipher, compression, certificate)
-    Client->>+CA: Verify(certificate)
-    CA-->>-Client: Verified
-    Client-->>+Server: pre-secret<encrypted with PV Access Server's public key>
-    Client->>Client: Generate secret from pre-secret
-    Server->>Server: Decrypt pre-secret using private key
-    Server->>-Server: Generate secret from pre-secret
-    
-    Note over Client,Server: From here all PV Access messages are TLS encapsulated using TLS record state
-    Note left of Client: PV Access channel negotiotion
-    Server->>+Client: connection validation request
-    Client-->>-Server: connection validation response
-    
-    Note left of Client: Data exchange
-    loop PV Access Data exchange
-        alt hello message
-            Note left of Client: Server Certificate Replacement
-            Server->>+Client: TLS Hello Message
-            Client->>+Server: TLS Client Hello record(PV Access Client_random, cipher[], compression[])
-            Server-->>-Client: TLS Server Hello record(PV Access Server_random, session_id, cipher, compression, certificate)
-            Client->>+CA: Verify(certificate)
-            CA-->>-Client: Verified
-            Client-->>+Server: pre-secret<encrypted with PV Access Server's public key>
-            Client->>Client: Generate secret from pre-secret
-            Server->>Server: Decrypt pre-secret using private key
-            Server->>-Server: Generate secret from pre-secret
-            Note over Client,Server: From here TLS record state is changed
-        else control message
-            Client->>+Server: TLS record encalsulated<PV Access Control message>
-            Server->>-Client: TLS record encalsulated<PV Access Control message>
-        else application message
-            Client->>+Server: TLS record encalsulated<PV Access Application message>
-            Server->>+IOC: access PV
-            IOC-->>-Server: response
-            Server->>-Client: TLS record encapsulated<PV Access Application message>
+    participant Agent as EPICS Agent
+    participant Peer as EPICS Peer
+    participant PVACMS as PVACMS
+
+    Note over Agent: Initial State: TLS Context Init
+
+    %% Channel Search Phase
+    Agent->>Peer: SEARCH (protocol=["tcp","tls"])
+    Peer-->>Agent: SEARCH_RESPONSE (protocol="tls", address)
+    Note over Agent,Peer: TCP Connection Established
+
+    %% Certificate Status Check (if required)
+    opt Certificate Status Required
+        Agent->>PVACMS: Monitor Certificate Status
+        Note over Agent: TLS Context: TcpReady
+        PVACMS-->>Agent: Certificate Status Valid
+        Note over Agent: TLS Context: TlsReady
+    end
+
+    %% Connection Validation
+    Peer->>Agent: CONNECTION_VALIDATION Request
+    Agent-->>Peer: CONNECTION_VALIDATION Response
+    Peer-->>Agent: CONNECTION_VALIDATED
+
+    %% Channel Creation
+    Agent->>Peer: CREATE_CHANNEL
+    Peer-->>Agent: CREATE_CHANNEL Response
+
+    %% Operations (showing all possible interactions)
+    par GET Operation
+        Agent->>Peer: GET Request
+        Peer-->>Agent: GET Response
+    and MONITOR Operation
+        Agent->>Peer: MONITOR Request
+        loop Monitor Updates
+            Peer-->>Agent: MONITOR Update
+        end
+    and RPC Operation
+        Agent->>Peer: RPC Request
+        Peer-->>Agent: RPC Response
+    and PUT Operation
+        Agent->>Peer: PUT Request
+        Peer-->>Agent: PUT Response
+    end
+
+    %% Certificate Status Change Handling
+    opt Certificate Status Change
+        PVACMS-->>Agent: Certificate Status Changed
+        Note over Agent: Update TLS Context State
+        alt If Status Invalid
+            Note over Agent: TLS Context: DegradedMode
+        else If Status Valid
+            Note over Agent: TLS Context: TlsReady
         end
     end 
