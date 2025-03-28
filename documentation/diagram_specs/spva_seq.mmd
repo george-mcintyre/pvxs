@@ -8,51 +8,95 @@ sequenceDiagram
     Note over Agent: Initial State: TLS Context Init
 
     %% Channel Search Phase
-    Agent->>Peer: SEARCH (protocol=["tcp","tls"])
-    Peer-->>Agent: SEARCH_RESPONSE (protocol="tls", address)
-    Note over Agent,Peer: TCP Connection Established
-
-    %% Certificate Status Check (if required)
-    opt Certificate Status Required
-        Agent->>PVACMS: Monitor Certificate Status
-        Note over Agent: TLS Context: TcpReady
-        PVACMS-->>Agent: Certificate Status Valid
-        Note over Agent: TLS Context: TlsReady
-    end
-
-    %% Connection Validation
-    Peer->>Agent: CONNECTION_VALIDATION Request
-    Agent-->>Peer: CONNECTION_VALIDATION Response
-    Peer-->>Agent: CONNECTION_VALIDATED
-
-    %% Channel Creation
-    Agent->>Peer: CREATE_CHANNEL
-    Peer-->>Agent: CREATE_CHANNEL Response
-
-    %% Operations (showing all possible interactions)
-    par GET Operation
-        Agent->>Peer: GET Request
-        Peer-->>Agent: GET Response
-    and MONITOR Operation
-        Agent->>Peer: MONITOR Request
-        loop Monitor Updates
-            Peer-->>Agent: MONITOR Update
+    alt Client TLS Configured
+        Agent->>Peer: SEARCH (protocol=["tcp","tls"])
+        
+        alt Server TLS Configured
+            opt Certificate Status Required
+                Agent->>PVACMS: Monitor Certificate Status
+                Note over Agent: TLS Context: TcpReady
+                alt Certificate Valid
+                    PVACMS-->>Agent: Status: VALID
+                    Note over Agent: TLS Context: TlsReady
+                    Peer-->>Agent: SEARCH_RESPONSE (protocol="tls", address)
+                else Certificate Invalid
+                    PVACMS-->>Agent: Status: REVOKED/EXPIRED
+                    Note over Agent: TLS Context: DegradedMode
+                    Peer-->>Agent: SEARCH_RESPONSE (protocol="tcp", address)
+                else Certificate Unknown
+                    PVACMS-->>Agent: Status: UNKNOWN
+                    Note over Agent: TLS Context: TcpReady
+                    Peer-->>Agent: SEARCH_RESPONSE (protocol="tcp", address)
+                end
+            end
+        else Server Not TLS Configured
+            Peer-->>Agent: SEARCH_RESPONSE (protocol="tcp", address)
         end
-    and RPC Operation
-        Agent->>Peer: RPC Request
-        Peer-->>Agent: RPC Response
-    and PUT Operation
-        Agent->>Peer: PUT Request
-        Peer-->>Agent: PUT Response
+    else Client TCP Only
+        Agent->>Peer: SEARCH (protocol=["tcp"])
+        Note over Agent: Simple Degraded Mode
+        Peer-->>Agent: SEARCH_RESPONSE (protocol="tcp", address)
+    else Client TLS Only
+        Agent->>Peer: SEARCH (protocol=["tls"])
+        alt Server TLS Ready
+            opt Certificate Status Required
+                Agent->>PVACMS: Monitor Certificate Status
+                alt Certificate Valid
+                    PVACMS-->>Agent: Status: VALID
+                    Note over Agent: TLS Context: TlsReady
+                    Peer-->>Agent: SEARCH_RESPONSE (protocol="tls", address)
+                else Certificate Not Valid
+                    PVACMS-->>Agent: Status: REVOKED/EXPIRED/UNKNOWN
+                    Note over Agent: No Response (TLS Required)
+                end
+            end
+        else Server Not TLS Capable
+            Note over Agent: No Response (TLS Required)
+        end
     end
 
-    %% Certificate Status Change Handling
-    opt Certificate Status Change
-        PVACMS-->>Agent: Certificate Status Changed
-        Note over Agent: Update TLS Context State
-        alt If Status Invalid
-            Note over Agent: TLS Context: DegradedMode
-        else If Status Valid
-            Note over Agent: TLS Context: TlsReady
+    opt Connection Proceeds
+        Note over Agent,Peer: TCP Connection Established
+
+        %% Connection Validation
+        Peer->>Agent: CONNECTION_VALIDATION Request
+        Agent-->>Peer: CONNECTION_VALIDATION Response
+        Peer-->>Agent: CONNECTION_VALIDATED
+
+        %% Channel Creation
+        Agent->>Peer: CREATE_CHANNEL
+        Peer-->>Agent: CREATE_CHANNEL Response
+
+        %% Operations (showing all possible interactions)
+        par GET Operation
+            Agent->>Peer: GET Request
+            Peer-->>Agent: GET Response
+        and MONITOR Operation
+            Agent->>Peer: MONITOR Request
+            loop Monitor Updates
+                Peer-->>Agent: MONITOR Update
+            end
+        and RPC Operation
+            Agent->>Peer: RPC Request
+            Peer-->>Agent: RPC Response
+        and PUT Operation
+            Agent->>Peer: PUT Request
+            Peer-->>Agent: PUT Response
+        end
+
+        %% Runtime Certificate Status Change
+        opt Certificate Status Change During Operation
+            PVACMS-->>Agent: Certificate Status Changed
+            Note over Agent: Update TLS Context State
+            alt If Status VALID
+                Note over Agent: TLS Context: TlsReady
+                Note over Agent,Peer: Subsequent connections use TLS
+            else If Status REVOKED/EXPIRED
+                Note over Agent: TLS Context: DegradedMode
+                Note over Agent,Peer: Subsequent connections use TCP only
+            else If Status UNKNOWN
+                Note over Agent: TLS Context: TcpReady
+                Note over Agent,Peer: Defer TLS connections until status known
+            end
         end
     end 
