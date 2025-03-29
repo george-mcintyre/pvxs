@@ -89,7 +89,7 @@ sequenceDiagram
             end
         and Search Response and Connection Establishment
 
-            Note over Agent,Peer: SEARCH Response 
+            Note over Agent,Peer: SEARCH Response
             %% Server Response determination Phase
             alt Server TLS Context: DegradedMode
                 Peer-->>Agent: SEARCH_RESPONSE (protocol="tcp", address)
@@ -108,33 +108,56 @@ sequenceDiagram
             end
 
             % Connection Establishment Phase
-            Note over Agent,Peer: TCP Connection/TLS Connection & HANDSHAKE 
+            Note over Agent,Peer: TCP Connection/TLS Connection & HANDSHAKE
             alt TCP Connection initiated
                 Note over Agent, Peer: TCP Connection Established on `address`
-            else 
+            else
                 Note over Agent,Peer: TLS Connection Establishment begins on `address`
                 alt Server Certificate Revocation Monitoring Required<br>AND Certificate Stapling Enabled<br>AND Server TLS Context: NOT TcpReady
                     Peer->>Agent: TLS_HANDSHAKE(peer_certificate, peer_certificate_status)
-                    alt peer_certificate_status is GOOD
+                    activate Agent
+                    Note over Agent: Check Trust Anchor Compatibility
+                    alt `peer_certificate`'s Trust Anchor incompatible with Client's
+                        Note over Agent: TLS Handshake Fails: Connection Dropped
+                    end
+                    alt stapled `peer_certificate_status` is GOOD
                         Note over Agent: Peer Certificate Status: GOOD
-                    else peer_certificate_status is NOT_GOOD
+                    else
                         Note over Agent: Peer Certificate Status: NOT_GOOD
                     end
+                    deactivate Agent
                 else
                     Peer->>Agent: TLS_HANDSHAKE(peer_certificate)
                 end
+
+                alt `peer_certificate` requires Revocation Monitoring
+                    Agent-->>PVACMS: Monitor `peer_certificate` Status
+                end
+
                 alt Client TLS Context: DegradedMode
                     Agent->>Peer: TLS_HANDSHAKE()
                 else
                     Agent->>Peer: TLS_HANDSHAKE(peer_certificate)
-                    alt received `peer_certificate` requires Revocation Monitoring AND NOT using stapled status
+                    activate Peer
+                    Note over Peer: Check Trust Anchor Compatibility
+                    alt `peer_certificate`'s Trust Anchor incompatible with Server's
+                        Note over Peer: TLS Handshake Fails: Connection Dropped
+                    end
+                    deactivate Peer
+                    alt `peer_certificate` requires Revocation Monitoring
                         Peer-->>PVACMS: Monitor `peer_certificate` Status
                     end
                 end
 
-                alt received `peer_certificate` requires Revocation Monitoring AND NOT using stapled status
-                    Agent-->>PVACMS: Monitor `peer_certificate` Status
+                Note over Agent,Peer: Check Trust Anchor Compatibility
+                alt `peer_certificate`'s Trust Anchor incompatible with Server's
+                    Note over Peer: TLS Handshake Fails: Connection Dropped
                 end
+
+                alt `peer_certificate`'s Trust Anchor incompatible with Client's
+                    Note over Agent: TLS Handshake Fails: Connection Dropped
+                end
+
             end
 
             %% Connection Validation Phase
