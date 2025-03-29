@@ -22,16 +22,16 @@ sequenceDiagram
     participant PVACMS as PVACMS
 
     Note over Agent,Peer: TLS Context Initialisation
-    Note over Peer: Initial State<br>TLS Context: Init<br>Peer Certificate Status: UNKNOWN
-    Note over Agent: Initial State<br>TLS Context: Init<br>Peer Certificate Status: UNKNOWN
+    Note over Peer: Initial State TLS Context: Init Peer Certificate Status: UNKNOWN
+    Note over Agent: Initial State TLS Context: Init Peer Certificate Status: UNKNOWN
 
     % Check Server Phase
     Note over Peer: Check if EPICS Server is Viable
-    alt Server Certificate Found AND is VALID<br>OR `stop-if-no-cert` flag is not set
+    alt Server Certificate Found AND is VALID OR `stop-if-no-cert` flag is not set
         %% Server Cert Validation Phase
         Note over Peer: Check Server Certificate Viability
-        alt Server Certificate Configured <br>AND VALID
-            alt Server Certificate Revocation Monitoring Required
+        alt Server Certificate Configured AND VALID
+            alt Server Certificate Status Monitoring Required
                 Peer-->>PVACMS: Monitor Certificate Status
                 Note over Peer: TLS Context: TcpReady
             else
@@ -45,13 +45,14 @@ sequenceDiagram
         %% Trust Validation Phase
         Note over Agent: Check for Trust Anchor
         alt No Trust Anchor Found
+            Note over Agent: TLS Context: DegradedMode
             Agent-->>Peer: SEARCH (protocol=["tcp"]) with retry
         else
             Agent-->>Peer: SEARCH (protocol=["tcp", "tls"]) with retry
             %% Client Cert Validation Phase
             Note over Agent: Check Client Certificate Viability
-            alt Client Certificate Configured <br>AND VALID
-                alt Client Certificate Revocation Monitoring Required
+            alt Client Certificate Configured AND VALID
+                alt Client Certificate Status Monitoring Required
                     Agent-->>PVACMS: Monitor Certificate Status
                     Note over Agent: TLS Context: TcpReady
                 else
@@ -69,7 +70,7 @@ sequenceDiagram
                     PVACMS-->>Agent: Certificate Status(GOOD)
                     Note over Agent: TLS Context: TlsReady
                 else
-                    PVACMS-->>Agent: Certificate Status(NOT_GOOD)
+                    PVACMS-->>Agent: Certificate Status(NOT_GOOD)/STALE
                     Note over Agent: TLS Context: DegradedMode
                 end
             end
@@ -79,7 +80,7 @@ sequenceDiagram
                     PVACMS-->>Peer: Certificate Status(GOOD)
                     Note over Peer: TLS Context: TlsReady
                 else
-                    PVACMS-->>Peer: Certificate Status(NOT_GOOD)
+                    PVACMS-->>Peer: Certificate Status(NOT_GOOD)/STALE
                     Note over Peer: TLS Context: DegradedMode
                 end
             end
@@ -90,7 +91,7 @@ sequenceDiagram
                     Note over Agent: Peer Certificate Status: GOOD
                 else
                     PVACMS-->>Agent: peer_certificate(NOT_GOOD)
-                    Note over Agent: Peer Certificate Status: NOT_GOOD
+                    Note over Agent: Peer Certificate Status: NOT_GOOD/STALE
                 end
             end
         and Server's Peer Certificate Monitoring
@@ -100,7 +101,7 @@ sequenceDiagram
                     Note over Peer: Peer Certificate Status: GOOD
                 else
                     PVACMS-->>Peer: peer_certificate(NOT_GOOD)
-                    Note over Peer: Peer Certificate Status: NOT_GOOD
+                    Note over Peer: Peer Certificate Status: NOT_GOOD/STALE
                 end
             end
         and Search Response and Connection Establishment
@@ -129,7 +130,7 @@ sequenceDiagram
                 Note over Agent, Peer: TCP Connection Established on `address`
             else
                 Note over Agent,Peer: TLS Connection Establishment begins on `address`
-                alt Server Certificate Revocation Monitoring Required<br>AND Certificate Stapling Enabled<br>AND Server TLS Context: NOT TcpReady
+                alt Server Certificate Status Monitoring Required AND Certificate Stapling Enabled AND Server TLS Context: NOT TcpReady
                     Peer->>Agent: TLS_HANDSHAKE(peer_certificate, peer_certificate_status)
                     activate Agent
                     Note over Agent: Check Trust Anchor Compatibility
@@ -146,7 +147,7 @@ sequenceDiagram
                     Peer->>Agent: TLS_HANDSHAKE(peer_certificate)
                 end
 
-                alt `peer_certificate` requires Revocation Monitoring
+                alt `peer_certificate` requires Status Monitoring
                     Agent-->>PVACMS: Monitor `peer_certificate` Status
                 end
 
@@ -160,7 +161,7 @@ sequenceDiagram
                         Note over Peer: TLS Handshake Fails: Connection Dropped
                     end
                     deactivate Peer
-                    alt `peer_certificate` requires Revocation Monitoring
+                    alt `peer_certificate` requires Status Monitoring
                         Peer-->>PVACMS: Monitor `peer_certificate` Status
                     end
                 end
@@ -189,7 +190,7 @@ sequenceDiagram
             alt Client TLS Context: DegradedMode
                 Agent-->>Peer: CONNECTION_VALIDATION Response
             else Client TLS Context: TlsReady
-                alt `peer_certificate` requires Revocation Monitoring
+                alt `peer_certificate` requires Status Monitoring
                     alt Peer Certificate Status: GOOD
                         Agent-->>Peer: CONNECTION_VALIDATION Response
                     end
@@ -199,7 +200,7 @@ sequenceDiagram
             end
 
             Note over Agent,Peer: Ready to signal CONNECTION VALIDATED?
-            alt Server TLS Context: DegradedMode<br>OR Server TLS Context: TlsReady
+            alt Server TLS Context: DegradedMode OR Server TLS Context: TlsReady
                 Peer-->>Agent: CONNECTION_VALIDATED
             end
         end
@@ -233,5 +234,5 @@ sequenceDiagram
         else
             Agent-->>Peer: PUT Request(value)
         end
-    end
+    end 
 
