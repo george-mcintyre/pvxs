@@ -5,6 +5,7 @@ sequenceDiagram
     participant Peer as Secure EPICS Server
     participant PVACMS as PVACMS
 
+    Note over Agent,Peer: TLS Context Initialisation
     Note over Peer: Initial State<br>TLS Context: Init<br>Peer Certificate Status: UNKNOWN
     Note over Agent: Initial State<br>TLS Context: Init<br>Peer Certificate Status: UNKNOWN
 
@@ -24,6 +25,7 @@ sequenceDiagram
             Note over Peer: TLS Context: DegradedMode
         end
 
+        Note over Agent,Peer: SEARCH Request
         %% Trust Validation Phase
         Note over Agent: Check for Trust Anchor
         alt No Trust Anchor Found
@@ -44,6 +46,7 @@ sequenceDiagram
             end
         end
 
+        Note over Agent,Peer: Asynchronous Certificate Status Monitoring
         par Client Certificate Monitoring Updates
             loop
                 alt
@@ -64,8 +67,29 @@ sequenceDiagram
                     Note over Peer: TLS Context: DegradedMode
                 end
             end
+        and Client's Peer Certificate Monitoring
+            loop
+                alt
+                    PVACMS-->>Agent: peer_certificate(GOOD)
+                    Note over Agent: Peer Certificate Status: GOOD
+                else
+                    PVACMS-->>Agent: peer_certificate(NOT_GOOD)
+                    Note over Agent: Peer Certificate Status: NOT_GOOD
+                end
+            end
+        and Server's Peer Certificate Monitoring
+            loop
+                alt
+                    PVACMS-->>Peer: peer_certificate(GOOD)
+                    Note over Peer: Peer Certificate Status: GOOD
+                else
+                    PVACMS-->>Peer: peer_certificate(NOT_GOOD)
+                    Note over Peer: Peer Certificate Status: NOT_GOOD
+                end
+            end
         and Search Response and Connection Establishment
 
+            Note over Agent,Peer: SEARCH Response 
             %% Server Response determination Phase
             alt Server TLS Context: DegradedMode
                 Peer-->>Agent: SEARCH_RESPONSE (protocol="tcp", address)
@@ -84,37 +108,44 @@ sequenceDiagram
             end
 
             % Connection Establishment Phase
+            Note over Agent,Peer: TCP Connection/TLS Connection & HANDSHAKE 
             alt TCP Connection initiated
                 Note over Agent, Peer: TCP Connection Established on `address`
             else 
                 Note over Agent,Peer: TLS Connection Establishment begins on `address`
                 alt Server Certificate Revocation Monitoring Required<br>AND Certificate Stapling Enabled<br>AND Server TLS Context: NOT TcpReady
-                    Peer->>Agent: TLS_HANDSHAKE(server_certificate, server_certificate_status)
+                    Peer->>Agent: TLS_HANDSHAKE(peer_certificate, peer_certificate_status)
                 else
-                    Peer->>Agent: TLS_HANDSHAKE(server_certificate)
+                    Peer->>Agent: TLS_HANDSHAKE(peer_certificate)
                 end
                 alt Client TLS Context: DegradedMode
                     Agent->>Peer: TLS_HANDSHAKE()
                 else
-                    Agent->>Peer: TLS_HANDSHAKE(client_certificate)
-                    alt received `client_certificate` requires Revocation Monitoring
-                        Peer-->>PVACMS: Monitor `client_certificate` Status
+                    Agent->>Peer: TLS_HANDSHAKE(peer_certificate)
+                    alt received `peer_certificate` requires Revocation Monitoring
+                        Peer-->>PVACMS: Monitor `peer_certificate` Status
                     end
                 end
 
-                alt received `server_certificate` requires Revocation Monitoring
-                    Agent-->>PVACMS: Monitor `server_certificate` Status
+                alt received `peer_certificate` requires Revocation Monitoring
+                    Agent-->>PVACMS: Monitor `peer_certificate` Status
                 end
             end
 
             %% Connection Validation Phase
-            Peer->>Agent: CONNECTION_VALIDATION Request
+            Peer-->>Agent: CONNECTION_VALIDATION Request
+            activate Agent
+            Agent-->>Peer: CONNECTION_VALIDATION Response
+            deactivate Agent
+            activate Peer
+            Peer-->>Agent: CONNECTION_VALIDATED
+            deactivate Peer
 
-            Note over Agent: Ready to VALIDATE CONNECTION?
+            Note over Agent,Peer: Ready to VALIDATE CONNECTION?
             alt Client TLS Context: DegradedMode
                 Agent-->>Peer: CONNECTION_VALIDATION Response
             else Client TLS Context: TlsReady
-                alt `server_certificate` requires Revocation Monitoring
+                alt `peer_certificate` requires Revocation Monitoring
                     alt Peer Certificate Status: GOOD
                         Agent-->>Peer: CONNECTION_VALIDATION Response
                     end
@@ -123,52 +154,40 @@ sequenceDiagram
                 end
             end
 
-            Note over Agent: Ready to signal CONNECTION VALIDATED?
+            Note over Agent,Peer: Ready to signal CONNECTION VALIDATED?
             alt Server TLS Context: DegradedMode<br>OR Server TLS Context: TlsReady
                 Peer-->>Agent: CONNECTION_VALIDATED
             end
-
-        and `server_certificate` Monitoring Updates
-            loop
-                alt
-                    PVACMS-->>Agent: server_certificate(GOOD)
-                    Note over Agent: Peer Certificate Status: GOOD
-                else
-                    PVACMS-->>Agent: server_certificate(NOT_GOOD)
-                    Note over Agent: Peer Certificate Status: NOT_GOOD
-                end
-            end
-        and `client_certificate` Monitoring Updates
-            loop
-                alt
-                    PVACMS-->>Peer: client_certificate(GOOD)
-                    Note over Peer: Peer Certificate Status: GOOD
-                else
-                    PVACMS-->>Peer: client_certificate(NOT_GOOD)
-                    Note over Peer: Peer Certificate Status: NOT_GOOD
-                end
-            end
         end
 
+        Note over Agent,Peer: Create Channel
         %% Channel Creation
         Agent->>Peer: CREATE_CHANNEL
+        activate Peer
         Peer-->>Agent: CREATE_CHANNEL Response
+        deactivate Peer
 
+        Note over Agent,Peer: Operation
         %% Operations
-        par GET Operation
+        alt
             Agent->>Peer: GET Request
+            activate Peer
             Peer-->>Agent: GET Response(value)
-        and MONITOR Operation
+            deactivate Peer
+        else
             Agent->>Peer: MONITOR Request
-            Peer-->>Agent: MONITOR Response(subscription)
-            loop Monitor Updates
+            activate Peer
+            loop
                 Peer-->>Agent: MONITOR Subscrition(update)
             end
-        and RPC Operation
+            deactivate Peer
+        else
             Agent->>Peer: RPC Request
+            activate Peer
             Peer-->>Agent: RPC Response(value)
-        and PUT Operation
-            Agent->>Peer: PUT Request(value)
+            deactivate Peer
+        else
+            Agent-->>Peer: PUT Request(value)
         end
     end
 
