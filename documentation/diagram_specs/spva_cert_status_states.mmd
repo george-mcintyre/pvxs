@@ -1,0 +1,30 @@
+stateDiagram-v2
+    title Certificate Status State Machine
+
+    [*] --> Unknown: Initial State
+    Unknown --> Monitoring: Start Status\nMonitoring
+    
+    Monitoring --> Valid: Status Update\n(Good)
+    Monitoring --> Invalid: Status Update\n(Revoked/Expired)
+    Monitoring --> Unknown: Status Update\n(Unknown)
+    
+    Valid --> Invalid: Certificate\nRevoked/Expired
+    Valid --> Unknown: Status\nUnavailable
+    
+    Invalid --> Valid: Certificate\nRenewed
+    Invalid --> Unknown: Status\nUnavailable
+    
+    state Valid {
+        [*] --> EnableTLS
+        EnableTLS --> UpdatePeers: Notify Context
+    }
+    
+    state Invalid {
+        [*] --> DisableTLS
+        DisableTLS --> ForceTCP: Degrade Mode
+    }
+    
+    state Unknown {
+        [*] --> DeferTLS
+        DeferTLS --> WaitStatus: Monitor PVACMS
+    } 

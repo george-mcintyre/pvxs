@@ -1,0 +1,46 @@
+sequenceDiagram
+    title PV Access Protocol Flow
+
+    participant Agent as EPICS Client
+    participant Peer as EPICS Server
+
+    Agent-->>Peer: SEARCH (protocol=["tcp"]) with retry
+    Peer-->>Agent: SEARCH_RESPONSE (protocol="tcp", address)
+
+    Agent->>Peer: TCP Connection initiated to `address`
+
+    Peer-->>Agent: CONNECTION_VALIDATION Request
+    activate Agent
+    Agent-->>Peer: CONNECTION_VALIDATION Response
+    deactivate Agent
+    activate Peer
+    Peer-->>Agent: CONNECTION_VALIDATED
+    deactivate Peer
+
+    Agent->>Peer: CREATE_CHANNEL
+    activate Peer
+    Peer-->>Agent: CREATE_CHANNEL Response
+    deactivate Peer
+
+    %% Operations
+    alt
+        Agent->>Peer: GET Request
+        activate Peer
+        Peer-->>Agent: GET Response(value)
+        deactivate Peer
+    else
+        Agent->>Peer: MONITOR Request
+        activate Peer
+        loop
+            Peer-->>Agent: MONITOR Subscrition(update)
+        end
+        deactivate Peer
+    else
+        Agent->>Peer: RPC Request
+        activate Peer
+        Peer-->>Agent: RPC Response(value)
+        deactivate Peer
+    else
+        Agent-->>Peer: PUT Request(value)
+    end
+
