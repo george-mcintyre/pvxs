@@ -115,6 +115,11 @@ sequenceDiagram
                 Note over Agent,Peer: TLS Connection Establishment begins on `address`
                 alt Server Certificate Revocation Monitoring Required<br>AND Certificate Stapling Enabled<br>AND Server TLS Context: NOT TcpReady
                     Peer->>Agent: TLS_HANDSHAKE(peer_certificate, peer_certificate_status)
+                    alt peer_certificate_status is GOOD
+                        Note over Agent: Peer Certificate Status: GOOD
+                    else peer_certificate_status is NOT_GOOD
+                        Note over Agent: Peer Certificate Status: NOT_GOOD
+                    end
                 else
                     Peer->>Agent: TLS_HANDSHAKE(peer_certificate)
                 end
@@ -122,12 +127,12 @@ sequenceDiagram
                     Agent->>Peer: TLS_HANDSHAKE()
                 else
                     Agent->>Peer: TLS_HANDSHAKE(peer_certificate)
-                    alt received `peer_certificate` requires Revocation Monitoring
+                    alt received `peer_certificate` requires Revocation Monitoring AND NOT using stapled status
                         Peer-->>PVACMS: Monitor `peer_certificate` Status
                     end
                 end
 
-                alt received `peer_certificate` requires Revocation Monitoring
+                alt received `peer_certificate` requires Revocation Monitoring AND NOT using stapled status
                     Agent-->>PVACMS: Monitor `peer_certificate` Status
                 end
             end
