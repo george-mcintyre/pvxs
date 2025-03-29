@@ -1,0 +1,54 @@
+stateDiagram-v2
+    title Client TLS Context State Machine
+
+    [*] --> Init: Context Creation
+    
+    state Init {
+        [*] --> CheckConfig
+        CheckConfig --> NoCerts: No Certificates\nConfigured
+        CheckConfig --> WithCerts: Certificates\nConfigured
+        
+        state WithCerts {
+            [*] --> CertTrustValidation
+            CertTrustValidation --> CheckMonitoring: Trust Valid
+            CertTrustValidation --> TrustInvalid: Expired/Not Yet Valid\nUntrusted/Chain Invalid
+            CheckMonitoring --> RequiresMonitoring: Has Status\nMonitoring Attr
+            CheckMonitoring --> SimpleValid: No Status\nMonitoring Attr
+            TrustInvalid --> FallbackTCP
+        }
+    }
+
+    Init --> DegradedMode: No Certificates
+    Init --> TlsReady: Certificate Trust Valid &\nNo Monitoring Required
+    Init --> TcpReady: Certificate Trust Valid &\nMonitoring Required
+    
+    TcpReady --> TlsReady: Certificate\nStatus Valid
+    TcpReady --> DegradedMode: Certificate\nStatus Invalid
+    
+    TlsReady --> TcpReady: Status Check\nRequired & Unknown
+    TlsReady --> DegradedMode: Certificate\nInvalid
+    
+    state DegradedMode {
+        [*] --> TCP_Only
+        TCP_Only --> SearchTCP: Channel\nSearch
+        TCP_Only --> RetryConfig: New Certificate\nConfigured
+    }
+    
+    state TcpReady {
+        [*] --> DualMode
+        DualMode --> SearchBoth: Channel\nSearch
+        DualMode --> AttemptTCP: Server TCP\nOnly
+        DualMode --> AttemptTLS: Server TLS\nCapable
+        DualMode --> CheckStatus: PVACMS\nUpdate
+    }
+    
+    state TlsReady {
+        [*] --> PreferTLS
+        PreferTLS --> SearchBothTLS: Channel\nSearch
+        PreferTLS --> FallbackTCP: TLS Connect\nFailed
+        PreferTLS --> EstablishTLS: TLS Server\nFound
+        PreferTLS --> CheckValidity: Periodic\nValidation
+        CheckValidity --> PreferTLS: Still Valid
+        CheckValidity --> RequireStatus: Monitoring\nRequired
+        CheckValidity --> DegradedMode: Invalid
+    } 

@@ -1,0 +1,28 @@
+stateDiagram-v2
+    title PVAccess Connection State Machine
+
+    [*] --> Searching: Create Context
+    Searching --> Connecting: Search Response\nReceived
+    Connecting --> Validating: TCP Connection\nEstablished
+    
+    Validating --> Connected: Validation\nComplete
+    Validating --> Disconnected: Validation\nFailed
+    
+    Connected --> ChannelCreating: CREATE_CHANNEL\nRequest
+    ChannelCreating --> Operating: Channel\nCreated
+    
+    Operating --> Disconnected: Connection Lost
+    Disconnected --> Searching: Retry
+    
+    state Operating {
+        [*] --> Idle
+        Idle --> Processing: Operation\nRequest
+        Processing --> Idle: Operation\nComplete
+    }
+    
+    state Validating {
+        [*] --> WaitingValidation
+        WaitingValidation --> SendingResponse: Validation\nRequest
+        SendingResponse --> WaitingAck: Response\nSent
+        WaitingAck --> ValidatedState: Ack\nReceived
+    } 

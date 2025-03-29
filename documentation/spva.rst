@@ -280,13 +280,17 @@ After the TLS handshake:
 State Machines
 ^^^^^^^^^^^^^^
 
-*Server TLS Context State Machine:*
+*TLS Context State Machine:*
 
-The server transitions based on:
+Shows TLS Context state transitions
+Includes Init, DegradedMode, TcpReady, and TlsReady states
+Shows nested states for connection acceptance behavior
+Demonstrates transitions based on certificate status
 
-- Certificate validity
-- CA trust status
-- Certificate status monitoring results
+The state transitions based on:
+
+- Certificate Validity
+- Certificate Status monitoring results
 - :ref:`configuration` options (e.g., stop_if_no_cert)
 
 States:
@@ -296,7 +300,7 @@ States:
 - ``TlsReady``: Responds to both TCP and TLS protocol requests
 - ``DegradedMode``: Fallback state for invalid certificates or missing TLS configuration
 
-.. image:: spva_tls_context_state_machine.png
+.. image:: spva_tls_context_states.png
    :alt: SPVA Server TLS Context State Machine
    :align: center
 
