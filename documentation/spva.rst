@@ -280,93 +280,73 @@ After the TLS handshake:
 State Machines
 ^^^^^^^^^^^^^^
 
-*Client TLS Context State Machine:*
+*Server TLS Context State Machine:*
 
-- Init
-- DegradedMode
-- TcpReady
-- TlsReady
+Shows TLS Context state transitions for the server side. The state transitions are based on:
 
-The state transitions based on:
-
-- Certificate Validity
-- Certificate Status monitoring results
-- :ref:`configuration` options (e.g., stop_if_no_cert)
+- Certificate validity and configuration
+- Certificate status monitoring results
+- :ref:`configuration` options (e.g., ``EPICS_PVAS_TLS_STOP_IF_NO_CERT``)
 
 States:
 
 - ``Init``: Initial state, loads and validates certificates
 - ``TcpReady``: Responds to TCP protocol requests when certificates are valid
 - ``TlsReady``: Responds to both TCP and TLS protocol requests
-- ``DegradedMode``: Fallback state for invalid certificates or missing TLS configuration
+- ``DegradedMode``: Fallback state for invalid certificates, missing TLS configuration, or revoked certificates
 
-.. image:: spva_tls_context_states.png
+.. image:: spva_server_tls_context.png
    :alt: SPVA Server TLS Context State Machine
    :align: center
 
 
 *Client TLS Context State Machine:*
 
-Similar to server state machine but
+Similar to server state machine but with key differences:
 
 - Never exits on TLS configuration issues
-- Moves to ``DEGRADED`` state and continues with TCP protocol if needed
+- Moves to ``DegradedMode`` state and continues with TCP protocol if needed
+- Trust Anchor validation affects initial state transitions
 
-.. image:: spva_tls_client_context_state_machine.png
+States:
+
+- ``Init``: Initial state, loads and validates certificates
+- ``TcpReady``: Responds to TCP protocol requests when certificates are valid
+- ``TlsReady``: Responds to both TCP and TLS protocol requests
+- ``DegradedMode``: Fallback state for invalid certificates, missing TLS configuration, or revoked certificates
+
+.. image:: spva_client_tls_context.png
    :alt: SPVA Client TLS Context State Machine
    :align: center
 
 
-.. _tls_context_search_state_machine:
+*Peer Certificate Status State Machine:*
 
-Search Handler State Machines
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-*Server Search Handler:*
+Shows the possible states and transitions for a peer's certificate status.
+Applies equally to EPICS Clients, and Servers.
 
 States:
 
-- ``DegradedMode``: Responds only to TCP protocol requests
-- ``TcpReady``: Responds only to TCP protocol requests, ignores TLS
-- ``TlsReady``: Responds to both TCP and TLS protocol requests
-
-.. image:: spva_tls_context_search_states.png
-   :alt: SPVA Server TLS Context Search Handler State Machine
-   :align: center
-
-*Client Search Handler:*
-
-- Similar to server but from client perspective
-- Executes ``TLS_CONNECTOR`` on successful TLS handshake
-- Falls back to ``TCP_CONNECTOR`` otherwise
-
-.. image:: spva_tls_client_context_search_states.png
-   :alt: SPVA Client TLS Context Search Handler State Machine
-   :align: center
-
-.. _connection_state_machine:
-
-Connection State Machines
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-*Server Connection:*
-
-- Manages TLS handshake and certificate validation
-- Monitors peer certificate status
-- Continues normal operation only after successful validation
-
-.. image:: spva_connection_state_machines.png
-   :alt: SPVA Connection State Machines
-   :align: center
+- ``UNKNOWN``: Initial state before status is determined
+- ``GOOD``: Certificate is valid and trusted
+- ``NOT GOOD``: Certificate is not currently trusted
 
 
-*Client Connection:*
+Pseudo States:
 
-- Similar to server but verifies stapled certificates
-- Destroys connection on completion
+- ``STALE``: Status information is outdated.  State transitions immediately to UNKNOWN
+- ``REVOKED``: Certificate has been permanently revoked. No way back from this status
+- ``EXPIRED``: Certificate has passed its validity period. No way back from this status
 
-.. image:: spva_client_connection_state_machines.png
-   :alt: SPVA Client Connection State Machine
+State transitions occur based on:
+
+- Subscribed-to status updates from PVACMS
+    - Certificate expiration
+    - Certificate revocation
+- PVACMS availability
+
+.. image:: spva_peer_certificate_status.png
+   :alt: SPVA Peer Certificate Status State Machine
    :align: center
 
 
@@ -377,7 +357,7 @@ TLS Handshake
 
 The following diagram shows the simplified TLS handshake sequence between server and client:
 
-.. image:: spvaseqdiag.png
+.. image:: spva_seq.png
    :alt: SPVA Sequence Diagram
    :align: center
 

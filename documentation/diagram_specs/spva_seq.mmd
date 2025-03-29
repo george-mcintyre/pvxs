@@ -15,19 +15,17 @@
     }
 }}%%
 sequenceDiagram
-    title Secure PV Access Protocol Flow
-
     participant Agent as Secure EPICS Client
     participant Peer as Secure EPICS Server
     participant PVACMS as PVACMS
 
     Note over Agent,Peer: TLS Context Initialisation
-    Note over Peer: Initial State TLS Context: Init Peer Certificate Status: UNKNOWN
-    Note over Agent: Initial State TLS Context: Init Peer Certificate Status: UNKNOWN
+    Note over Peer: State TLS Context: Init<br>Peer Certificate Status: UNKNOWN
+    Note over Agent: State TLS Context: Init<br>Peer Certificate Status: UNKNOWN
 
     % Check Server Phase
     Note over Peer: Check if EPICS Server is Viable
-    alt Server Certificate Found AND is VALID OR `stop-if-no-cert` flag is not set
+    alt Server Certificate Found AND is VALID OR EPICS_PVAS_TLS_STOP_IF_NO_CERT
         %% Server Cert Validation Phase
         Note over Peer: Check Server Certificate Viability
         alt Server Certificate Configured AND VALID
@@ -234,5 +232,5 @@ sequenceDiagram
         else
             Agent-->>Peer: PUT Request(value)
         end
-    end 
+    end
 

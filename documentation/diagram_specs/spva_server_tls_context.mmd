@@ -22,15 +22,15 @@
 stateDiagram-v2
     direction TB
     [*] --> Init
-    
-    Init --> [*] : No Cert<br>OR Cert INVALID<br>AND stop-if-no-cert set
-    Init --> DegradedMode: No Cert<br>OR Cert INVALID<br>AND stop-if-no-cert not set
+
+    Init --> [*] : No Cert<br>OR Cert INVALID<br>AND EPICS_PVAS_TLS_STOP_IF_NO_CERT
+    Init --> DegradedMode: No Cert<br>OR Cert INVALID<br>AND NOT EPICS_PVAS_TLS_STOP_IF_NO_CERT
     Init --> TcpReady: Cert VALID<br>AND Monitoring Required
     Init --> TlsReady: Cert Valid<br>AND Monitoring NOT Required
 
     TcpReady --> DegradedMode: Cert Status NOT_GOOD<br>OR STALE
     TcpReady --> TlsReady: Cert Status GOOD
 
-    DegradedMode --> TlsReady: Cert Status GOOD 
+    DegradedMode --> TlsReady: Cert Status GOOD
 
-    TlsReady --> DegradedMode: Cert Status NOT_GOOD<br>OR STALE 
+    TlsReady --> DegradedMode: Cert Status NOT_GOOD<br>OR STALE
