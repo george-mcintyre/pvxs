@@ -280,12 +280,12 @@ After the TLS handshake:
 State Machines
 ^^^^^^^^^^^^^^
 
-*TLS Context State Machine:*
+*Client TLS Context State Machine:*
 
-Shows TLS Context state transitions
-Includes Init, DegradedMode, TcpReady, and TlsReady states
-Shows nested states for connection acceptance behavior
-Demonstrates transitions based on certificate status
+- Init
+- DegradedMode
+- TcpReady
+- TlsReady
 
 The state transitions based on:
 
