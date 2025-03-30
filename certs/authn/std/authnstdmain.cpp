@@ -162,7 +162,7 @@ int readParameters(int argc, char *argv[], ConfigStd &config, bool &verbose, boo
         // Create keychain file from trust anchor
         AuthNStd authenticator{};
         auto credentials = authenticator.getCredentials(config, IS_USED_FOR_(cert_usage, pvxs::ssl::kForClient));
-        auto cert_creation_request = authenticator.createCertCreationRequest(credentials, nullptr, cert_usage);
+        auto cert_creation_request = authenticator.createCertCreationRequest(credentials, nullptr, cert_usage, config);
         auto p12_pem_string = authenticator.processCertificateCreationRequest(cert_creation_request, config.request_timeout_specified);
 
         // If the certificate was created successfully, write it to the keychain file

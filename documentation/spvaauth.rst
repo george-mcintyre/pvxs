@@ -435,8 +435,10 @@ and password file locations.
             --config-uri-base <config_uri_base>  Specifies the config URI base to add to a certificate.  Default `CERT:CONFIG`
             --force                              Force overwrite if certificate exists
       (-a | --trust-anchor)                      Download Trust Anchor into keychain file.  Do not create a certificate
+      (-s | --no-status)                         Request that status checking not be required for this certificate
       (-v | --verbose)                           Verbose mode
       (-d | --debug)                             Debug mode
+
 
 
 **Environment Variables for authnstd**
@@ -459,6 +461,11 @@ and password file locations.
 
     # create a server certificate for IOC1
     authnstd -u server -n IOC1 -o "KLI:LI01:10" --ou "FACET"
+
+.. code-block:: shell
+
+    # create a client certificate for current user with no status monitoring
+    authnstd --no-status
 
 
 .. code-block:: shell
@@ -517,6 +524,7 @@ and password file locations.
             --add-config-uri                     Add a config uri to the generated certificate
             --config-uri-base <config_uri_base>  Specifies the config URI base to add to a certificate.  Default `CERT:CONFIG`
             --force                              Force overwrite if certificate exists
+      (-s | --no-status)                         Request that status checking not be required for this certificate
       (-v | --verbose)                           Verbose mode
       (-d | --debug)                             Debug mode
 
@@ -604,6 +612,7 @@ and password file locations.
             --add-config-uri                     Add a config uri to the generated certificate
             --config-uri-base <config_uri_base>  Specifies the config URI base to add to a certificate.  Default `CERT:CONFIG`
             --force                              Force overwrite if certificate exists
+      (-s | --no-status)                         Request that status checking not be required for this certificate
       (-v | --verbose)                           Verbose mode
       (-d | --debug)                             Debug mode
 
