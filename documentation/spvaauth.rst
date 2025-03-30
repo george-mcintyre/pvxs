@@ -413,15 +413,15 @@ and password file locations.
 
 .. code-block:: shell
 
-    authnstd - Secure PVAccess with Standard Authentication
+    authnstd - Secure PVAccess Standard Authenticator
 
-    Generates client, server, or hybrid certificates based on the standard authentication method.
+    Generates client, server, or hybrid certificates based on the Standard Authenticator.
     Uses specified parameters to create certificates that require administrator APPROVAL before becoming VALID.
 
     usage:
-      authnstd [options]                         Create certificate in PENDING_APPROVAL state
-      authnstd (-h | --help)                     Show this help message and exit
-      authnstd (-V | --version)                  Print version and exit
+      authnstd [options]                          Create certificate in PENDING_APPROVAL state
+      authnstd (-h | --help)                      Show this help message and exit
+      authnstd (-V | --version)                   Print version and exit
 
     options:
       (-u | --cert-usage) <usage>                Specify the certificate usage.  client|server|hybrid.  Default `client`
@@ -434,8 +434,10 @@ and password file locations.
             --add-config-uri                     Add a config uri to the generated certificate
             --config-uri-base <config_uri_base>  Specifies the config URI base to add to a certificate.  Default `CERT:CONFIG`
             --force                              Force overwrite if certificate exists
+      (-a | --trust-anchor)                      Download Trust Anchor into keychain file.  Do not create a certificate
       (-v | --verbose)                           Verbose mode
       (-d | --debug)                             Debug mode
+
 
 **Environment Variables for authnstd**
 
@@ -463,6 +465,12 @@ and password file locations.
 
     # create a hybrid certificate for gateway1
     authnstd -u hybrid -n gateway1 -o bridge.ornl.gov --ou "Networking"
+
+
+.. code-block:: shell
+
+    # Download the Trust Anchor into your keychain file for server-only authenticated connections
+    authnstd --trust-anchor
 
 
 authkrb Configuration and Usage

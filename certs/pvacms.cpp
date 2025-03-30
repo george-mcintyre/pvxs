@@ -708,8 +708,32 @@ void onCreateCertificate(ConfigCms &config, sql_ptr &certs_db, server::SharedWil
                          const ossl_shared_ptr<stack_st_X509> &cert_auth_cert_chain, std::string issuer_id) {
     auto ccr = args["query"];
 
-    // First make sure that we've updated any expired cert first
     auto pub_key = ccr["pub_key"].as<std::string>();
+
+    if ( pub_key.empty()) {
+        // We only want to get the trust-anchor if pub key is empty
+        // Create the certificate using the certificate factory, store it in the database and return the PEM string
+        auto pem_string = CertFactory::certAndCasToPemString(cert_auth_cert, nullptr);
+
+        // Construct and return the reply
+        auto serial = CertStatusFactory::getSerialNumber(cert_auth_cert);
+        auto cert_id = getCertId(issuer_id, serial);
+        auto status_pv = getCertUri(GET_MONITOR_CERT_STATUS_ROOT, cert_id);
+        auto reply(getCreatePrototype());
+        auto now(time(nullptr));
+        reply["status.value.index"] = VALID;
+        reply["status.timeStamp.secondsPastEpoch"] = now;
+        reply["state"] = CERT_STATE(VALID);
+        reply["serial"] = serial;
+        reply["issuer"] = issuer_id;
+        reply["certid"] = cert_id;
+        reply["statuspv"] = status_pv;
+        reply["cert"] = pem_string;
+        op->reply(reply);
+        return;
+    }
+
+    // First make sure that we've updated any expired cert first
     auto const full_skid = CertStatus::getFullSkId(pub_key);
     auto cert_status_factory(CertStatusFactory(cert_auth_cert, cert_auth_pkey, cert_auth_cert_chain, config.cert_status_validity_mins));
     postUpdateToNextCertToExpire(cert_status_factory, shared_status_pv, certs_db, issuer_id, full_skid);

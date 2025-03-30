@@ -64,7 +64,7 @@ std::shared_ptr<CertCreationRequest> Auth::createCertCreationRequest(const std::
     // Fill in the ccr from the base data we've gathered so far.
     cert_creation_request->ccr["type"] = type_;
     cert_creation_request->ccr["usage"] = usage;
-    cert_creation_request->ccr["pub_key"] = key_pair->public_key;
+    cert_creation_request->ccr["pub_key"] = (key_pair) ? key_pair->public_key: "";
     cert_creation_request->ccr["name"] = credentials->name;
     cert_creation_request->ccr["country"] = credentials->country;
     cert_creation_request->ccr["organization"] = credentials->organization;
