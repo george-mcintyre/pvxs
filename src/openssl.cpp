@@ -290,31 +290,31 @@ void verifyKeyUsage(const ossl_ptr<X509> &cert,
 ossl_ptr<X509> extractCAs(std::shared_ptr<SSLContext> ctx, const ossl_shared_ptr<STACK_OF(X509)> &CAs) {
     ossl_ptr<X509> trusted_root_ca{};
     for (int i = 0, N = sk_X509_num(CAs.get()); i < N; i++) {
-        auto ca = sk_X509_value(CAs.get(), i);
+        auto cert_auth = sk_X509_value(CAs.get(), i);
 
-        auto canSign(X509_check_ca(ca));
-        auto flags(X509_get_extension_flags(ca));
+        auto canSign(X509_check_ca(cert_auth));
+        auto flags(X509_get_extension_flags(cert_auth));
 
         // Check for non-Certificate Authority certificates
         if (canSign == 0 && i != 0) {
             log_err_printf(setup, "non-certificate-authority certificate in keychain%s\n", "");
-            log_err_printf(setup, "%s\n", (SB() << ShowX509{ca}).str().c_str());
+            log_err_printf(setup, "%s\n", (SB() << ShowX509{cert_auth}).str().c_str());
             throw std::runtime_error(SB() << "non-certificate-authority certificate found in keychain");
         }
 
         if (flags & EXFLAG_SS) {  // self-signed (aka. root)
-            trusted_root_ca = ossl_ptr<X509>(X509_dup(ca));
+            trusted_root_ca = ossl_ptr<X509>(X509_dup(cert_auth));
             assert(flags & EXFLAG_SI);  // circa OpenSSL, self-signed implies self-issued
 
             // populate the context's trust store with the self-signed root cert
             X509_STORE *trusted_store = SSL_CTX_get_cert_store(ctx->ctx.get());
-            if (!X509_STORE_add_cert(trusted_store, ca)) throw SSLError("X509_STORE_add_cert");
+            if (!X509_STORE_add_cert(trusted_store, cert_auth)) throw SSLError("X509_STORE_add_cert");
         } else {
             // signed by another certificate authority
             // note: chain certs added this way are ignored unless SSL_BUILD_CHAIN_FLAG_UNTRUSTED is used
             // appends SSL_CTX::cert::chain
         }
-        if (!SSL_CTX_add0_chain_cert(ctx->ctx.get(), ca)) throw SSLError("SSL_CTX_add0_chain_cert");
+        if (!SSL_CTX_add0_chain_cert(ctx->ctx.get(), cert_auth)) throw SSLError("SSL_CTX_add0_chain_cert");
     }
     return trusted_root_ca;
 }

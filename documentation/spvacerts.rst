@@ -48,7 +48,7 @@ This copy is referred to in this document as the ``Trust Anchor``.
    - Administrators must distribute PKCS#12 files containing the Root certificate to all clients
    - These files must be stored at the location pointed to by EPICS_PVA_TLS_KEYCHAIN or equivalent
 
-Certificates 
+Certificates
 -----------------------------------
 
 A certificate is the document that is exchanged with a peer that identifies an agent.  It contains the name of the agent (subject) and the public key of the agent so that the peer can verify the agent's identity.
@@ -284,7 +284,7 @@ PVACMS Usage
             --cert-auth-name <name>              Specify name (CN) to be used for certificate authority certificate. Default `EPICS Root Certificate Authority`
             --cert-auth-org <name>               Specify organisation (O) to be used for certificate authority certificate. Default `certs.epics.org`
             --cert-auth-org-unit <name>          Specify organisational unit (OU) to be used for certificate authority certificate. Default `EPICS Certificate Authority`
-            --ca-country <name>                  Specify country (C) to be used for certificate authority certificate. Default `US`
+            --cert-auth-country <name>           Specify country (C) to be used for certificate authority certificate. Default `US`
       (-d | --cert-db) <db_name>                 Specify cert db file location. Default ${XDG_DATA_HOME}/pva/1.3/certs.db
       (-p | --pvacms-keychain) <pvacms_keychain> Specify PVACMS keychain file location. Default ${XDG_CONFIG_HOME}/pva/1.3/pvacms.p12
             --pvacms-keychain-pwd <file>         Specify location of file containing PVACMS keychain file's password
@@ -347,7 +347,7 @@ The environment variables in the following table configure the :ref:`pvacms` at 
 ||                       || ``~/.config/pva/1.3/cert_auth.p12``       ||                                                                         |
 +------------------------+--------------------------------------------+--------------------------------------------------------------------------+
 || EPICS_CERT_AUTH_      || <certificate authority password file>     || fully qualified path to a file that will be used as the                 |
-|| TLS_KEYCHAIN_PWD_FILE || e.g. ``~/.config/pva/1.3/ca.pass``        || certificate authority keychain password file.                           |
+|| TLS_KEYCHAIN_PWD_FILE || e.g. ``~/.config/pva/1.3/cert_auth.pass`` || certificate authority keychain password file.                           |
 +------------------------+--------------------------------------------+--------------------------------------------------------------------------+
 || EPICS_PVACMS_ACF      || <path to ACF file>                        || fully qualified path to a file that will be used as the                 |
 ||                       || e.g. ``~/.config/pva/1.3/pvacms.acf``     || ACF file that configures the permissions of :ref:`pvacms` peers.        |

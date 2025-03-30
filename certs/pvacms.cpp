@@ -1971,7 +1971,7 @@ int readParameters(int argc, char *argv[], const char *program_name, ConfigCms &
                   << "        --cert-auth-org-unit <name>          Specify organisational unit (OU) to be used for certificate authority certificate. Default "
                      "`EPICS Certificate "
                      "Authority`\n"
-                  << "        --ca-country <name>                  Specify country (C) to be used for certificate authority certificate. Default `US`\n"
+                  << "        --cert-auth-country <name>           Specify country (C) to be used for certificate authority certificate. Default `US`\n"
                   << "  (-d | --cert-db) <db_name>                 Specify cert db file location. Default ${XDG_DATA_HOME}/pva/1.3/certs.db\n"
                   << "  (-p | --pvacms-keychain) <pvacms_keychain> Specify PVACMS keychain file location. Default ${XDG_CONFIG_HOME}/pva/1.3/pvacms.p12\n"
                   << "        --pvacms-keychain-pwd <file>         Specify location of file containing PVACMS keychain file's password\n"

@@ -31,12 +31,12 @@
 
 /**
  * @brief This tester uses a Tester object and a bunch of MACROS that rely on a very opinionated
- * set of named variables to function.  prefixes `ca`, `super_server`, `intermediate_server`,
+ * set of named variables to function.  prefixes `cert_auth`, `super_server`, `intermediate_server`,
  * `server1`, `server2`, `ioc`, `client1`, and `client2` refer to the certificates generated
- * by `gen_test_certs`.  `ca` is used for the Certificate Authority and `super_server` is used
+ * by `gen_test_certs`.  `cert_auth` is used for the Certificate Authority and `super_server` is used
  * for the Mock PVACMS.
  *
- * `gen_test_certs` has been modified to generate the ca cert and the Mock PVACMS cert without
+ * `gen_test_certs` has been modified to generate the Certificate Authority cert and the Mock PVACMS cert without
  * status extensions for obvious reasons.
  *
  * The tests initially follow the exact same sequence as those in the `testtls` suite and then try out some

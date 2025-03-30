@@ -161,8 +161,8 @@ ossl_ptr<PKCS12> P12FileFactory::pemStringToP12(const std::string &password, EVP
 
     // Get whole of certificate chain and push to certs
     while (X509 *cert_auth_ptr = PEM_read_bio_X509(bio.get(), nullptr, nullptr, (void *)password.c_str())) {
-        auto ca = ossl_ptr<X509>(cert_auth_ptr);
-        sk_X509_push(certs.get(), ca.release());
+        auto cert_auth = ossl_ptr<X509>(cert_auth_ptr);
+        sk_X509_push(certs.get(), cert_auth.release());
     }
     if ( !keys_ptr && sk_X509_num(certs.get()) == 0) {
         auto trust_anchor_ptr = X509_dup(cert.get());

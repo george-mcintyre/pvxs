@@ -115,12 +115,12 @@ static int jdk_trust(PKCS12_SAFEBAG *bag, void *cbarg) noexcept {
 static int jdk_trust(PKCS12_SAFEBAG *bag, void *cbarg) noexcept {return 0;}
 static inline
 PKCS12 *PKCS12_create_ex2(const char *pass, const char *name, EVP_PKEY *pkey,
-                          X509 *cert, STACK_OF(X509) *ca, int nid_key, int nid_cert,
+                          X509 *cert, STACK_OF(X509) *cert_auth_chain_ptr, int nid_key, int nid_cert,
                           int iter, int mac_iter, int keytype,
                           OSSL_LIB_CTX *ctx, const char *propq,
                           int (*cb)(PKCS12_SAFEBAG *bag, void *cbarg), void *cbarg)
 {
-    return PKCS12_create_ex(pass, name, pkey, cert, ca,
+    return PKCS12_create_ex(pass, name, pkey, cert, cert_auth_chain_ptr,
                             nid_key, nid_cert, iter, mac_iter, keytype,
                             ctx, propq);
 }
