@@ -280,7 +280,7 @@ void verifyKeyUsage(const ossl_ptr<X509> &cert,
  * is trusted.  However, PKCS12_parse() circa 3.1 does not know about
  * this, and gives us all the certs. in one blob for us to sort through.
  *
- * We _assume_ that any root CA included in a keychain file is meant to
+ * We _assume_ that any root certificate authority included in a keychain file is meant to
  * be trusted.  Otherwise, such a cert. could never appear in a valid
  * chain.
  *
@@ -310,7 +310,7 @@ ossl_ptr<X509> extractCAs(std::shared_ptr<SSLContext> ctx, const ossl_shared_ptr
             X509_STORE *trusted_store = SSL_CTX_get_cert_store(ctx->ctx.get());
             if (!X509_STORE_add_cert(trusted_store, ca)) throw SSLError("X509_STORE_add_cert");
         } else {
-            // signed by another CA
+            // signed by another certificate authority
             // note: chain certs added this way are ignored unless SSL_BUILD_CHAIN_FLAG_UNTRUSTED is used
             // appends SSL_CTX::cert::chain
         }
@@ -382,7 +382,7 @@ std::shared_ptr<SSLContext> commonSetup(const SSL_METHOD *method, const bool is_
     const std::string &filename = conf.tls_keychain_file, &password = conf.tls_keychain_pwd;
     auto cert_data = certs::IdFileFactory::createReader(filename, password)->getCertDataFromFile();
 
-    ossl_ptr<X509> trusted_root_ca(extractCAs(tls_context, cert_data.ca));
+    ossl_ptr<X509> trusted_root_ca(extractCAs(tls_context, cert_data.cert_auth_chain));
     if (!trusted_root_ca) throw SSLError("Could not find Trusted Root Certificate Authority Certificate in keychain");
 
     // Get the context's trust store that has been established by reading the CAs from the file
@@ -745,7 +745,7 @@ bool SSLContext::hasExpired() const {
  * @brief Get the peer credentials from the SSL context
  *
  * This function retrieves the peer credentials from the SSL context and fills the PeerCredentials structure.
- * It also attempts to use the root CA name to qualify the authority.
+ * It also attempts to use the root certificate authority name to qualify the authority.
  *
  * @param C the PeerCredentials to fill
  * @param ctx the SSL context to get the peer credentials from
@@ -771,12 +771,12 @@ bool SSLContext::getPeerCredentials(PeerCredentials &C, const SSL *ctx) {
             for (int i = 0; i < serial_asn1->length; ++i) serial = serial << 8 | serial_asn1->data[i];
             temp.serial = std::to_string(serial);
 
-            // try to use root CA name to qualify authority
+            // try to use root certificate authority name to qualify authority
             if (const auto chain = SSL_get0_verified_chain(ctx)) {
                 auto N = sk_X509_num(chain);
                 X509 *root;
                 X509_NAME *rootName;
-                // last cert should be root CA
+                // last cert should be root certificate authority
                 if (N && !!((root = sk_X509_value(chain, N - 1))) && !!((rootName = X509_get_subject_name(root))) &&
                     X509_NAME_get_text_by_NID(rootName, NID_commonName, name, sizeof(name) - 1)) {
                     if (X509_check_ca(root) && (X509_get_extension_flags(root) & EXFLAG_SS)) {
@@ -784,7 +784,7 @@ bool SSLContext::getPeerCredentials(PeerCredentials &C, const SSL *ctx) {
                         temp.issuer_id = certs::CertStatus::getSkId(root);
 
                     } else {
-                        log_warn_printf(io, "Last cert in peer chain is not root CA?!? %s\n", std::string(SB() << ossl::ShowX509{root}).c_str());
+                        log_warn_printf(io, "Last cert in peer chain is not root Root certificate authority certificate? %s\n", std::string(SB() << ossl::ShowX509{root}).c_str());
                     }
                 }
             }

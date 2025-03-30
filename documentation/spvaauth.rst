@@ -91,7 +91,7 @@ Secure PVAccess Authentication Mode
         std::string peer;      // network address
         std::string iface;     // network interface
         std::string method;    // "anonymous", "ca", or "x509"
-        std::string authority; // CA common name for x509 if mode is `Mutual` or blank
+        std::string authority; // Certificate Authority common name for x509 if mode is `Mutual` or blank
         std::string account;   // User account if mode is `Mutual` or blank
         bool isTLS;            // Secure transport status.  True is mode is `Mutual` or `Server-Only`
     };
@@ -378,10 +378,10 @@ Though it is recommended that you create your own site-specific Authenticators P
 - ``authnstd`` : Standard Authenticator - Uses explicitly specified and unverified credentials
 - ``authnkrb`` : Kerberos Authenticator - Kerberos credentials verified by the KDC
 - ``authnldap``: LDAP Authenticator     - Login to LDAP directory to establish identity
-- ``authnjwt`` : JWT Authenticator      - JWT tokens obtained by OAuth and verified against the token issuer
+- ``authnjwt`` : JWT Authenticator      - JWT tokens obtained by OAuth and verified against the token issuer for a temporary in-session certificate
 
 authstd Configuration and Usage
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This Authenticator is used for explicitly specified and unverified credentials.
 It can be used to create a certificate with a username and hostname.
@@ -528,6 +528,18 @@ and password file locations.
       (-v | --verbose)                           Verbose mode
       (-d | --debug)                             Debug mode
 
+**Extra options that are available in PVACMS**
+
+.. code-block:: shell
+
+    usage:
+      pvacms [kerberos options]                  Run PVACMS.  Interrupt to quit
+
+    kerberos options
+            --krb-keytab <keytab file>           kerberos keytab file for non-interactive login`
+            --krb-realm <realm>                  kerberos realm.  Default `EPICS.ORG`
+            --krb-validator <validator-service>  pvacms kerberos service name.  Default `pvacms`
+
 **Environment Variables for PVACMS AuthnKRB Verifier**
 
 The environment variables and parameters in the following table configure the Kerberos
@@ -615,6 +627,19 @@ and password file locations.
       (-s | --no-status)                         Request that status checking not be required for this certificate
       (-v | --verbose)                           Verbose mode
       (-d | --debug)                             Debug mode
+
+
+**Extra options that are available in PVACMS**
+
+.. code-block:: shell
+
+    usage:
+      pvacms [ldap options]                      Run PVACMS.  Interrupt to quit
+
+    ldap options
+            --ldap-host <host>                   LDAP Host.  Default localhost
+            --ldap-port <port>                   LDAP port.  Default 389
+
 
 **Environment Variables for authnldap and PVACMS AuthnLDAP Verifier**
 
@@ -760,7 +785,7 @@ ISTLS Option
 
 New rule option for TLS-based access control:
 
-- Requires server connection with trusted CA-signed certificate
+- Requires server connection with trusted Certificate Authority-signed certificate
 - Enables READ access restriction to certified PVs only
 
 .. _access_control_file_ACF:

@@ -591,13 +591,13 @@ ossl_ptr<X509> createCertificate(sql_ptr &certs_db, CertFactory &cert_factory) {
     log_info_printf(pvacms, "%s *=> %s\n", cert_id.c_str(), CERT_STATE(effective_status));
     log_debug_printf(pvacms, "--------------------------------------%s", "\n");
     auto cert_description = (SB() << "X.509 "
-                                  << (IS_USED_FOR_(cert_factory.usage_, ssl::kForIntermediateCa)    ? "INTERMEDIATE CA"
-                                      : IS_USED_FOR_(cert_factory.usage_, ssl::kForClientAndServer) ? "CLIENT & SERVER"
-                                      : IS_USED_FOR_(cert_factory.usage_, ssl::kForClient)          ? "CLIENT"
-                                      : IS_USED_FOR_(cert_factory.usage_, ssl::kForServer)          ? "SERVER"
-                                      : IS_USED_FOR_(cert_factory.usage_, ssl::kForCMS)             ? "PVACMS"
-                                      : IS_USED_FOR_(cert_factory.usage_, ssl::kForCa)              ? "CA"
-                                                                                                    : "STRANGE")
+                                  << (IS_USED_FOR_(cert_factory.usage_, ssl::kForIntermediateCertAuth)    ? "INTERMEDIATE CERTIFICATE AUTHORITY"
+                                      : IS_USED_FOR_(cert_factory.usage_, ssl::kForClientAndServer)       ? "CLIENT & SERVER"
+                                      : IS_USED_FOR_(cert_factory.usage_, ssl::kForClient)                ? "CLIENT"
+                                      : IS_USED_FOR_(cert_factory.usage_, ssl::kForServer)                ? "SERVER"
+                                      : IS_USED_FOR_(cert_factory.usage_, ssl::kForCMS)                   ? "PVACMS"
+                                      : IS_USED_FOR_(cert_factory.usage_, ssl::kForCertAuth)              ? "CERTIFICATE AUTHORITY"
+                                                                                                          : "STRANGE")
                                   << " certificate")
                                 .str();
     log_debug_printf(pvacms, "%s\n", cert_description.c_str());
@@ -617,9 +617,9 @@ ossl_ptr<X509> createCertificate(sql_ptr &certs_db, CertFactory &cert_factory) {
  * @brief Creates a PEM string representation of a certificate.
  *
  * This function creates a PEM string representation of a certificate by creating the certificate using the provided
- * CA database and certificate factory, and then converting the certificate and certificate authority certificate chain to PEM format.
+ * certificate database and certificate factory, and then converting the certificate and certificate authority certificate chain to PEM format.
  *
- * @param certs_db The CA database.
+ * @param certs_db The certificate database.
  * @param cert_factory The certificate factory.
  * @return A PEM string representation of the certificate.
  */
@@ -1053,19 +1053,19 @@ std::tuple<std::string, uint64_t> getParameters(const std::list<std::string> &pa
 /**
  * @brief Get or create a certificate authority certificate.
  *
- * Check to see if a CA key and certificate are located where the configuration
+ * Check to see if a certificate authority key and certificate are located where the configuration
  * references them and check if they are valid.
  *
  * If not then create a new key and/or certificate and store them at the configured locations.
  *
  * If the certificate is invalid then make a backup, notify the user, then
  * create a new one.  A PVACMS only creates certificates with validity that
- * is within the lifetime of the certificate authority certificate so if the CA cert has expired,
+ * is within the lifetime of the certificate authority certificate so if the certificate authority certificate has expired,
  * all certificates it has signed will also have expired, and will need to be
  * replaced.
  *
- * @param config the config to use to get CA creation parameters if needed
- * @param certs_db the certificate database to write the CA to if needed
+ * @param config the config to use to get certificate authority creation parameters if needed
+ * @param certs_db the certificate database to write the certificate authority to if needed
  * @param cert_auth_cert the reference to the returned certificate
  * @param cert_auth_pkey the reference to the private key of the returned certificate
  * @param cert_auth_chain reference to the certificate chain of the returned cert
@@ -1085,12 +1085,12 @@ void getOrCreateCertAuthCertificate(const ConfigCms &config, sql_ptr &certs_db, 
         key_pair = IdFileFactory::createKeyPair();
         cert_data = createCertAuthCertificate(config, certs_db, key_pair);
         createDefaultAdminACF(config, cert_data.cert);
-        createAdminClientCert(config, certs_db, key_pair->pkey, cert_data.cert, cert_data.ca);
+        createAdminClientCert(config, certs_db, key_pair->pkey, cert_data.cert, cert_data.cert_auth_chain);
     }
 
     cert_auth_pkey = std::move(key_pair->pkey);
     cert_auth_cert = std::move(cert_data.cert);
-    cert_auth_chain = cert_data.ca;
+    cert_auth_chain = cert_data.cert_auth_chain;
 }
 
 /**
@@ -1372,8 +1372,8 @@ void ensureServerCertificateExists(const ConfigCms &config, sql_ptr &certs_db, c
  * and stores it in the given database as well as writing it out to the
  * configured P12 file protected by the optionally specified password.
  *
- * @param config the configuration to use to get CA creation parameters
- * @param certs_db the reference to the certificate database to write the CA to
+ * @param config the configuration to use to get certificate authority creation parameters
+ * @param certs_db the reference to the certificate database to write the certificate authority certificate to
  * @param key_pair the key pair to use for the certificate
  * @return a cert data structure containing the cert and chain and a copy of the key
  */
@@ -1386,7 +1386,7 @@ CertData createCertAuthCertificate(const ConfigCms &config, sql_ptr &certs_db, c
     const auto serial = generateSerial();
 
     auto certificate_factory = CertFactory(serial, key_pair, config.cert_auth_name, config.cert_auth_country, config.cert_auth_organization,
-                                           config.cert_auth_organizational_unit, not_before, not_after, ssl::kForCa, config.cert_status_subscription);
+                                           config.cert_auth_organizational_unit, not_before, not_after, ssl::kForCertAuth, config.cert_status_subscription);
     certificate_factory.allow_duplicates = false;
 
     const auto pem_string = createCertificatePemString(certs_db, certificate_factory);

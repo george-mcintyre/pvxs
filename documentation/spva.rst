@@ -265,7 +265,7 @@ Connections are established using TLS if at least the server side is configured 
 Prior to the TLS handshake:
 
 - Certificates are loaded and validated
-- CA trust is verified all the way down the chain
+- Certificate authority trust is verified all the way down the chain
 - Both sides subscribe to certificate status where configured for their own certificate and all those in the chain
 - All certificate statues are cached
 
@@ -637,7 +637,7 @@ Trust Establishment
 
 1. Trust Anchor Distribution:
 
-   - Administrators must distribute PKCS#12 files containing the CA Root certificate to all clients
+   - Administrators must distribute PKCS#12 files containing the Root Certificate Authority certificate to all clients
    - These files must be stored at the location pointed to by EPICS_PVA_TLS_KEYCHAIN or equivalent
    - These files are replaced with any new certificates that are generated for the user but
      the trust anchor certificate is preserved
@@ -646,15 +646,30 @@ Trust Establishment
 2. Trust Anchor Distribution with Authenticators:
 
    - The trust anchor certificate is delivered with the entity certificate.  
-   - Users must verify that the issuer of the certificate matches the Root CA they are expecting.
+   - Users must verify that the issuer of the certificate matches the Root Certificate Authority they are expecting.
    - To control the selection of PVACMS service and thus the trust anchor certificate, users verify their PVAccess configuration.
+
       -  ``EPICS_PVA_ADDR_LIST``
       -  ``EPICS_PVA_AUTO_ADDR_LIST``
+
    - Consistent across all deployment types
 
-3. Certificate Authority:
+3. Getting Trust Anchor from PVACMS
 
-   - :ref:`pvacms` serves as site CA
+   - Use ``authnstd`` to get the trust anchor certificate from PVACMS
+   - The p12 file created can be used by a client to create a server-only authenticated TLS connection
+  
+  .. code-block:: shell
+
+     # Get the trust anchor certificate from PVACMS and save to the location specified by ``EPICS_PVA_TLS_KEYCHAIN``
+     authnstd --trust-anchor
+
+     # Get the trust anchor certificate from PVACMS and save to the location specified by ``EPICS_PVAS_TLS_KEYCHAIN``
+     authnstd -u server -a
+
+4. Certificate Authority = Trust Anchor
+
+   - :ref:`pvacms` serves as site Certificate Authority
    - Common trust anchor for all nodes
    - Handles certificate lifecycle management
 
