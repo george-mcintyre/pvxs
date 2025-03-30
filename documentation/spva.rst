@@ -106,8 +106,8 @@ The following environment variables control SPVA behavior:
 | EPICS_PVAS_TLS_KEYCHAIN  | ``~/.config/server.pass``                                        | keychain file contents will not be encrypted. It is not       |
 | _PWD_FILE                |                                                                  | recommended to not specify a password file.                   |
 +--------------------------+----------------------------+-------------------------------------+---------------------------------------------------------------+
-| EPICS_PVA_TLS_OPTIONS    | ``client_cert``            | ``optional`` (default)              | Require client certificate to be presented.                   |
-|                          |                            |                                     |                                                               |
+| EPICS_PVA_TLS_OPTIONS    | ``client_cert``            | ``optional`` (default)              | During TLS handshake require client certificate to be         |
+|                          |                            |                                     | presented                                                     |
 |                          | Determines whether client  +-------------------------------------+---------------------------------------------------------------+
 | Sets the TLS options     | certificates are required  | ``require``                         | Don't require client certificate to be presented.             |
 | for clients and servers. +----------------------------+-------------------------------------+---------------------------------------------------------------+
@@ -126,14 +126,14 @@ The following environment variables control SPVA behavior:
 |                          |                            |                                     | For a client standby has the same effect as shutdown.         |
 |                          +----------------------------+-------------------------------------+---------------------------------------------------------------+
 |                          | ``on_no_cms``              | ``fallback-to-tcp`` (default)       | If revocation status check is required but CMS cannot         |
-|                          |                            |                                     | degrade connections to TCO mode                               |
+|                          |                            |                                     | degrade connections to tcp mode                               |
 |                          | Determines what to do when +-------------------------------------+---------------------------------------------------------------+
 |                          | CMS is unavailable         | ``throw``                           | Otherwise throw an exception                                  |
 |                          +----------------------------+-------------------------------------+---------------------------------------------------------------+
-|                          | ``no_revocation_check``    |                                     | This flag, if present, disables certificate status monitoring |
-|                          |                            |                                     | so clients / servers will not know if certificates have been  |
-|                          | Determines whether cert    |                                     | revoked.                                                      |
-|                          | status is monitored        |                                     | Default: status monitoring is not disabled                    |
+|                          | ``no_revocation_check``    |                                     | This flag, if present, disables certificate revocation status |
+|                          |                            |                                     | monitoring meaning that this certificate will not be able to  |
+|                          | Determines whether cert    |                                     | be revoked.                                                   |
+|                          | status is monitored        |                                     | Default: revocation status monitoring is not disabled         |
 |                          +----------------------------+-------------------------------------+---------------------------------------------------------------+
 |                          | ``no_stapling``            | ``yes``, ``true``, ``1``            | Servers won't staple certificate status, clients won't        |
 |                          |                            |                                     | request stapling information during TLS handshake             |
@@ -192,7 +192,10 @@ Allows runtime reconfiguration of a TLS connection.  It does this by dropping al
 then re-initialising them using the given configuration.  This means checking if the certificates
 and keys exist, loading and verifying them, checking for status and status of peers, etc.
 
-`pvxs::client::Context::reconfigure` and `pvxs::server::Server::reconfigure` allow runtime TLS configuration updates:
+- `pvxs::client::Context::reconfigure` and 
+- `pvxs::server::Server::reconfigure`  
+  
+Example of TLS configuration reconfiguration:
 
 .. code-block:: c++
 
@@ -214,7 +217,9 @@ This addition is based on the Wildcard PV support included in epics-base since v
 extends this support to pvxs allowing PVs to be specified as wildcard patterns.  We use this
 to provide individualised PVs for each certificate's status management.
 
-`pvxs::server::SharedWildcardPV` support for pattern-matched PV names:
+- `pvxs::server::SharedWildcardPV` 
+
+Example of support for pattern-matched PV names:
 
 .. code-block:: c++
 
@@ -273,16 +278,46 @@ During the TLS handshake:
 After the TLS handshake:
 
 - Both sides subscribe to peer certificate status where configured
-- Clients may use OCSP stapled status immediately before waiting for status monitoring results
+- Clients may use stapled server certificate status
+
+Connection Types 
+^^^^^^^^^^^^^^^^
+
+There are three types of possible connections  
+
+- tcp / tcp : TCP only connection, legacy ``ca``
+- tcp / tls : server-only authenticated TLS
+- tls / tls : mutually authenticated TLS
+
+If an EPICS agent finds a certificate, trust anchor, and private key at the location specified by ``EPICS_PVA_TLS_KEYCHAIN`` then it will use that certificate for the handshake.
+This includes the default location that the variable points to even if its is not set.
+
+- ``~/.config/pva/1.3/client.p12`` - for clients
+- ``~/.config/pva/1.3/server.p12`` - for servers
+
+For a server-only authenticated TLS connection two things are required:
+
+- The server must be configured to allow server-only authenticated TLS connections by setting the ``EPICS_PVA_TLS_OPTIONS`` option ``client_cert`` to ``optional``
+- The client must have a keychain file containing a trust anchor alone, at the location specified by ``EPICS_PVA_TLS_KEYCHAIN``.
+  - The p12 file can be created using ``authnstd`` with the ``-t`` option.
+
+
+
+
+
+
+
+
+
 
 .. _state_machines:
 
 State Machines
 ^^^^^^^^^^^^^^
 
-*Server TLS Context State Machine:*
+*Server TLS Context State:*
 
-Shows TLS Context state transitions for the server side. The state transitions are based on:
+The state transitions based on:
 
 - Certificate validity and configuration
 - Certificate status monitoring results
@@ -300,12 +335,11 @@ States:
    :align: center
 
 
-*Client TLS Context State Machine:*
+*Client TLS Context State:*
 
-Similar to server state machine but with key differences:
+Similar to server but with key differences:
 
 - Never exits on TLS configuration issues
-- Moves to ``DegradedMode`` state and continues with TCP protocol if needed
 - Trust Anchor validation affects initial state transitions
 
 States:
@@ -352,22 +386,44 @@ State transitions occur based on:
 
 .. _tls_handshake:
 
-TLS Handshake
-~~~~~~~~~~~~~
+PVAccess Sequence Diagram
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The following diagram shows the simplified TLS handshake sequence between server and client:
+The following diagram shows the PVAccess connection establishment sequence:
+
+.. image:: pva_seq.png
+   :width: 300px
+   :alt: PVA Sequence Diagram
+   :align: center
+
+
+Secure PVAccess Sequence Diagram
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following diagram shows how the Secure PVAccess protocol establishes a secure connection between an EPICS client and server:
 
 .. image:: spva_seq.png
    :alt: SPVA Sequence Diagram
    :align: center
 
 1. Each agent uses an ``X.509`` certificate for peer authentication
+
+   - Certificate is verified against own trust anchor (stored in same keychain file as certificate)
+   - Multiple certificates may be verified in the chain to trust anchor
+   - Verification checks the signature, expiration, and usage flags
+   - If certificate is configured for status monitoring, subscribes to status updates from PVACMS
+   - Certificate status is verified and cached
+
 2. During handshake:
 
    - Certificates are exchanged
-   - Both sides verify peer certificates against trusted root certificates
-   - Multiple certificates may be verified in the chain to trusted CA
-   - Local verification checks signature, expiration, and usage flags
+   - Both sides verify peer certificates against their own trust anchor
+   - Multiple peer certificates may be verified in the chain to own trust anchor
+   - Verification checks the signature, expiration, and usage flags
+   - If peer certificate is configured for status monitoring, subscribes to status updates from PVACMS
+   - Peer certificate status is verified and cached
+   - Server may staple its own certificate status in handshake
+   - Client may use stapled status immediately before waiting for status monitoring results
 
 3. SPVA certificates may include status monitoring extension requiring:
 
@@ -376,47 +432,31 @@ The following diagram shows the simplified TLS handshake sequence between server
 
 4. Agents subscribe to:
 
+   - Own certificate status
    - Peer's certificate status
-   - Own certificate status and certificate chain
 
 5. Servers cache and staple certificate status in handshake
 
-.. _online_certificate_status_protocol_OCSP:
-
-OCSP and Status Verification
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. _ocsp_stapling:
-
-OCSP Stapling
-^^^^^^^^^^^^^
-
-OCSP Stapling optimizes certificate status verification during TLS handshake:
-
-.. figure:: images/ocsp_stapling.png
-    :width: 800px
-    :align: center
-    :name: ocsp-stapling
-
-- Enabled by default with status monitoring extension
-- Disable using EPICS_PVAS_TLS_OPTIONS="disable_stapling"
-
 .. _status_verification:
 
-Status Verification
-^^^^^^^^^^^^^^^^^^^
+Certificate Status Verification
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    Certificate Status received from the PVACMS for a certificate returns a ``GOOD`` status
-    if, and only if, the certificate status is good and so is that of its certificate authority certificate
-    chain all the way back to the root certificate.  In this way agents need monitor
-    only their own entity certificate and that of their peer.
+Certificate Status received from the PVACMS for a certificate returns a ``GOOD`` status
+if, and only if, 
+
+- the certificate status is GOOD and 
+- so is that of its trust anchor certificate chain 
+- all the way back to the root certificate  
+  
+In this way agents need monitor only their own entity certificate and that of their peer.
 
 Certificate status verification occurs at several points:
 
 1. Initial Connection
 
    - Certificates are verified during TLS handshake
-   - Both peers verify against a trusted root certificates that they have loaded from their own keychain file
+   - Both peers verify against a trusted root certificate that they have loaded from their own keychain file
    - Basic checks include:
 
      - Signature validation
@@ -458,9 +498,9 @@ Certificate status verification occurs at several points:
 Status Caching
 ^^^^^^^^^^^^^^
 
-- Agents subscribe to peer certificate
+- Agents subscribe to peer certificate status
 - Status transitions trigger connection status re-evaluation
-- Cached status used within validity period to reduce :ref:`pvacms` requests
+- Cached status are reused within validity period to reduce :ref:`pvacms` requests
 - Servers staple cached status in handshake
 - Clients may skip initial :ref:`pvacms` request using stapled status
 
@@ -563,20 +603,25 @@ Deployment Patterns
    - Common trust anchor required
    - Consistent :ref:`certificate_management` across node types
 
-Certificate Storage
-^^^^^^^^^^^^^^^^^^^
+Keychain-File Storage
+^^^^^^^^^^^^^^^^^^^^^
 
 Standard Nodes:
 
-- ``XDG_CONFIG_HOME`` standard is used by default to locate certificates for clients and server
+- `XDG_CONFIG_HOME <https://specifications.freedesktop.org/basedir-spec/latest/>`_ standard is used by default to locate keychain files for clients and servers
 
-  - default if not set is ``~/.config``
+  - default, if not set, is ``~/.config``
   - we append ``/pva/1.3/`` to make the full path default to ``~/.config/pva/1.3/``
-  - client certificates are stored in ``client.p12`` by default
-  - server certificates are stored in ``server.p12`` by default
+  - client keychain files are, by default, ``client.p12``
+  - server keychain files are, by default, ``server.p12``
 
 - Store certificates in local protected directory
 
+  - keychain files contain
+    - the certificate
+    - the private key
+    - the certificate authority chain including the root certificate
+  
   - the files are protected with ``400`` so that only the owner can read
 
 - Automatic reconfiguration on certificate updates
@@ -590,19 +635,24 @@ Diskless Nodes:
 Trust Establishment
 ^^^^^^^^^^^^^^^^^^^
 
-1. Root Certificate Distribution:
+1. Trust Anchor Distribution:
 
    - Administrators must distribute PKCS#12 files containing the CA Root certificate to all clients
    - These files must be stored at the location pointed to by EPICS_PVA_TLS_KEYCHAIN or equivalent
    - These files are replaced with any new certificates that are generated for the user but
-     the root certificate authority certificate is preserved
-   - Use of publicly signed root certificates is not supported at present
-   - The only exception is when clients use any Authenticator to generate certificates.
-     In this case the root certificate authority certificate is delivered with the certificate.  Users
-     must verify that the issuer of the certificate matches the Root CA they are expecting.
+     the trust anchor certificate is preserved
+   - Use of publicly signed trust anchor certificates is not supported at present
+  
+2. Trust Anchor Distribution with Authenticators:
+
+   - The trust anchor certificate is delivered with the entity certificate.  
+   - Users must verify that the issuer of the certificate matches the Root CA they are expecting.
+   - To control the selection of PVACMS service and thus the trust anchor certificate, users verify their PVAccess configuration.
+      -  ``EPICS_PVA_ADDR_LIST``
+      -  ``EPICS_PVA_AUTO_ADDR_LIST``
    - Consistent across all deployment types
 
-2. Certificate Authority:
+3. Certificate Authority:
 
    - :ref:`pvacms` serves as site CA
    - Common trust anchor for all nodes

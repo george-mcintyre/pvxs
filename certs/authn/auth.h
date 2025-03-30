@@ -461,7 +461,7 @@ int runAuthenticator(int argc, char *argv[], std::function<void(ConfigT &, AuthT
         uint16_t cert_usage{pvxs::ssl::kForClient};
 
         const auto parse_result = readParameters(argc, argv, config, verbose, debug, cert_usage, daemon_mode, force);
-        if (parse_result) return parse_result;
+        if (parse_result) return parse_result == -1 ? 0 : parse_result;
 
         if (verbose) logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Info);
         if (debug) logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Debug);

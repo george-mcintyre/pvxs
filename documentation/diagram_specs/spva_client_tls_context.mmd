@@ -25,12 +25,12 @@ stateDiagram-v2
     
     Init --> DegradedMode: No Trust Anchor<br>OR No Cert<br>OR Cert INVALID
     Init --> TcpReady: Cert VALID<br>AND Monitoring Required
-    Init --> TlsReady: Cert Valid<br>AND Monitoring NOT Required
+    Init --> TlsReady: Cert VALID<br>AND Monitoring NOT Required
 
-    TcpReady --> DegradedMode: Cert Status NOT_GOOD<br>OR STALE
+    TcpReady --> DegradedMode: Cert Status NOT_GOOD<br>OR Stale
     TcpReady --> TlsReady: Cert Status GOOD
 
     DegradedMode --> TlsReady: Cert Status GOOD 
 
-    TlsReady --> DegradedMode: Cert Status NOT_GOOD<br>OR STALE
+    TlsReady --> DegradedMode: Cert Status NOT_GOOD<br>OR Stale
 
