@@ -25,7 +25,7 @@ sequenceDiagram
 
     % Check Server Phase
     Note over Peer: Check if EPICS Server is Viable
-    alt Server Certificate Found AND is VALID OR EPICS_PVAS_TLS_STOP_IF_NO_CERT
+    alt Server Certificate Found AND is VALID OR NOT EPICS_PVAS_TLS_STOP_IF_NO_CERT
         %% Server Cert Validation Phase
         Note over Peer: Check Server Certificate Viability
         alt Server Certificate Configured AND VALID
