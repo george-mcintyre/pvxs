@@ -227,6 +227,23 @@ Server& Server::addPV(const std::string& name, const SharedWildcardPV& pv)
     return *this;
 }
 
+Server& Server::addPV(const std::string& wild_name, std::initializer_list<std::string>& excluded_names, const SharedWildcardPV& pv)
+{
+    if(!pvt)
+        throw std::logic_error("NULL Server");
+    pvt->builtinsrc.addWithExclusion(wild_name, excluded_names, pv);
+    pvt->beaconChange++;
+    return *this;
+}
+
+void Server::addExclusion(const std::string& wild_name, std::string& excluded_name) {
+    pvt->builtinsrc.addExclusion(wild_name, excluded_name);
+}
+
+void Server::removeExclusion(const std::string& wild_name, std::string& excluded_name) {
+    pvt->builtinsrc.removeExclusion(wild_name, excluded_name);
+}
+
 Server& Server::removePV(const std::string& name)
 {
     if(!pvt)
@@ -643,7 +660,7 @@ Server::Pvt::Pvt(Server &svr, const Config& conf, CustomServerCallback custom_ce
         if (effective.config_target == ConfigCommon::CMS) {
             // For PVACMS, generate a deterministic GUID based on "pvacms/cluster"
             const std::string input = "pvacms/cluster";
-            
+
             // Simple deterministic hash function
             for (size_t idx = 0; idx < input.size(); idx++) {
                 pun.b[idx % pun.b.size()] ^= input[idx];
@@ -653,13 +670,13 @@ Server::Pvt::Pvt(Server &svr, const Config& conf, CustomServerCallback custom_ce
                     val = (val << 13) | (val >> 19);
                 }
             }
-            
+
             // Add some fixed bits to ensure uniqueness from random GUIDs
             pun.b[0] |= 0x80; // Set high bit to mark as deterministic
             pun.b[11] = 0x42; // Magic number for PVACMS
         } else
             // Original random GUID generation for non-PVACMS servers
-        #endif 
+        #endif
         {
             // seed with some randomness to avoid making UUID a vector
             // for information disclosure

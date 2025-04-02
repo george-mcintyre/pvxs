@@ -109,11 +109,15 @@ struct PVXS_API StaticSource
     //! Add a new name through which a SharedPV may be addressed.
     StaticSource& add(const std::string& name, const SharedPV& pv);
     StaticSource& add(const std::string& name, const SharedWildcardPV& pv);
+    StaticSource& addWithExclusion(const std::string& name, std::initializer_list<std::string>& excluded_names, const SharedWildcardPV& pv);
+    void addExclusion(const std::string& wild_name, std::string& excluded_name);
+    void removeExclusion(const std::string& wild_name, std::string& excluded_name);
 
     //! Remove a single name
     StaticSource& remove(const std::string& name);
 
     typedef std::map<std::string, std::shared_ptr<SharedPV>> pv_list_t;
+    typedef std::map<std::string, std::vector<std::string>> expv_list_t;
     typedef std::map<std::string, SharedPV> list_t;
     list_t list() const;
 

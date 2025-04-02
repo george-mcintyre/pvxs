@@ -153,6 +153,13 @@
     "ORDER BY status_date DESC "  \
     "LIMIT 1 "
 
+#define SQL_LOAD_ALL_CERTIFICATES \
+    "SELECT serial, skid, status, status_date, " \
+    "    not_before, not_after, approved, " \
+    "    CN, O, OU, C " \
+    "FROM certs"
+
+
 namespace pvxs {
 namespace certs {
 
@@ -230,7 +237,7 @@ std::string createCertificatePemString(sql_ptr &certs_db, CertFactory &cert_fact
 void createServerCertificate(const ConfigCms &config, sql_ptr &certs_db, const ossl_ptr<X509> &cert_auth_cert, const ossl_ptr<EVP_PKEY> &cert_auth_pkey,
                              const ossl_shared_ptr<STACK_OF(X509)> &cert_auth_chain, const std::shared_ptr<KeyPair> &key_pair);
 
-void ensureServerCertificateExists(const ConfigCms &config, sql_ptr &certs_db, const ossl_ptr<X509> &cert_auth_cert, const ossl_ptr<EVP_PKEY> &cert_auth_pkey,
+std::string ensureServerCertificateExists(const ConfigCms &config, sql_ptr &certs_db, const ossl_ptr<X509> &cert_auth_cert, const ossl_ptr<EVP_PKEY> &cert_auth_pkey,
                                    const ossl_shared_ptr<STACK_OF(X509)> &cert_auth_cert_chain);
 
 void ensureValidityCompatible(const CertFactory &cert_factory);

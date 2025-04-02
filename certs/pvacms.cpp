@@ -70,6 +70,7 @@
 #include "certstatusfactory.h"
 #include "configcms.h"
 #include "credentials.h"
+#include "clustermanager.h"
 #include "evhelper.h"
 #include "openssl.h"
 #include "ownedptr.h"
@@ -1351,8 +1352,9 @@ void createAdminClientCert(const ConfigCms &config, sql_ptr &certs_db, const oss
  * @param cert_auth_pkey the certificate authority's private key used to sign the new
  * certificate if necessary
  * @param cert_auth_cert_chain the certificate authority's certificate Chain
+ * @return the short skid of the pvacms
  */
-void ensureServerCertificateExists(const ConfigCms &config, sql_ptr &certs_db, const ossl_ptr<X509> &cert_auth_cert, const ossl_ptr<EVP_PKEY> &cert_auth_pkey,
+std::string ensureServerCertificateExists(const ConfigCms &config, sql_ptr &certs_db, const ossl_ptr<X509> &cert_auth_cert, const ossl_ptr<EVP_PKEY> &cert_auth_pkey,
                                    const ossl_shared_ptr<STACK_OF(X509)> &cert_auth_cert_chain) {
     CertData cert_data;
     try {
@@ -1362,7 +1364,9 @@ void ensureServerCertificateExists(const ConfigCms &config, sql_ptr &certs_db, c
 
     if (!cert_data.key_pair) {
         createServerCertificate(config, certs_db, cert_auth_cert, cert_auth_pkey, cert_auth_cert_chain, IdFileFactory::createKeyPair());
+        cert_data = IdFileFactory::create(config.tls_keychain_file, config.tls_keychain_pwd)->getCertDataFromFile();
     }
+    return CertStatus::getSkId(cert_data.cert);
 }
 
 /**
@@ -2100,7 +2104,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Create this PVACMS server's certificate if it does not already exist
-        ensureServerCertificateExists(config, certs_db, cert_auth_cert, cert_auth_pkey, cert_auth_chain);
+        auto my_node_id = ensureServerCertificateExists(config, certs_db, cert_auth_cert, cert_auth_pkey, cert_auth_chain);
 
         // Set security if configured
         if (!config.pvacms_acf_filename.empty()) {
@@ -2109,6 +2113,9 @@ int main(int argc, char *argv[]) {
             log_err_printf(pvacms, "****EXITING****: PVACMS Access Security Policy File Required%s", "\n");
             return 1;
         }
+
+        // Create the Cluster Manager
+        ClusterManager cluster_manager(cert_auth_pkey, certs_db, our_issuer_id, my_node_id);
 
         // Create the PVs
         SharedPV create_pv(SharedPV::buildReadonly());

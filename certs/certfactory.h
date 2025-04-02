@@ -192,7 +192,9 @@ class PVXS_API CertFactory {
     static std::string bioToString(const ossl_ptr<BIO> &bio);
     static void addCustomExtensionByNid(const ossl_ptr<X509> &certificate, int nid, const std::string &value, const X509 *issuer_certificate_ptr);
     static std::string sign(const ossl_ptr<EVP_PKEY> &pkey, const std::string &data);
+    static void sign(const ossl_ptr<EVP_PKEY> &pkey, const shared_array<uint8_t>&data);
     static bool verifySignature(const ossl_ptr<EVP_PKEY> &pkey, const std::string &data, const std::string &signature);
+    static bool verifySignature(const ossl_ptr<EVP_PKEY> &pkey, const shared_array<uint8_t>&data);
 
    private:
     /**

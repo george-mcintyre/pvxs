@@ -474,6 +474,7 @@ struct StaticSource::Impl final : public Source
     mutable RWLock lock;
 
     pv_list_t pvs;
+    expv_list_t expvs; // excluded pv for wildcard (use to exclude self)
     decltype (List::names) list;
 
     /**
@@ -622,14 +623,21 @@ struct StaticSource::Impl final : public Source
             // 1. Prepare PV regex pattern converting from the EPICS wildcard-style patterns to regex syntax
             std::string wildcard_pv = wildcard_shared_pv_pair.first;
 
-            // 1.1 Escape all regex special characters in the original PV pattern
+            // 2. Is it excluded
+            const auto expv_it = expvs.find(wildcard_pv);
+            if ( expv_it != expvs.end() ) {
+                auto excluded_names = expv_it->second;
+                // 2.1 Is searched name specifically excluded
+                if ( std::find(excluded_names.begin(), excluded_names.end(), searched_name) != excluded_names.end() ) return false;
+            }
+            // 3 Escape all regex special characters in the original PV pattern
             wildcard_pv = std::regex_replace(wildcard_pv, kRegexSpecialChars, R"(\\$&)");
 
-            // 1.2 Replace Query and Star EPICS wildcard characters with their regex equivalents
+            // 4 Replace Query and Star EPICS wildcard characters with their regex equivalents
             std::replace(wildcard_pv.begin(), wildcard_pv.end(), kWildcardQueryCharacter, '.');
             wildcard_pv = std::regex_replace(wildcard_pv, kWildcardStarPattern, ".*");
 
-            // 2. Compare the PV regex pattern with the `searched_name`
+            // 5. Compare the PV regex pattern with the `searched_name`
             std::regex pv_regex_pattern(wildcard_pv);
             if (std::regex_match(searched_name, pv_regex_pattern)) {
                 try {
@@ -727,6 +735,43 @@ StaticSource& StaticSource::add(const std::string& name, const SharedWildcardPV&
     return *this;
 }
 
+StaticSource& StaticSource::addWithExclusion(const std::string& wild_name, std::initializer_list<std::string>& excluded_names, const SharedWildcardPV& pv) {
+    if (!impl)
+        throw std::logic_error("Empty StaticSource");
+
+    auto G(impl->lock.lockWriter());
+
+    if (impl->pvs.find(wild_name) != impl->pvs.end())
+        throw std::logic_error("add() will not create duplicate PV");
+
+    if (impl->expvs.find(wild_name) != impl->expvs.end())
+        throw std::logic_error("addExclusion() will not create duplicate exclusion PV");
+
+    // Store as shared_ptr<SharedWildcardPV>
+    impl->pvs[wild_name] = std::make_shared<SharedWildcardPV>(pv);
+    impl->expvs[wild_name] = excluded_names;
+    impl->list.reset();
+
+    return *this;
+}
+
+void StaticSource::addExclusion(const std::string& wild_name, std::string& excluded_name) {
+    if (!impl)
+        throw std::logic_error("Empty StaticSource");
+    auto G(impl->lock.lockWriter());
+    impl->expvs[wild_name].push_back(excluded_name);
+}
+
+void StaticSource::removeExclusion(const std::string& wild_name, std::string& excluded_name) {
+    if (!impl)
+        throw std::logic_error("Empty StaticSource");
+    auto G(impl->lock.lockWriter());
+    auto exclusion_list = impl->expvs[wild_name];
+    exclusion_list.erase(
+    std::remove(exclusion_list.begin(), exclusion_list.end(), excluded_name),
+    exclusion_list.end());
+}
+
 StaticSource& StaticSource::remove(const std::string& name)
 {
     if(!impl)
@@ -736,11 +781,14 @@ StaticSource& StaticSource::remove(const std::string& name)
     {
         auto G(impl->lock.lockWriter());
 
-        auto it(impl->pvs.find(name));
-        if(it==impl->pvs.end())
-            return *this;
+        const auto it(impl->pvs.find(name));
+        if(it==impl->pvs.end()) return *this;
         pv = *it->second;
         impl->pvs.erase(it);
+
+        const auto ex_it(impl->expvs.find(name));
+        if(ex_it!=impl->expvs.end()) impl->expvs.erase(ex_it);
+
         impl->list.reset();
     }
 

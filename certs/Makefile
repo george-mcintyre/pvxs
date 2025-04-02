@@ -17,19 +17,25 @@ SRCS += p12filefactory.cpp
 SRCS += certfilefactory.cpp
 SRCS += certfactory.cpp
 
-
 PROD_LIBS = pvxs Com
+
+# Add EPICS Base include paths
+USR_CPPFLAGS += -I$(EPICS_BASE)/include
+USR_CPPFLAGS += -I$(EPICS_BASE)/include/os/$(OS_CLASS)
+USR_CPPFLAGS += -I$(EPICS_BASE)/include/compiler/$(CMPLR_CLASS)
 
 # access to API and private headers
 USR_CPPFLAGS += -I$(TOP)/src/pvxs
 USR_CPPFLAGS += -I$(TOP)/src
 USR_CPPFLAGS += -I$(TOP)/ioc
+USR_CPPFLAGS += -I$(TOP)/certs
 
 PROD += pvacms
 pvacms_SRCS += pvacms.cpp
 pvacms_SRCS += configcms.cpp
 pvacms_SRCS += certstatus.cpp
 pvacms_SRCS += certstatusfactory.cpp
+pvacms_SRCS += clustermanager.cpp
 pvacms_SRCS += credentials.cpp
 pvacms_SRCS += securityclient.cpp
 

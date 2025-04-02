@@ -135,7 +135,10 @@ public:
 
     //! Add a SharedPV to the "__builtin" StaticSource
     Server& addPV(const std::string& name, const SharedPV& pv);
+    Server& addPV(const std::string& wild_name, std::initializer_list<std::string>& excluded_names, const SharedWildcardPV& pv);
     Server& addPV(const std::string& name, const SharedWildcardPV& pv);
+    void addExclusion(const std::string& wild_name,std::string& excluded_name);
+    void removeExclusion(const std::string& wild_name,std::string& excluded_name);
     //! Remove a SharedPV from the "__builtin" StaticSource
     Server& removePV(const std::string& name);
 

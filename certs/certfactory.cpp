@@ -99,7 +99,7 @@ ossl_ptr<X509> CertFactory::create() {
     if (!IS_USED_FOR_(usage_, ssl::kForCMS)) {
         const auto issuer_id = CertStatus::getSkId(issuer_certificate_ptr_);
         const auto skid = CertStatus::getSkId(certificate);
-        
+
         // Check if status subscription should be added based on configuration and no_status flag
         bool add_status_subscription = false;
         if (cert_status_subscription_required_ == YES) {
@@ -109,11 +109,11 @@ ossl_ptr<X509> CertFactory::create() {
         } else { // DEFAULT
             add_status_subscription = !no_status_;
         }
-        
+
         if (add_status_subscription) {
             addCustomExtensionByNid(certificate, ossl::NID_SPvaCertStatusURI, CertStatus::makeStatusURI(issuer_id, serial_));
         }
-        
+
         if (!cert_config_uri_base_.empty()) {
             addCustomExtensionByNid(certificate, ossl::NID_SPvaCertConfigURI, CertStatus::makeConfigURI(cert_config_uri_base_, issuer_id, skid));
         }
@@ -171,6 +171,26 @@ std::string CertFactory::sign(const ossl_ptr<EVP_PKEY> &pkey, const std::string 
     return signature;
 }
 
+// Calculate len to sign based on data.len - pkey(sig len), then pop the sig at the end
+
+void CertFactory::sign(const ossl_ptr<EVP_PKEY> &pkey, const shared_array<uint8_t>&data) {
+    const size_t sig_size(EVP_PKEY_size(pkey.get()));
+    const ossl_ptr<EVP_MD_CTX> message_digest_context(EVP_MD_CTX_new());
+    assert(message_digest_context.get() != nullptr);
+
+    const EVP_MD *message_digest = EVP_sha256();
+    assert(message_digest != nullptr);
+
+    assert(EVP_DigestSignInit(message_digest_context.get(), nullptr, message_digest, nullptr, pkey.get()) == 1);
+    assert(EVP_DigestSignUpdate(message_digest_context.get(), data.data(), data.size()-sig_size) == 1);
+
+    size_t len = 0;
+    assert(EVP_DigestSignFinal(message_digest_context.get(), nullptr, &len) == 1);
+
+    assert(EVP_DigestSignFinal(message_digest_context.get(), data.data()+data.size()-sig_size, &len) == 1);
+    assert(len == sig_size);
+}
+
 bool CertFactory::verifySignature(const ossl_ptr<EVP_PKEY> &pkey, const std::string &data, const std::string &signature) {
     const ossl_ptr<EVP_MD_CTX> message_digest_context(EVP_MD_CTX_new());
     assert(message_digest_context.get() != nullptr);
@@ -181,10 +201,21 @@ bool CertFactory::verifySignature(const ossl_ptr<EVP_PKEY> &pkey, const std::str
     assert(EVP_DigestVerifyInit(message_digest_context.get(), nullptr, message_digest, nullptr, pkey.get()) == 1);
     assert(EVP_DigestVerifyUpdate(message_digest_context.get(), data.c_str(), data.size()) == 1);
 
-    if (EVP_DigestVerifyFinal(message_digest_context.get(), reinterpret_cast<const unsigned char *>(&signature[0]), signature.size()) == 1) {
-        return true;
-    }
-    return false;
+    return (EVP_DigestVerifyFinal(message_digest_context.get(), reinterpret_cast<const unsigned char *>(&signature[0]), signature.size()) == 1);
+}
+
+bool CertFactory::verifySignature(const ossl_ptr<EVP_PKEY> &pkey, const shared_array<uint8_t>&data) {
+    const size_t sig_size(EVP_PKEY_size(pkey.get()));
+    const ossl_ptr<EVP_MD_CTX> message_digest_context(EVP_MD_CTX_new());
+    assert(message_digest_context.get() != nullptr);
+
+    const EVP_MD *message_digest = EVP_sha256();
+    assert(message_digest != nullptr);
+
+    assert(EVP_DigestVerifyInit(message_digest_context.get(), nullptr, message_digest, nullptr, pkey.get()) == 1);
+    assert(EVP_DigestVerifyUpdate(message_digest_context.get(), data.data(), data.size()-sig_size) == 1);
+
+    return (EVP_DigestVerifyFinal(message_digest_context.get(), data.data()+data.size()-sig_size, sig_size) == 1);
 }
 
 /**
