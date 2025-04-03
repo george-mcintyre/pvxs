@@ -19,46 +19,39 @@ sequenceDiagram
     participant Peer as Secure EPICS Server
     participant PVACMS as PVACMS
 
-    Note over Agent,Peer: TLS Context Initialisation
-    Note over Peer: State TLS Context: Init<br>Peer Certificate Status: UNKNOWN
-    Note over Agent: State TLS Context: Init<br>Peer Certificate Status: UNKNOWN
+    Note over Agent,Peer: SEARCH Request
+    %% Trust Validation Phase
+    Note over Agent: Check Trust Anchor and Cert Validity
+    alt No Trust Anchor
+        Note over Agent: TLS Context: DegradedMode
+        Agent-->>Peer: SEARCH (protocol=["tcp"]) with retry
+    else Trust Anchor Configured
+        Agent-->>Peer: SEARCH (protocol=["tcp", "tls"]) with retry
+        alt Cert Not Configured or Cert not VALID
+            Note over Agent: TLS Context: DegradedMode
+        else Cert VALID
+            alt Client Certificate Status Monitoring Required
+                Agent-->>PVACMS: Monitor Certificate Status
+                Note over Agent: TLS Context: TcpReady
+            else No Monitoring Required
+                Note over Agent: TLS Context: TlsReady
+            end
+        end
+    end
 
     % Check Server Phase
     Note over Peer: Check if EPICS Server is Viable
-    alt Server Certificate Found AND is VALID OR NOT EPICS_PVAS_TLS_STOP_IF_NO_CERT
-        %% Server Cert Validation Phase
-        Note over Peer: Check Server Certificate Viability
-        alt Server Certificate Configured AND VALID
-            alt Server Certificate Status Monitoring Required
+    alt Server Cert configured and is VALID or not EPICS_PVAS_TLS_STOP_IF_NO_CERT
+        Note over Peer: Check Server Certificate
+        alt Server Cert configured and VALID
+            alt Server Cert Status Monitoring Required
                 Peer-->>PVACMS: Monitor Certificate Status
                 Note over Peer: TLS Context: TcpReady
-            else
+            else Monitoring Not Required
                 Note over Peer: TLS Context: TlsReady
             end
         else
             Note over Peer: TLS Context: DegradedMode
-        end
-
-        Note over Agent,Peer: SEARCH Request
-        %% Trust Validation Phase
-        Note over Agent: Check for Trust Anchor
-        alt No Trust Anchor Found
-            Note over Agent: TLS Context: DegradedMode
-            Agent-->>Peer: SEARCH (protocol=["tcp"]) with retry
-        else
-            Agent-->>Peer: SEARCH (protocol=["tcp", "tls"]) with retry
-            %% Client Cert Validation Phase
-            Note over Agent: Check Client Certificate Viability
-            alt Client Certificate Configured AND VALID
-                alt Client Certificate Status Monitoring Required
-                    Agent-->>PVACMS: Monitor Certificate Status
-                    Note over Agent: TLS Context: TcpReady
-                else
-                    Note over Agent: TLS Context: TlsReady
-                end
-            else
-                Note over Agent: TLS Context: DegradedMode
-            end
         end
 
         Note over Agent,Peer: Asynchronous Certificate Status Monitoring
