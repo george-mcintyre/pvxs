@@ -395,6 +395,16 @@ The following diagram shows the PVAccess connection establishment sequence:
    :align: center
 
 
+PVAccess with TLS Sequence Diagram
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following diagram shows the PVAccess connection establishment sequence with TLS (no certificate status monitoring):
+
+.. image:: tls_seq.png
+   :alt: PVA with TLS Sequence Diagram
+   :align: center
+
+
 Secure PVAccess Sequence Diagram
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
