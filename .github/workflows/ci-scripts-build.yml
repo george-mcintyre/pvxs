@@ -6,6 +6,7 @@
 name: PVXS EPICS Windows MinGW64 Builds
 
 # Trigger on pushes and PRs to any branch
+# Added trigger comment to force rebuild
 on:
   push:
     paths-ignore:
