@@ -69,4 +69,18 @@ for arch in os.environ.get('CI_CROSS_TARGETS', '').split(':'):
     with open('configure/CONFIG_SITE.local', 'a') as F:
         F.write('\nCROSS_COMPILER_TARGET_ARCHS+=%s\n'%arch)
 
-    check_call('make -C bundle libevent.'+arch+' VERBOSE=1', shell=True, env=env)
+    # Add special handling for MinGW targets to use OpenSSL
+    if 'mingw' in arch.lower():
+        # Point libevent to the OpenSSL installation for MinGW
+        openssl_version = os.environ.get('OPENSSL_VERSION', '3.1.4')
+        print(f'Building libevent with OpenSSL {openssl_version} support for {arch}')
+        mingw_openssl_flags = (
+            f'-DOPENSSL_ROOT_DIR=/usr/x86_64-w64-mingw32 '
+            f'-DEVENT__HAVE_OPENSSL=ON '
+            f'-DOPENSSL_INCLUDE_DIR=/usr/x86_64-w64-mingw32/include '
+            f'-DOPENSSL_LIBRARIES=/usr/x86_64-w64-mingw32/lib '
+        )
+        check_call(f'make -C bundle libevent.{arch} EXTRA_CMAKEFLAGS="{mingw_openssl_flags}" VERBOSE=1', 
+                  shell=True, env=env)
+    else:
+        check_call(f'make -C bundle libevent.{arch} VERBOSE=1', shell=True, env=env)
