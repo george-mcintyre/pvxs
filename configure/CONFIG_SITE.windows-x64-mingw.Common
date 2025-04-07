@@ -1,0 +1,12 @@
+# OpenSSL configuration for MinGW64 builds
+PVXS_ENABLE_OPENSSL = YES
+
+# OpenSSL paths for MinGW
+USR_INCLUDES += -I/usr/x86_64-w64-mingw32/include
+USR_LDFLAGS += -L/usr/x86_64-w64-mingw32/lib
+
+# Link against OpenSSL libraries
+USR_LIBS += ssl crypto
+
+# Enable SSLKEYLOGFILE support
+PVXS_ENABLE_SSLKEYLOGFILE = YES 
