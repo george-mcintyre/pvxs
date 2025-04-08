@@ -92,6 +92,9 @@ jobs:
     - name: Build libevent
       run: python .ci/cue.py exec python .ci-local/libevent.py
 
+    - name: Build SQLite for MinGW
+      run: python .ci/cue.py exec python .ci-local/sqlite3.py
+
     - name: Build main module
       run: python .ci/cue.py build
 
