@@ -44,9 +44,4 @@ USR_CPPFLAGS += -wd4800 -wd4275
 /* Set OpenSSL library path specifically for MinGW build */
 #ifdef windows_x64_mingw
 USR_LDFLAGS += -L/usr/x86_64-w64-mingw32/lib64
-
-OPENSSL_ROOT_DIR = /usr/x86_64-w64-mingw32
-OPENSSL_INCLUDE_DIR = /usr/x86_64-w64-mingw32/include
-OPENSSL_LIBRARIES = /usr/x86_64-w64-mingw32/lib64
-OPENSSL_USE_STATIC_LIBS = TRUE
 #endif
