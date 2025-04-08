@@ -61,6 +61,36 @@ print("=== CHECKING OPENSSL INSTALLATION ===")
 check_call('openssl version -a', shell=True)
 print("=== END OPENSSL CHECK ===")
 
+# Diagnostic: Check MinGW OpenSSL installation
+print("=== CHECKING MINGW OPENSSL INSTALLATION ===")
+mingw_ssl_dir = '/usr/x86_64-w64-mingw32'
+print(f"Checking if MinGW OpenSSL directory exists: {mingw_ssl_dir}")
+if os.path.exists(mingw_ssl_dir):
+    print(f"MinGW base directory exists: {mingw_ssl_dir}")
+    try:
+        check_call(f'ls -la {mingw_ssl_dir}', shell=True)
+        
+        # Check for OpenSSL headers
+        mingw_include = f'{mingw_ssl_dir}/include/openssl'
+        if os.path.exists(mingw_include):
+            print(f"MinGW OpenSSL headers directory exists: {mingw_include}")
+            check_call(f'ls -la {mingw_include} | head -5', shell=True)
+        else:
+            print(f"ERROR: MinGW OpenSSL headers directory NOT found: {mingw_include}")
+        
+        # Check for OpenSSL libraries
+        mingw_lib = f'{mingw_ssl_dir}/lib'
+        if os.path.exists(mingw_lib):
+            print(f"MinGW library directory exists: {mingw_lib}")
+            check_call(f'ls -la {mingw_lib}/libssl* {mingw_lib}/libcrypto*', shell=True)
+        else:
+            print(f"ERROR: MinGW library directory NOT found: {mingw_lib}")
+    except Exception as e:
+        print(f"Error checking MinGW OpenSSL: {e}")
+else:
+    print(f"ERROR: MinGW directory does NOT exist: {mingw_ssl_dir}")
+print("=== END MINGW OPENSSL CHECK ===")
+
 check_call('make -C bundle libevent VERBOSE=1', shell=True, env=env)
 
 for arch in os.environ.get('CI_CROSS_TARGETS', '').split(':'):
