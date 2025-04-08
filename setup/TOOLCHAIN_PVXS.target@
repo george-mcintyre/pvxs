@@ -2,3 +2,10 @@ OPENSSL_PREFIX_@ARCH@ = @OPENSSL@
 LIBEVENT_PREFIX_@ARCH@ = @LIBEVENT@
 LIBEVENT_BUNDLE_LIBS_@ARCH@ = @LIBEVENT_BUNDLE_LIBS@
 LIBEVENT_SYS_LIBS_@ARCH@ = @LIBEVENT_SYS_LIBS@
+
+# Add special case for MinGW (windows-x64-mingw) to specify OpenSSL library path
+ifdef T_A
+ifeq ($(T_A),windows-x64-mingw)
+  USR_LDFLAGS += -L/usr/x86_64-w64-mingw32/lib
+endif
+endif
