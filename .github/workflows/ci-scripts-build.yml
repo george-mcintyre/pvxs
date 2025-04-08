@@ -23,12 +23,13 @@ env:
   CMP: gcc
   _PVXS_ABORT_ON_CRIT: 1
   PVXS_LOG: pvxs.*=WARN
-  OPENSSL_VERSION: "3.1.4"  # Latest stable OpenSSL 3.x version
+  OPENSSL_VERSION: "3.1.4"
 
 jobs:
   native:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    # Set environment variables from matrix parameters
     env:
       SET: ${{ matrix.set || 'defaults' }}
       CMP: ${{ matrix.cmp }}
@@ -63,7 +64,6 @@ jobs:
     - uses: actions/checkout@v4
       with:
         submodules: true
-    
     - name: "apt-get install"
       run: |
         sudo apt-get update
@@ -82,19 +82,12 @@ jobs:
 
     - name: Host Info
       run: openssl version -a
-
     - name: Automatic core dumper analysis
       uses: mdavidsaver/ci-core-dumper@master
-
     - name: Prepare and compile dependencies
       run: python .ci/cue.py prepare
-
     - name: Build libevent
       run: python .ci/cue.py exec python .ci-local/libevent.py
-
-    - name: Build SQLite for MinGW
-      run: python .ci/cue.py exec python .ci-local/sqlite3.py
-
     - name: Build main module
       run: python .ci/cue.py build
 

@@ -28,4 +28,3 @@ O.*/
 __pycache__/
 login_certs.txt
 system_certs.txt
-node_modules
