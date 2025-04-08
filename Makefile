@@ -31,6 +31,4 @@ certs_DEPEND_DIRS = src
 DIRS += example
 example_DEPEND_DIRS = src
 
-USR_LDFLAGS += -L/usr/x86_64-w64-mingw32/lib64
-
 include $(TOP)/configure/RULES_TOP
