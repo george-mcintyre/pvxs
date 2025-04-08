@@ -13,6 +13,14 @@
 #include <openssl/crypto.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
+
+// Undefine potential conflicting macros in case they are incorrectly defined
+#ifdef OCSP_REQUEST
+#undef OCSP_REQUEST
+#endif
+#ifdef OCSP_RESPONSE
+#undef OCSP_RESPONSE
+#endif
 #include <openssl/ocsp.h>
 #include <openssl/pem.h>
 #include <openssl/pkcs12.h>
