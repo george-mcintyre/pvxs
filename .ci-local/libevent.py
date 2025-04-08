@@ -56,39 +56,99 @@ if len(libevent_tag):
     check_call('git reset --hard '+libevent_tag+' --',
                shell=True, cwd='bundle/libevent')
 
+# Inspect the CMake toolchain file
+print("=== CHECKING CMAKE TOOLCHAIN FILE ===")
+cmake_toolchain_file = 'bundle/cmake/x86_64-w64-mingw32.cmake'
+if os.path.exists(cmake_toolchain_file):
+    print(f"CMake toolchain file exists: {cmake_toolchain_file}")
+    try:
+        with open(cmake_toolchain_file, 'r') as f:
+            content = f.read()
+            print(f"Content of {cmake_toolchain_file}:")
+            print(content)
+    except Exception as e:
+        print(f"Error reading CMake toolchain file: {e}")
+else:
+    print(f"CMake toolchain file NOT found: {cmake_toolchain_file}")
+print("=== END CMAKE TOOLCHAIN FILE CHECK ===")
+
 # Diagnostic: Print OpenSSL version to verify it's available
 print("=== CHECKING OPENSSL INSTALLATION ===")
 check_call('openssl version -a', shell=True)
 print("=== END OPENSSL CHECK ===")
 
-# Diagnostic: Check MinGW OpenSSL installation
+# Enhanced Diagnostic: Check MinGW OpenSSL installation
 print("=== CHECKING MINGW OPENSSL INSTALLATION ===")
 mingw_ssl_dir = '/usr/x86_64-w64-mingw32'
 print(f"Checking if MinGW OpenSSL directory exists: {mingw_ssl_dir}")
 if os.path.exists(mingw_ssl_dir):
     print(f"MinGW base directory exists: {mingw_ssl_dir}")
     try:
+        # Check base directory content
+        print(f"Contents of MinGW base directory:")
         check_call(f'ls -la {mingw_ssl_dir}', shell=True)
         
-        # Check for OpenSSL headers
-        mingw_include = f'{mingw_ssl_dir}/include/openssl'
-        if os.path.exists(mingw_include):
-            print(f"MinGW OpenSSL headers directory exists: {mingw_include}")
-            check_call(f'ls -la {mingw_include} | head -5', shell=True)
-        else:
-            print(f"ERROR: MinGW OpenSSL headers directory NOT found: {mingw_include}")
+        # Check for OpenSSL headers in various possible locations
+        mingw_include_dirs = [
+            f'{mingw_ssl_dir}/include/openssl',  # Standard location
+            f'{mingw_ssl_dir}/ssl/include/openssl',  # Alternative location
+        ]
         
-        # Check for OpenSSL libraries
-        mingw_lib = f'{mingw_ssl_dir}/lib'
-        if os.path.exists(mingw_lib):
-            print(f"MinGW library directory exists: {mingw_lib}")
-            check_call(f'ls -la {mingw_lib}/libssl* {mingw_lib}/libcrypto*', shell=True)
+        for include_dir in mingw_include_dirs:
+            if os.path.exists(include_dir):
+                print(f"Found OpenSSL headers at: {include_dir}")
+                check_call(f'ls -la {include_dir} | head -5', shell=True)
+            else:
+                print(f"No OpenSSL headers at: {include_dir}")
+        
+        # Check for OpenSSL libraries in various possible locations
+        mingw_lib_dirs = [
+            f'{mingw_ssl_dir}/lib',  # Standard location
+            f'{mingw_ssl_dir}/ssl/lib',  # Alternative location
+            f'{mingw_ssl_dir}/bin',  # DLLs might be here
+        ]
+        
+        for lib_dir in mingw_lib_dirs:
+            if os.path.exists(lib_dir):
+                print(f"Checking for OpenSSL libraries in: {lib_dir}")
+                
+                # Check for specific library names with different patterns
+                try:
+                    print(f"Looking for libssl/libcrypto files in {lib_dir}:")
+                    check_call(f'find {lib_dir} -name "*ssl*" -o -name "*crypto*" | sort', shell=True)
+                except:
+                    print(f"No files matching ssl/crypto patterns found in {lib_dir}")
+                
+                # List all files to see what's actually there
+                print(f"First 20 files in {lib_dir}:")
+                check_call(f'ls -la {lib_dir} | head -20', shell=True)
+            else:
+                print(f"Directory does not exist: {lib_dir}")
+        
+        # Check for pkg-config files which could help with configuration
+        pkgconfig_dir = f'{mingw_ssl_dir}/lib/pkgconfig'
+        if os.path.exists(pkgconfig_dir):
+            print(f"Checking pkg-config directory: {pkgconfig_dir}")
+            check_call(f'ls -la {pkgconfig_dir}', shell=True)
+            try:
+                check_call(f'cat {pkgconfig_dir}/openssl.pc', shell=True)
+            except:
+                print("No openssl.pc file found")
         else:
-            print(f"ERROR: MinGW library directory NOT found: {mingw_lib}")
+            print(f"No pkg-config directory found at: {pkgconfig_dir}")
+            
     except Exception as e:
         print(f"Error checking MinGW OpenSSL: {e}")
 else:
     print(f"ERROR: MinGW directory does NOT exist: {mingw_ssl_dir}")
+
+# Check for any other SSL-related files across the MinGW directory structure
+print("Searching for any OpenSSL-related files in the entire MinGW directory:")
+try:
+    check_call(f'find {mingw_ssl_dir} -name "*ssl*" | head -20', shell=True)
+except Exception as e:
+    print(f"Error searching for SSL files: {e}")
+
 print("=== END MINGW OPENSSL CHECK ===")
 
 check_call('make -C bundle libevent VERBOSE=1', shell=True, env=env)
