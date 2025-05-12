@@ -203,7 +203,6 @@ int main(int argc, char *argv[]) {
                           << (config_id.empty() ? "" : "Config URI     : " + config_id + "\n") << "--------------------------------------------\n"
                           << std::endl;
                 cert_id = certs::CertStatusManager::getStatusPvFromCert(cert_data.cert);
-                std::cout << "Contacting PVACMS on: " <<  cert_id << " ...\r" << std::flush;
             } catch (std::exception &e) {
                 std::cout << "Online Certificate Status: " << std::endl
                           << "============================================" << std::endl

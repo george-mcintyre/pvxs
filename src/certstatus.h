@@ -377,13 +377,13 @@ struct CertStatus {
     static std::string getSkId(const ossl_ptr<X509>& cert) { return getSkId(cert.get()); }
 
     /**
-     * @brief  Get the issuer ID which is SKID (subject key identifier) of the root certificate authority in the given chain
+     * @brief  Get the issuer ID which is SKID (subject key identifier) of the issuer certificate authority in the given chain
      *
-     * First determine the root certificate authority certificate then get the SKID
+     * First determine the issuer certificate authority certificate then get the SKID
      *
      * @return first 8 hex digits of the hex SKID (Subject Key Identifier)
      */
-    static std::string getIssuerId(const ossl_shared_ptr<STACK_OF(X509)>& chain) { return getSkId(getRootCa(chain)); }
+    static std::string getIssuerId(const ossl_shared_ptr<STACK_OF(X509)>& chain) { return getSkId(getIssuerCa(chain)); }
 
     /**
      * @brief Get root certificate authority from a certificate authority chain
@@ -402,6 +402,31 @@ struct CertStatus {
         }
 
         return root_ca;
+    }
+
+    /**
+     * @brief Get issuer certificate authority from a certificate authority chain
+     * @param chain the certificate authority certificate chain
+     * @return the issuer certificate authority which is the second one or the first if only one
+     */
+    static X509* getIssuerCa(const ossl_shared_ptr<STACK_OF(X509)>& chain) {
+        if (!chain) {
+            throw std::runtime_error("Invalid certificate chain");
+        }
+
+        const auto N = sk_X509_num(chain.get());
+
+        if (N <= 0) {
+            throw std::runtime_error("Invalid certificate chain");
+        }
+
+        const auto issuer_ca = sk_X509_value(chain.get(), N==1 ? 0 : 1);
+
+        if (issuer_ca == nullptr) {
+            throw std::runtime_error("Failed to retrieve issuer certificate");
+        }
+
+        return issuer_ca;
     }
 
     /**
