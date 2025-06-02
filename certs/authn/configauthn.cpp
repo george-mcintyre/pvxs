@@ -84,6 +84,8 @@ void ConfigAuthN::fromAuthEnv(const std::map<std::string, std::string> &defs) {
         const std::string filename = SB() << config_home << OSI_PATH_SEPARATOR << "server.p12";
         ensureDirectoryExists(tls_srv_keychain_file = filename);
     }
+
+    if (pickone({"EPICS_AUTH_CERT_VALIDITY_MINS"})) cert_validity_mins = parseDurationMins(pickone.val);
 }
 
 /**

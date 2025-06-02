@@ -141,6 +141,7 @@ std::shared_ptr<Credentials> AuthNStd::getCredentials(const client::Config &conf
     const time_t now = time(nullptr);
     std_credentials->not_before = now;
     std_credentials->not_after = now + std_config.cert_validity_mins * 60;
+    std_credentials->custom_validity=true;
 
     if ( std_config.trust_anchor_only ) {
         std_credentials->name = "";

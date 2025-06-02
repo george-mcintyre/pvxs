@@ -32,6 +32,7 @@ struct Credentials {
     // Validity
     time_t not_before;
     time_t not_after;
+    bool custom_validity{false};
 
     // Config uri
     std::string config_uri_base;

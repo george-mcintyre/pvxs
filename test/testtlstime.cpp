@@ -105,10 +105,14 @@ void test_parseDuration() {
            30 * 60 +
            45);
 
+    // Test unadorned numbers as minutes
+    testEq(impl::ConfigCommon::parseDuration("5"), 5 * 60);
+    testEq(impl::ConfigCommon::parseDuration("60"), 60 * 60);
+    testEq(impl::ConfigCommon::parseDuration(" 30 "), 30 * 60);
+
     // Test error cases
     testEq(impl::ConfigCommon::parseDuration(""), -1);
     testEq(impl::ConfigCommon::parseDuration("abc"), -1);
-    testEq(impl::ConfigCommon::parseDuration("1"), -1);
     testEq(impl::ConfigCommon::parseDuration("1x"), -1);
     testEq(impl::ConfigCommon::parseDuration("y"), -1);
 }
@@ -116,7 +120,7 @@ void test_parseDuration() {
 }  // namespace
 
 MAIN(testtlstime) {
-    testPlan(31);
+    testPlan(33);
     testSetup();
     logger_config_env();
     Tester().initialisation();

@@ -38,16 +38,9 @@ class ConfigStd final : public ConfigAuthN {
         const auto defs = std::map<std::string, std::string>();
         config.fromAuthEnv(defs);
         config.fromStdEnv(defs);
+        if (config.cert_validity_mins == -1) config.cert_validity_mins = 30 * 24 * 60;  // Default to 30 days
         return config;
     }
-
-    /**
-     * @brief The number of minutes from now after which the new certificate being created should expire.
-     *
-     * Use this to set the default validity for certificates
-     * generated from basic credentials.
-     */
-    uint32_t cert_validity_mins = 30 * 24 * 60;  // Default to 30 days
 
     // To create trust anchor only
     bool trust_anchor_only{false};

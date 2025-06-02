@@ -88,7 +88,12 @@ std::shared_ptr<Credentials> AuthNLdap::getCredentials(const client::Config &con
     // Set the expiration time of the certificate
     const time_t now = time(nullptr);
     ldap_credentials->not_before = now;
-    ldap_credentials->not_after = now + 365 * 24 * 60 * 60;
+    if ( ldap_config.cert_validity_mins == -1 ) {
+       ldap_credentials->not_after = now + 365 * 24 * 60 * 60;
+    } else {
+        ldap_credentials->not_after = now + ldap_config.cert_validity_mins * 60;
+        ldap_credentials->custom_validity=true;
+   }
 
     ldap_credentials->name = for_client ? ldap_config.name : ldap_config.server_name;
     ldap_credentials->organization = for_client ? ldap_config.organization : ldap_config.server_organization;

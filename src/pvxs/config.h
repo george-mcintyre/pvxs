@@ -236,11 +236,11 @@ struct PVXS_API ConfigCommon {
      * @return true if the location of the keychain file has been specified,
      * false otherwise
      */
-    inline bool isTlsConfigured() const { return !tls_disabled && !tls_keychain_file.empty(); }
+    bool isTlsConfigured() const { return !tls_disabled && !tls_keychain_file.empty(); }
     #endif  // PVXS_ENABLE_OPENSSL
 
     /**
-     * Parse a duration string into seconds.
+     * @brief a duration string into seconds.
      * Supported formats:
      *   y - years (365 days)
      *   M - months (30 days) - capital M to disambiguate from minutes
@@ -252,60 +252,75 @@ struct PVXS_API ConfigCommon {
      * Examples: "1y", "30d", "1y6M", "12h30m", "1y6M30d12h30m45s"
      * Whitespace and punctuation are ignored, so "1y 6M 30d" is valid too.
      *
-     * @param durationStr Duration string to parse
+     * A plain number without a unit (e.g., "5") is interpreted as minutes by default.
+     *
+     * @param duration_str Duration string to parse
      * @return Duration in seconds, or -1 if parsing failed
      */
-    static int64_t parseDuration(const std::string& durationStr) {
-        if(durationStr.empty())
+    static int64_t parseDuration(const std::string& duration_str) {
+        if(duration_str.empty())
             return -1;
 
         // Clean the string by removing whitespace and punctuation
-        std::string cleanStr;
-        for(char c : durationStr) {
+        std::string clean_str;
+        for(const char c : duration_str) {
             if(!std::isspace(c) && !std::ispunct(c)) {
-                cleanStr += c;
+                clean_str += c;
             }
         }
 
-        if(cleanStr.empty())
+        if(clean_str.empty())
             return -1;
 
-        int64_t totalSeconds = 0;
-        std::string numStr;
+        // Special case: if the string is just digits, interpret as minutes
+        bool only_digits = true;
+        for(const char c : clean_str) {
+            if(!std::isdigit(c)) {
+                only_digits = false;
+                break;
+            }
+        }
 
-        for(size_t i = 0; i < cleanStr.size(); i++) {
-            char c = cleanStr[i];
+        if(only_digits) {
+            return std::stoll(clean_str) * 60; // Convert minutes to seconds
+        }
+
+        int64_t total_seconds = 0;
+        std::string num_str;
+
+        for(size_t i = 0; i < clean_str.size(); i++) {
+            const char c = clean_str[i];
 
             if(std::isdigit(c)) {
-                numStr += c;
+                num_str += c;
             } else {
-                if(numStr.empty())
+                if(num_str.empty())
                     return -1; // Format error: no number before unit
 
-                int64_t value = std::stoll(numStr);
-                numStr.clear();
+                const int64_t value = std::stoll(num_str);
+                num_str.clear();
 
                 switch(c) {
                     case 'y': // Years (365 days)
-                        totalSeconds += value * 365 * 24 * 60 * 60;
+                        total_seconds += value * 365 * 24 * 60 * 60;
                         break;
                     case 'M': // Months (30 days) - capital M to disambiguate from minutes
-                        totalSeconds += value * 30 * 24 * 60 * 60;
+                        total_seconds += value * 30 * 24 * 60 * 60;
                         break;
                     case 'w': // Weeks
-                        totalSeconds += value * 7 * 24 * 60 * 60;
+                        total_seconds += value * 7 * 24 * 60 * 60;
                         break;
                     case 'd': // Days
-                        totalSeconds += value * 24 * 60 * 60;
+                        total_seconds += value * 24 * 60 * 60;
                         break;
                     case 'h': // Hours
-                        totalSeconds += value * 60 * 60;
+                        total_seconds += value * 60 * 60;
                         break;
                     case 'm': // Minutes
-                        totalSeconds += value * 60;
+                        total_seconds += value * 60;
                         break;
                     case 's': // Seconds
-                        totalSeconds += value;
+                        total_seconds += value;
                         break;
                     default:
                         return -1; // Invalid unit
@@ -314,13 +329,34 @@ struct PVXS_API ConfigCommon {
         }
 
         // If we have trailing digits without a unit, that's an error
-        if(!numStr.empty())
+        if(!num_str.empty())
             return -1;
 
-        return totalSeconds;
+        return total_seconds;
+    }
+    /**
+     * @brief a duration string into minutes.
+     * Supported formats:
+     *   y - years (365 days)
+     *   M - months (30 days) - capital M to disambiguate from minutes
+     *   w - weeks (7 days)
+     *   d - days
+     *   h - hours
+     *   m - minutes
+     *   s - seconds
+     * Examples: "1y", "30d", "1y6M", "12h30m", "1y6M30d12h30m45s"
+     * Whitespace and punctuation are ignored, so "1y 6M 30d" is valid too.
+     *
+     * A plain number without a unit (e.g., "5") is interpreted as minutes by default.
+     *
+     * @param duration_str Duration string to parse
+     * @return Duration in seconds, or -1 if parsing failed
+     */
+    static int64_t parseDurationMins(const std::string& duration_str) {
+        return parseDuration(duration_str) / 60;
     }
 
-    inline std::string getFileContents(const std::string &file_name) {
+    std::string getFileContents(const std::string &file_name) {
         std::ifstream ifs(file_name);
         std::string contents((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
 

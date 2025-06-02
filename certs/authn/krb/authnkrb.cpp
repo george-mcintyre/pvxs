@@ -54,7 +54,8 @@ struct AuthNKrbRegistrar {
  *
  * @return the credentials for the Kerberos authenticator
  */
-std::shared_ptr<Credentials> AuthNKrb::getCredentials(const client::Config &, bool) const {
+std::shared_ptr<Credentials> AuthNKrb::getCredentials(const client::Config &config, bool) const {
+    const auto krb_config = dynamic_cast<const ConfigKrb &>(config);
     log_debug_printf(auth,
                      "\n******************************************\n"
                      "Kerberos Authenticator: %s\n",
@@ -78,7 +79,12 @@ std::shared_ptr<Credentials> AuthNKrb::getCredentials(const client::Config &, bo
     // Set validity times.
     const time_t now = time(nullptr);
     kerberos_credentials->not_before = now;
-    kerberos_credentials->not_after = now + lifetime;
+    if ( krb_config.cert_validity_mins == -1 ) {
+        kerberos_credentials->not_after = now + lifetime;
+    } else {
+        kerberos_credentials->not_after = now + krb_config.cert_validity_mins * 60;
+        kerberos_credentials->custom_validity=true;
+    }
 
     log_debug_printf(auth, "\nName: %s, \nOrg: %s, \nnot_before: %lu, \nnot_after: %lu\n", kerberos_credentials->name.c_str(),
                      kerberos_credentials->organization.c_str(), kerberos_credentials->not_before, kerberos_credentials->not_after);
