@@ -239,6 +239,87 @@ struct PVXS_API ConfigCommon {
     inline bool isTlsConfigured() const { return !tls_disabled && !tls_keychain_file.empty(); }
     #endif  // PVXS_ENABLE_OPENSSL
 
+    /**
+     * Parse a duration string into seconds.
+     * Supported formats:
+     *   y - years (365 days)
+     *   M - months (30 days) - capital M to disambiguate from minutes
+     *   w - weeks (7 days)
+     *   d - days
+     *   h - hours
+     *   m - minutes
+     *   s - seconds
+     * Examples: "1y", "30d", "1y6M", "12h30m", "1y6M30d12h30m45s"
+     * Whitespace and punctuation are ignored, so "1y 6M 30d" is valid too.
+     *
+     * @param durationStr Duration string to parse
+     * @return Duration in seconds, or -1 if parsing failed
+     */
+    static int64_t parseDuration(const std::string& durationStr) {
+        if(durationStr.empty())
+            return -1;
+
+        // Clean the string by removing whitespace and punctuation
+        std::string cleanStr;
+        for(char c : durationStr) {
+            if(!std::isspace(c) && !std::ispunct(c)) {
+                cleanStr += c;
+            }
+        }
+
+        if(cleanStr.empty())
+            return -1;
+
+        int64_t totalSeconds = 0;
+        std::string numStr;
+
+        for(size_t i = 0; i < cleanStr.size(); i++) {
+            char c = cleanStr[i];
+
+            if(std::isdigit(c)) {
+                numStr += c;
+            } else {
+                if(numStr.empty())
+                    return -1; // Format error: no number before unit
+
+                int64_t value = std::stoll(numStr);
+                numStr.clear();
+
+                switch(c) {
+                    case 'y': // Years (365 days)
+                        totalSeconds += value * 365 * 24 * 60 * 60;
+                        break;
+                    case 'M': // Months (30 days) - capital M to disambiguate from minutes
+                        totalSeconds += value * 30 * 24 * 60 * 60;
+                        break;
+                    case 'w': // Weeks
+                        totalSeconds += value * 7 * 24 * 60 * 60;
+                        break;
+                    case 'd': // Days
+                        totalSeconds += value * 24 * 60 * 60;
+                        break;
+                    case 'h': // Hours
+                        totalSeconds += value * 60 * 60;
+                        break;
+                    case 'm': // Minutes
+                        totalSeconds += value * 60;
+                        break;
+                    case 's': // Seconds
+                        totalSeconds += value;
+                        break;
+                    default:
+                        return -1; // Invalid unit
+                }
+            }
+        }
+
+        // If we have trailing digits without a unit, that's an error
+        if(!numStr.empty())
+            return -1;
+
+        return totalSeconds;
+    }
+
     inline std::string getFileContents(const std::string &file_name) {
         std::ifstream ifs(file_name);
         std::string contents((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));

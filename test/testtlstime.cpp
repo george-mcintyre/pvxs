@@ -12,6 +12,7 @@
 
 #include <pvxs/log.h>
 #include <pvxs/unittest.h>
+#include <pvxs/config.h>
 
 #include "certstatus.h"
 
@@ -74,15 +75,54 @@ struct Tester {
     }
 };
 
+void test_parseDuration() {
+    testShow() << __func__;
+    // Test basic durations
+    testEq(impl::ConfigCommon::parseDuration("1y"), 365 * 24 * 60 * 60);
+    testEq(impl::ConfigCommon::parseDuration("4y"), 4 * 365 * 24 * 60 * 60);
+    testEq(impl::ConfigCommon::parseDuration("1M"), 30 * 24 * 60 * 60);
+    testEq(impl::ConfigCommon::parseDuration("1w"), 7 * 24 * 60 * 60);
+    testEq(impl::ConfigCommon::parseDuration("1d"), 24 * 60 * 60);
+    testEq(impl::ConfigCommon::parseDuration("1h"), 60 * 60);
+    testEq(impl::ConfigCommon::parseDuration("1m"), 60);
+    testEq(impl::ConfigCommon::parseDuration("1s"), 1);
+
+    // Test with whitespace and punctuation
+    testEq(impl::ConfigCommon::parseDuration("1 y"), 365 * 24 * 60 * 60);
+    testEq(impl::ConfigCommon::parseDuration("1y, 6M"), 365 * 24 * 60 * 60 + 6 * 30 * 24 * 60 * 60);
+    testEq(impl::ConfigCommon::parseDuration("1d 12h"), 24 * 60 * 60 + 12 * 60 * 60);
+
+    // Test combined durations
+    testEq(impl::ConfigCommon::parseDuration("1y6M"),
+           365 * 24 * 60 * 60 + 6 * 30 * 24 * 60 * 60);
+    testEq(impl::ConfigCommon::parseDuration("1d12h"),
+           24 * 60 * 60 + 12 * 60 * 60);
+    testEq(impl::ConfigCommon::parseDuration("1y6M30d12h30m45s"),
+           365 * 24 * 60 * 60 +
+           6 * 30 * 24 * 60 * 60 +
+           30 * 24 * 60 * 60 +
+           12 * 60 * 60 +
+           30 * 60 +
+           45);
+
+    // Test error cases
+    testEq(impl::ConfigCommon::parseDuration(""), -1);
+    testEq(impl::ConfigCommon::parseDuration("abc"), -1);
+    testEq(impl::ConfigCommon::parseDuration("1"), -1);
+    testEq(impl::ConfigCommon::parseDuration("1x"), -1);
+    testEq(impl::ConfigCommon::parseDuration("y"), -1);
+}
+
 }  // namespace
 
 MAIN(testtlstime) {
-    testPlan(12);
+    testPlan(31);
     testSetup();
     logger_config_env();
     Tester().initialisation();
     Tester().conversion();
     Tester().asn1_time();
+    test_parseDuration();
     cleanup_for_valgrind();
     return testDone();
 }
