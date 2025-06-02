@@ -10,19 +10,12 @@ include $(TOP)/configure/CONFIG
 
 ifeq ($(EVENT2_HAS_OPENSSL),YES)
 USR_CPPFLAGS += -DPVXS_ENABLE_OPENSSL -I$(TOP)/bundle/CLI11/include
-
-ifeq ($(PVXS_DISABLE_P12_CREATION),YES)
-USR_CPPFLAGS += -DPVXS_DISABLE_P12_CREATION
-endif # PVXS_DISABLE_P12_CREATION
-
 AUTHN = $(TOP)/certs/authn
 SRC_DIRS += $(TOP)/src
 SRC_DIRS += $(TOP)/ioc
-ifneq ($(PVXS_DISABLE_P12_CREATION),YES)
 SRCS += p12filefactory.cpp
 SRCS += certfilefactory.cpp
 SRCS += certfactory.cpp
-endif # not PVXS_DISABLE_P12_CREATION
 
 
 PROD_LIBS = pvxs Com
@@ -50,9 +43,7 @@ endif
 #pvaocsp_SRCS += ocsppva.cpp
 #pvaocsp_SRCS += configocsp.cpp
 
-ifneq ($(PVXS_DISABLE_P12_CREATION),YES)
 include $(AUTHN)/Makefile
-endif # not PVXS_DISABLE_P12_CREATION
 
 endif # EVENT2_HAS_OPENSSL
 

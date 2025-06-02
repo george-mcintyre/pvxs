@@ -8,16 +8,12 @@ include $(TOP)/configure/CONFIG
 #  ADD MACRO DEFINITIONS AFTER THIS LINE
 #=============================
 
-ifneq ($(PVXS_DISABLE_P12_CREATION),YES)
-
 # access to private headers and source
 USR_CPPFLAGS += -I$(TOP)/src
 USR_CPPFLAGS += -I$(TOP)/ioc
 
 ifeq ($(EVENT2_HAS_OPENSSL),YES)
 USR_CPPFLAGS += -I$(TOP)/certs
-
-
 SRC_DIRS += $(TOP)/certs
 SRC_DIRS += $(TOP)/src
 endif
@@ -127,7 +123,6 @@ TESTS += testudpfwd
 
 ifdef BASE_3_15
 ifeq ($(EVENT2_HAS_OPENSSL),YES)
-
 USR_CPPFLAGS += -DPVXS_ENABLE_OPENSSL
 TESTPROD_HOST += gen_test_certs
 gen_test_certs_SRCS += gen_test_certs.cpp
@@ -241,8 +236,6 @@ TESTSCRIPTS = $(TESTSCRIPTS_HOST)
 endif
 endif
 
-endif # not PVXS_DISABLE_P12_CREATION
-
 #===========================
 
 include $(TOP)/configure/RULES
@@ -250,7 +243,6 @@ include $(TOP)/configure/RULES
 #----------------------------------------
 #  ADD RULES AFTER THIS LINE
 
-ifneq ($(PVXS_DISABLE_P12_CREATION),YES)
 ifdef BASE_3_15
 rtemsTestData.c : $(TESTFILES) $(TOOLS)/epicsMakeMemFs.pl
 	$(PERL) $(TOOLS)/epicsMakeMemFs.pl $@ epicsRtemsFSImage $(TESTFILES)
@@ -270,4 +262,3 @@ endif # T_A
 endif # EVENT2_HAS_OPENSSL
 
 endif
-endif # not PVXS_DISABLE_P12_CREATION
