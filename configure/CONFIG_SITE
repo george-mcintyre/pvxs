@@ -42,6 +42,7 @@ PVXS_ENABLE_SSLKEYLOGFILE ?= YES
 # PVXS_ENABLE_PVACMS = YES
 # PVXS_ENABLE_KRB_AUTH = YES
 # PVXS_ENABLE_LDAP_AUTH = YES
+# PVXS_DISABLE_P12_CREATION = NO
 
 # These allow developers to override the CONFIG_SITE variable
 # settings without having to modify the configure/CONFIG_SITE
