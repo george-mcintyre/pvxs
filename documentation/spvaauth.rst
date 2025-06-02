@@ -231,6 +231,13 @@ Common Environment Variables for all Authenticators
 +----------------------+------------------------------------+-----------------------------------------------------------------------+
 | Name                 | Keys and Values                    | Description                                                           |
 +======================+====================================+=======================================================================+
+|| EPICS_AUTH_         || <number of minutes>               || Amount of minutes before the certificate expires.                    |
+|| _CERT_VALIDITY_MINS || e.g. ``1y`` for 1 year            || e.g. 1d or 1y 2w 1d or 24h                                           |
+||                     ||                                   || Where:                                                               |
+||                     ||                                   ||   1y = 365 days                                                      |
+||                     ||                                   ||   1M = 30 days                                                       |
+||                     ||                                   ||   1w = 7 days                                                        |
++----------------------+------------------------------------+-----------------------------------------------------------------------+
 || EPICS_PVA_AUTH      || {name to use}                     || Name to use in new certificates                                      |
 || _NAME               || e.g. ``archiver``                 ||                                                                      |
 +----------------------+  e.g. ``IOC1``                     ||                                                                      |
@@ -316,9 +323,9 @@ and password file locations.
     Uses specified parameters to create certificates that require administrator APPROVAL before becoming VALID.
 
     usage:
-      authnstd [options]                          Create certificate in PENDING_APPROVAL state
-      authnstd (-h | --help)                      Show this help message and exit
-      authnstd (-V | --version)                   Print version and exit
+      authnstd [options]                         Create certificate in PENDING_APPROVAL state
+      authnstd (-h | --help)                     Show this help message and exit
+      authnstd (-V | --version)                  Print version and exit
 
     options:
       (-u | --cert-usage) <usage>                Specify the certificate usage.  client|server|ioc.  Default `client`
@@ -328,25 +335,15 @@ and password file locations.
       (-c | --country) <country>                 Specify country for the certificate. Default locale setting if detectable otherwise `US`
       (-t | --time) <minutes>                    Duration of the certificate in minutes
       (-D | --daemon)                            Start a daemon that re-requests a certificate on expiration`
-            --cert-pv-prefix <cert_pv_prefix>    Specifies the pv prefix to use to contact PVACMS.  Default `CERT`
-            --add-config-uri                     Add a config uri to the generated certificate
-            --force                              Force overwrite if certificate exists
-      (-a | --trust-anchor)                      Download Trust Anchor into keychain file.  Do not create a certificate
-      (-s | --no-status)                         Request that status checking not be required for this certificate
-      (-i | --issuer) <issuer_id>                The issuer ID of the PVACMS service to contact.  If not specified (default) broadcast to any that are listening
-      (-v | --verbose)                           Verbose mode
-      (-d | --debug)                             Debug mode
+            --cert-pv-prefix <cert_pv_prefix>     Specifies the pv prefix to use to contact PVACMS.  Default `CERT`
+            --add-config-uri                      Add a config uri to the generated certificate
+            --force                               Force overwrite if certificate exists
+      (-a | --trust-anchor)                       Download Trust Anchor into keychain file.  Do not create a certificate
+      (-s | --no-status)                          Request that status checking not be required for this certificate
+      (-i | --issuer) <issuer_id>                 The issuer ID of the PVACMS service to contact.  If not specified (default) broadcast to any that are listening
+      (-v | --verbose)                            Verbose mode
+      (-d | --debug)                              Debug mode
 
-
-
-**Environment Variables for authnstd**
-
-+----------------------+------------------------------------+-----------------------------------------------------------------------+
-| Name                 | Keys and Values                    | Description                                                           |
-+======================+====================================+=======================================================================+
-|| EPICS_AUTH_         || <number of minutes>               || Amount of minutes before the certificate expires.                    |
-|| _CERT_VALIDITY_MINS || e.g. ``525960`` for 1 year        ||                                                                      |
-+----------------------+------------------------------------+-----------------------------------------------------------------------+
 
 **Examples**
 
