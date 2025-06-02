@@ -356,6 +356,102 @@ struct PVXS_API ConfigCommon {
         return parseDuration(duration_str) / 60;
     }
 
+    /**
+     * @brief Formats a duration in minutes to a string compatible with parseDuration
+     *
+     * This function converts a duration in minutes to a human-readable string
+     * with units (y, M, w, d, h, m, s). It only includes non-zero components,
+     * so for example 1 year would be formatted as "1y" rather than "1y 0M 0d 0h 0m 0s".
+     *
+     * @param minutes Duration in minutes
+     * @return String representation of the duration
+     */
+    static std::string formatDurationMins(int64_t minutes) {
+        std::ostringstream result;
+        bool something_added = false;
+
+        // Define time unit conversions based on minutes
+        const int64_t mins_per_year = 365 * 24 * 60;       // 525,600
+        const int64_t mins_per_month = 30 * 24 * 60;       // 43,200
+        const int64_t mins_per_week = 7 * 24 * 60;         // 10,080
+        const int64_t mins_per_day = 24 * 60;              // 1,440
+        const int64_t mins_per_hour = 60;                  // 60
+
+        // Calculate years
+        if (minutes >= mins_per_year) {
+            int64_t years = minutes / mins_per_year;
+            minutes %= mins_per_year;
+            result << years << "y";
+            something_added = true;
+        }
+
+        // Calculate months - we want to prefer expressing time in months over days
+        // when the value is exactly a multiple of a month
+        if (minutes >= mins_per_month) {
+            int64_t months = minutes / mins_per_month;
+            minutes %= mins_per_month;
+            if (something_added) result << " ";
+            result << months << "M";
+            something_added = true;
+        }
+
+        // Special case for exact 30 days - represent as 1M for consistency
+        if (minutes == mins_per_day * 30) {
+            if (something_added) result << " ";
+            result << "1M";
+            minutes = 0;
+            something_added = true;
+        }
+
+        // Calculate weeks
+        if (minutes >= mins_per_week) {
+            int64_t weeks = minutes / mins_per_week;
+            minutes %= mins_per_week;
+            if (something_added) result << " ";
+            result << weeks << "w";
+            something_added = true;
+        }
+
+        // Calculate days
+        if (minutes >= mins_per_day) {
+            int64_t days = minutes / mins_per_day;
+            minutes %= mins_per_day;
+            if (something_added) result << " ";
+
+            // Special case: if days is exactly 30, represent as 1M
+            if (days == 30) {
+                result << "1M";
+            } else {
+                result << days << "d";
+            }
+            something_added = true;
+        }
+
+        // Calculate hours
+        if (minutes >= mins_per_hour) {
+            int64_t hours = minutes / mins_per_hour;
+            minutes %= mins_per_hour;
+            if (something_added) result << " ";
+            result << hours << "h";
+            something_added = true;
+        }
+
+        // Remaining minutes
+        if (minutes > 0) {
+            if (something_added) result << " ";
+            result << minutes << "m";
+            something_added = true;
+        }
+
+        // If everything was zero, return "0m" as default
+        if (!something_added) {
+            return "0m";
+        }
+
+        return result.str();
+    }
+
+
     std::string getFileContents(const std::string &file_name) {
         std::ifstream ifs(file_name);
         std::string contents((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));

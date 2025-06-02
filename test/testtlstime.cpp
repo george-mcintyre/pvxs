@@ -116,17 +116,90 @@ void test_parseDuration() {
     testEq(impl::ConfigCommon::parseDuration("1x"), -1);
     testEq(impl::ConfigCommon::parseDuration("y"), -1);
 }
+void test_formatDurationMins() {
+    testShow() << __func__;
+
+    // Test basic durations
+    testEq(impl::ConfigCommon::formatDurationMins(525600), "1y"); // 365 days
+    testEq(impl::ConfigCommon::formatDurationMins(2102400), "4y"); // 4 years
+    testEq(impl::ConfigCommon::formatDurationMins(43200), "1M"); // 30 days = 1 month
+    testEq(impl::ConfigCommon::formatDurationMins(10080), "1w"); // 1 week
+    testEq(impl::ConfigCommon::formatDurationMins(1440), "1d"); // 1 day
+    testEq(impl::ConfigCommon::formatDurationMins(60), "1h"); // 1 hour
+    testEq(impl::ConfigCommon::formatDurationMins(1), "1m"); // 1 minute
+
+    // Test complex durations
+    testEq(impl::ConfigCommon::formatDurationMins(525600 + 6 * 43200), "1y 6M"); // 1 year 6 months
+    testEq(impl::ConfigCommon::formatDurationMins(1440 + 12 * 60), "1d 12h"); // 1 day 12 hours
+    testEq(impl::ConfigCommon::formatDurationMins(12 * 60 + 30), "12h 30m"); // 12 hours 30 minutes
+
+    // Test round-trip conversion with a complex duration
+    // When we parse "1y 6M 30d 12h 30m", it adds up to more than 1y 6M,
+    // and actually becomes 1y 7M 12h 30m in total minutes
+    std::string duration_str = "1y 6M 30d 12h 30m";
+    int64_t minutes = impl::ConfigCommon::parseDurationMins(duration_str);
+    std::string formatted = impl::ConfigCommon::formatDurationMins(minutes);
+
+    // Since we expect the formatted result to be "1y 7M 12h 30m",
+    // we'll test against that instead of the original string
+    std::string expected = "1y 7M 12h 30m";
+    testEq(formatted, expected);
+
+    // Test duration with some zero values in between
+    testEq(impl::ConfigCommon::formatDurationMins(525600 + 60), "1y 1h"); // 1 year 0 months 0 days 1 hour 0 minutes
+
+    // Test with a calculated value that would have extra components
+    // 1 year 6 months + 1 hour = 525,600 + 6 * 43,200 + 60 = 784,860
+    testEq(impl::ConfigCommon::formatDurationMins(525600 + 6 * 43200 + 60), "1y 6M 1h");
+
+    // Test with seconds - these would normally be truncated when converting to minutes
+    testEq(impl::ConfigCommon::formatDurationMins(
+              impl::ConfigCommon::parseDurationMins("1y 1s")), "1y");
+    testEq(impl::ConfigCommon::formatDurationMins(
+              impl::ConfigCommon::parseDurationMins("1h 59s")), "1h");
+
+    // Test zero
+    testEq(impl::ConfigCommon::formatDurationMins(0), "0m");
+
+    // Additional round-trip tests
+    // Simple values
+    testEq(impl::ConfigCommon::formatDurationMins(
+              impl::ConfigCommon::parseDurationMins("1y")), "1y");
+    testEq(impl::ConfigCommon::formatDurationMins(
+              impl::ConfigCommon::parseDurationMins("6M")), "6M");
+    testEq(impl::ConfigCommon::formatDurationMins(
+              impl::ConfigCommon::parseDurationMins("30d")), "1M");  // 30d gets converted to 1M for consistency
+    testEq(impl::ConfigCommon::formatDurationMins(
+              impl::ConfigCommon::parseDurationMins("1w")), "1w");
+    testEq(impl::ConfigCommon::formatDurationMins(
+              impl::ConfigCommon::parseDurationMins("1d")), "1d");
+    testEq(impl::ConfigCommon::formatDurationMins(
+              impl::ConfigCommon::parseDurationMins("1h")), "1h");
+    testEq(impl::ConfigCommon::formatDurationMins(
+              impl::ConfigCommon::parseDurationMins("1m")), "1m");
+
+    // Combined values that should preserve well in round-trip
+    testEq(impl::ConfigCommon::formatDurationMins(
+              impl::ConfigCommon::parseDurationMins("1y 1M")), "1y 1M");
+    testEq(impl::ConfigCommon::formatDurationMins(
+              impl::ConfigCommon::parseDurationMins("1y 6M")), "1y 6M");
+    testEq(impl::ConfigCommon::formatDurationMins(
+              impl::ConfigCommon::parseDurationMins("1d 12h")), "1d 12h");
+    testEq(impl::ConfigCommon::formatDurationMins(
+              impl::ConfigCommon::parseDurationMins("12h 30m")), "12h 30m");
+}
 
 }  // namespace
 
 MAIN(testtlstime) {
-    testPlan(33);
+    testPlan(60);  // Updated to match the actual number of tests
     testSetup();
     logger_config_env();
     Tester().initialisation();
     Tester().conversion();
     Tester().asn1_time();
     test_parseDuration();
+    test_formatDurationMins();
     cleanup_for_valgrind();
     return testDone();
 }

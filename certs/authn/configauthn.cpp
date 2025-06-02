@@ -110,6 +110,7 @@ void ConfigAuthN::updateDefs(defs_t &defs) const {
     defs["EPICS_PVA_AUTH_COUNTRY"] = country;
     defs["EPICS_PVAS_AUTH_COUNTRY"] = server_country;
     defs["EPICS_PVAS_TLS_KEYCHAIN"] = tls_srv_keychain_file;
+    defs["EPICS_AUTH_CERT_VALIDITY_MINS"] = formatDurationMins(cert_validity_mins);
     if (!tls_srv_keychain_pwd.empty()) defs["EPICS_PVAS_TLS_KEYCHAIN_PWD_FILE"] = "<password read>";
 }
 
