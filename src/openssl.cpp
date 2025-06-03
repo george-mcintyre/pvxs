@@ -743,7 +743,7 @@ bool SSLContext::hasExpired() const {
     const auto now = time(nullptr);
     const auto cert = getEntityCertificate();
     if (!cert) return false;
-    const certs::StatusDate expiry_date = X509_get_notAfter(cert);
+    const certs::CertDate expiry_date = X509_get_notAfter(cert);
     return expiry_date.t < now;
 }
 
@@ -898,12 +898,12 @@ std::ostream &operator<<(std::ostream &strm, const ShowX509 &cert) {
         (void)BIO_printf(io.get(), "\nIssuer         : ");
         (void)X509_NAME_print(io.get(), issuer, 1024);
         if (auto atm = X509_get0_notBefore(cert.cert)) {
-            certs::StatusDate the_date(atm);
+            const certs::CertDate the_date(atm);
             (void)BIO_printf(io.get(), "\nValid from     : ");
             (void)BIO_printf(io.get(), the_date.s.c_str());
         }
         if (auto atm = X509_get0_notAfter(cert.cert)) {
-            certs::StatusDate the_date(atm);
+            const certs::CertDate the_date(atm);
             (void)BIO_printf(io.get(), "\nCert Expires   : ");
             (void)BIO_printf(io.get(), the_date.s.c_str());
         }

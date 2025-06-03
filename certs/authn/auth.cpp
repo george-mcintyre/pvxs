@@ -144,7 +144,7 @@ void Auth::runAuthNDaemon(const ConfigAuthN &authn_config, bool for_client, Cert
 
         // Check time before certificate expires
         const time_t now = time(nullptr);
-        const StatusDate expiry_date = X509_get_notAfter(config_monitor_params.cert_.get());
+        const CertDate expiry_date = X509_get_notAfter(config_monitor_params.cert_.get());
         const time_t expires_in = expiry_date.t - now;
 
         setValue<std::string>(config_value, "issuer_id", issuer_id);
@@ -180,7 +180,7 @@ void Auth::runAuthNDaemon(const ConfigAuthN &authn_config, bool for_client, Cert
 timeval Auth::configurationMonitor(ConfigMonitorParams &config_monitor_params, server::SharedPV &pv) {
     // Check time before certificate expires
     const time_t now = time(nullptr);
-    const StatusDate expiry_date = X509_get_notAfter(config_monitor_params.cert_.get());
+    const CertDate expiry_date = X509_get_notAfter(config_monitor_params.cert_.get());
     time_t expires_in = expiry_date.t - now;
 
     // If timer has not yet expired
@@ -205,7 +205,7 @@ timeval Auth::configurationMonitor(ConfigMonitorParams &config_monitor_params, s
     }
 
     // Compute next expiry time and post an update with the new serial number
-    const StatusDate new_expiry_date = X509_get_notAfter(config_monitor_params.cert_.get());
+    const CertDate new_expiry_date = X509_get_notAfter(config_monitor_params.cert_.get());
     expires_in = new_expiry_date.t - now;
 
     auto value = pv.fetch();

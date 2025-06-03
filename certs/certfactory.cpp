@@ -226,8 +226,8 @@ void CertFactory::setSubject(const ossl_ptr<X509> &certificate) const {
  * @param certificate The certificate whose validity is to be set
  */
 void CertFactory::setValidity(const ossl_ptr<X509> &certificate) const {
-    const auto before = StatusDate::toAsn1_Time(not_before_);
-    const auto after = StatusDate::toAsn1_Time(not_after_);
+    const auto before = CertDate::toAsn1_Time(not_before_);
+    const auto after = CertDate::toAsn1_Time(not_after_);
 
     if (X509_set1_notBefore(certificate.get(), before.get()) != 1) {
         throw std::runtime_error("Failed to set validity start time in certificate.");
@@ -461,7 +461,7 @@ void CertFactory::writeCertsToBio(const ossl_ptr<BIO> &bio, const STACK_OF(X509)
 
 time_t CertFactory::getNotAfterTimeFromCert(const ossl_ptr<X509> &cert) {
     const ASN1_TIME *cert_not_after = X509_get_notAfter(cert.get());
-    const time_t not_after = StatusDate::asn1TimeToTimeT(cert_not_after);
+    const time_t not_after = CertDate::asn1TimeToTimeT(cert_not_after);
     return not_after;
 }
 

@@ -1651,7 +1651,7 @@ std::string getCountryCode() {
  */
 time_t getNotAfterTimeFromCert(const X509 *cert) {
     const ASN1_TIME *cert_not_after = X509_get_notAfter(cert);
-    const time_t not_after = StatusDate::asn1TimeToTimeT(cert_not_after);
+    const time_t not_after = CertDate::asn1TimeToTimeT(cert_not_after);
     return not_after;
 }
 
@@ -1663,7 +1663,7 @@ time_t getNotAfterTimeFromCert(const X509 *cert) {
  */
 time_t getNotBeforeTimeFromCert(const X509 *cert) {
     const ASN1_TIME *cert_not_before = X509_get_notBefore(cert);
-    const time_t not_before = StatusDate::asn1TimeToTimeT(cert_not_before);
+    const time_t not_before = CertDate::asn1TimeToTimeT(cert_not_before);
     return not_before;
 }
 

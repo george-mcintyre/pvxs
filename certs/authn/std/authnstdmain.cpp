@@ -192,7 +192,7 @@ int readParameters(int argc, char *argv[], ConfigStd &config, bool &verbose, boo
         }
     }
     if (!cert_validity_mins.empty()) {
-        config.cert_validity_mins = config.parseDurationMins(cert_validity_mins);
+        config.cert_validity_mins = CertDate::parseDurationMins(cert_validity_mins);
     }
 
     if ( config.trust_anchor_only) {

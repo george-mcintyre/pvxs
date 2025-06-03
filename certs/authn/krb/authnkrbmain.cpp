@@ -152,7 +152,7 @@ int readParameters(const int argc, char *argv[], ConfigKrb &config, bool &verbos
     }
 
     if (!cert_validity_mins.empty()) {
-        config.cert_validity_mins = config.parseDurationMins(cert_validity_mins);
+        config.cert_validity_mins = CertDate::parseDurationMins(cert_validity_mins);
     }
     return 0;
 }
