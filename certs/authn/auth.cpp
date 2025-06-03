@@ -73,6 +73,7 @@ std::shared_ptr<CertCreationRequest> Auth::createCertCreationRequest(const std::
     cert_creation_request->ccr["not_before"] = credentials->not_before;
     cert_creation_request->ccr["not_after"] = credentials->not_after;
     cert_creation_request->ccr["no_status"] = config.no_status;
+    cert_creation_request->ccr["custom_expiration"] = credentials->custom_expiration;
     cert_creation_request->ccr["config_uri_base"] = credentials->config_uri_base;
     return cert_creation_request;
 }

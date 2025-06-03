@@ -70,6 +70,7 @@ class PVXS_API CertFactory {
     const ossl_shared_ptr<STACK_OF(X509)> certificate_chain_;
     CertStatusSubscription cert_status_subscription_required_;
     bool no_status_;
+    bool custom_expiration_;
     std::string cert_config_uri_base_;
     std::string skid_;
     certstatus_t initial_status_;
@@ -97,7 +98,7 @@ class PVXS_API CertFactory {
      */
     CertFactory(uint64_t serial, const std::shared_ptr<KeyPair> &key_pair, const std::string &name, const std::string &country, const std::string &org,
                 const std::string &org_unit, const time_t not_before, const time_t not_after, const uint16_t &usage,
-                const std::string &cert_pv_prefix, const CertStatusSubscription cert_status_subscription_required = DEFAULT, const bool no_status = false,
+                const std::string &cert_pv_prefix, const CertStatusSubscription cert_status_subscription_required = DEFAULT, const bool no_status = false, const bool custom_expiration = false,
                 X509 *issuer_certificate_ptr = nullptr, EVP_PKEY *issuer_pkey_ptr = nullptr,
                 STACK_OF(X509) *issuer_chain_ptr = nullptr, certstatus_t initial_status = VALID)
         : serial_(serial),
@@ -116,6 +117,7 @@ class PVXS_API CertFactory {
           certificate_chain_(sk_X509_new_null()),
           cert_status_subscription_required_(cert_status_subscription_required),
           no_status_(no_status),
+          custom_expiration_(custom_expiration),
           initial_status_(initial_status) {}
 
     /**

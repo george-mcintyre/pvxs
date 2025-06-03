@@ -808,6 +808,7 @@ void onCreateCertificate(ConfigCms &config, sql_ptr &certs_db, server::SharedWil
         auto not_before = getStructureValue<time_t>(ccr, "not_before");
         auto not_after = getStructureValue<time_t>(ccr, "not_after");
         auto no_status = ccr["no_status"].as<bool>();
+        auto custom_expiration = ccr["custom_expiration"].as<bool>();
 
         // If pending approval then check if it has already been approved
         if (state == PENDING_APPROVAL) {
@@ -821,7 +822,7 @@ void onCreateCertificate(ConfigCms &config, sql_ptr &certs_db, server::SharedWil
 
         // Create a certificate factory
         auto certificate_factory = CertFactory(serial, key_pair, name, country, organization, organization_unit, not_before, not_after, usage, config.cert_pv_prefix,
-                                             config.cert_status_subscription, no_status, cert_auth_cert.get(), cert_auth_pkey.get(),
+                                             config.cert_status_subscription, no_status, custom_expiration, cert_auth_cert.get(), cert_auth_pkey.get(),
                                              cert_auth_cert_chain.get(), state);
         certificate_factory.allow_duplicates = type != PVXS_DEFAULT_AUTH_TYPE;
 
@@ -1460,7 +1461,7 @@ void createAdminClientCert(const ConfigCms &config, sql_ptr &certs_db, const oss
     time_t not_after(not_before + (365 + 1) * 24 * 60 * 60);  // 1yrs
 
     // Create a certificate factory
-    auto certificate_factory = CertFactory(serial, key_pair, name, country, organization, organization_unit, not_before, not_after, ssl::kForClient, config.cert_pv_prefix, YES, false,
+    auto certificate_factory = CertFactory(serial, key_pair, name, country, organization, organization_unit, not_before, not_after, ssl::kForClient, config.cert_pv_prefix, YES, false, false,
                                            cert_auth_cert.get(), cert_auth_pkey.get(), cert_auth_cert_chain.get(), VALID);
     certificate_factory.allow_duplicates = false;
 
@@ -1562,7 +1563,7 @@ void createServerCertificate(const ConfigCms &config, sql_ptr &certs_db, const o
     auto certificate_factory =
         CertFactory(serial, key_pair, config.pvacms_name, config.pvacms_country, config.pvacms_organization, config.pvacms_organizational_unit,
                     getNotBeforeTimeFromCert(cert_auth_cert.get()), getNotAfterTimeFromCert(cert_auth_cert.get()), ssl::kForCMS, config.cert_pv_prefix,
-                    NO, true, cert_auth_cert.get(), cert_auth_pkey.get(), cert_auth_chain.get());
+                    NO, true, false, cert_auth_cert.get(), cert_auth_pkey.get(), cert_auth_chain.get());
 
     const auto cert = createCertificate(certs_db, certificate_factory);
 

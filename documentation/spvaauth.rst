@@ -231,7 +231,7 @@ Common Environment Variables for all Authenticators
 +----------------------+------------------------------------+-----------------------------------------------------------------------+
 | Name                 | Keys and Values                    | Description                                                           |
 +======================+====================================+=======================================================================+
-|| EPICS_AUTH_         || <number of minutes>               || Amount of minutes before the certificate expires.                    |
+|| EPICS_PVA_AUTH_     || <number of minutes>               || Amount of minutes before the certificate expires.                    |
 || _CERT_VALIDITY_MINS || e.g. ``1y`` for 1 year            || e.g. 1d or 1y 2w 1d or 24h                                           |
 ||                     ||                                   || Where:                                                               |
 ||                     ||                                   ||   1y = 365 days                                                      |

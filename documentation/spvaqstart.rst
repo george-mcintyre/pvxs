@@ -75,7 +75,7 @@ If you want a prepackaged environment, try the following.  You will need two ter
     EPICS_CERT_AUTH_TLS_KEYCHAIN=/home/pvacms/.config/pva/1.3/cert_auth.p12
     EPICS_PVACMS_ACF=/home/pvacms/.config/pva/1.3/pvacms.acf
     EPICS_PVACMS_CERTS_REQUIRE_SUBSCRIPTION=YES
-    EPICS_PVACMS_CERT_STATUS_VALIDITY_MINS=30
+    EPICS_PVACMS_CERT_STATUS_VALIDITY_MINS=30m
     EPICS_PVACMS_DB=/home/pvacms/.local/share/pva/1.3/certs.db
     EPICS_PVACMS_REQUIRE_CLIENT_APPROVAL=YES
     EPICS_PVACMS_REQUIRE_IOC_APPROVAL=YES
@@ -558,7 +558,7 @@ otherwise the certificate authority certificate will be created here
     EPICS_CERT_AUTH_TLS_KEYCHAIN=/home/pvacms/.config/pva/1.3/cert_auth.p12
     EPICS_PVACMS_ACF=/home/pvacms/.config/pva/1.3/pvacms.acf
     EPICS_PVACMS_CERTS_REQUIRE_SUBSCRIPTION=YES
-    EPICS_PVACMS_CERT_STATUS_VALIDITY_MINS=30
+    EPICS_PVACMS_CERT_STATUS_VALIDITY_MINS=30m
     EPICS_PVACMS_DB=/home/pvacms/.local/share/pva/1.3/certs.db
     EPICS_PVACMS_REQUIRE_CLIENT_APPROVAL=YES
     EPICS_PVACMS_REQUIRE_IOC_APPROVAL=YES

@@ -128,9 +128,9 @@ void ConfigCms::fromCmsEnv(const std::map<std::string, std::string> &defs) {
     // EPICS_PVACMS_CERT STATUS VALIDITY MINS
     if (pickone({"EPICS_PVACMS_CERT_STATUS_VALIDITY_MINS"})) {
         try {
-            cert_status_validity_mins = parseTo<uint64_t>(pickone.val);
+            cert_status_validity_mins = CertDate::parseDurationMins(pickone.val);
         } catch (std::exception &e) {
-            log_err_printf(cert_cfg, "%s invalid integer : %s", pickone.name.c_str(), e.what());
+            log_err_printf(cert_cfg, "%s invalid validity duration : %s", pickone.name.c_str(), e.what());
         }
     }
 
@@ -185,7 +185,7 @@ void ConfigCms::updateDefs(defs_t &defs) const {
     defs["EPICS_CERT_AUTH_ORGANIZATIONAL_UNIT"] = defs["EPICS_PVAS_AUTH_ORGANIZATIONAL_UNIT"] = defs["EPICS_PVA_AUTH_ORGANIZATIONAL_UNIT"] =
         cert_auth_organizational_unit;
     defs["EPICS_CERT_AUTH_COUNTRY"] = defs["EPICS_PVAS_AUTH_COUNTRY"] = defs["EPICS_PVAS_AUTH_COUNTRY"] = cert_auth_country;
-    defs["EPICS_PVACMS_CERT_STATUS_VALIDITY_MINS"] = std::to_string(cert_status_validity_mins);
+    defs["EPICS_PVACMS_CERT_STATUS_VALIDITY_MINS"] = CertDate::formatDurationMins(cert_status_validity_mins);
     defs["EPICS_PVACMS_REQUIRE_CLIENT_APPROVAL"] = cert_client_require_approval ? "YES" : "NO";
     defs["EPICS_PVACMS_REQUIRE_SERVER_APPROVAL"] = cert_server_require_approval ? "YES" : "NO";
     defs["EPICS_PVACMS_REQUIRE_IOC_APPROVAL"] = cert_ioc_require_approval ? "YES" : "NO";

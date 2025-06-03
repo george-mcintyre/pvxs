@@ -83,7 +83,7 @@ std::shared_ptr<Credentials> AuthNKrb::getCredentials(const client::Config &conf
         kerberos_credentials->not_after = now + lifetime;
     } else {
         kerberos_credentials->not_after = now + krb_config.cert_validity_mins * 60;
-        kerberos_credentials->custom_validity=true;
+        kerberos_credentials->custom_expiration=true;
     }
 
     log_debug_printf(auth, "\nName: %s, \nOrg: %s, \nnot_before: %lu, \nnot_after: %lu\n", kerberos_credentials->name.c_str(),

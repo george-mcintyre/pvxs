@@ -32,7 +32,7 @@ struct Credentials {
     // Validity
     time_t not_before;
     time_t not_after;
-    bool custom_validity{false};
+    bool custom_expiration{false};
 
     // Config uri
     std::string config_uri_base;
@@ -97,6 +97,7 @@ struct Credentials {
         members::String("pub_key"),            \
         members::String("config_uri_base"),    \
         members::Bool("no_status"),            \
+        members::Bool("custom_expiration"),    \
         members::Struct("verifier", VERIFIER), \
     }
 

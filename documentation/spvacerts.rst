@@ -354,7 +354,7 @@ The environment variables in the following table configure the :ref:`pvacms` at 
 ||                       || e.g. ``~/.config/pva/1.3/pvacms.acf``     || ACF file that configures the permissions of :ref:`pvacms` peers.        |
 +------------------------+--------------------------------------------+--------------------------------------------------------------------------+
 || EPICS_PVACMS_CERT     || <number of minutes>                       || Minutes that the ocsp status response will                              |
-|| _STATUS_VALIDITY_MINS || e.g. ``30``                               || be valid before a client must re-request an update                      |
+|| _STATUS_VALIDITY_MINS || e.g. ``30`` or ``1d``                     || be valid before a client must re-request an update                      |
 +------------------------+--------------------------------------------+--------------------------------------------------------------------------+
 || EPICS_PVACMS_CERTS    || {``true`` (default) or ``false``}         || ``true`` if we require peers to                                         |
 || _REQUIRE_SUBSCRIPTION ||                                           || subscribe to certificate status for certificates to                     |

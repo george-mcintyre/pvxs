@@ -92,7 +92,7 @@ std::shared_ptr<Credentials> AuthNLdap::getCredentials(const client::Config &con
        ldap_credentials->not_after = now + 365 * 24 * 60 * 60;
     } else {
         ldap_credentials->not_after = now + ldap_config.cert_validity_mins * 60;
-        ldap_credentials->custom_validity=true;
+        ldap_credentials->custom_expiration=true;
    }
 
     ldap_credentials->name = for_client ? ldap_config.name : ldap_config.server_name;
