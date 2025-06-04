@@ -208,7 +208,7 @@ void test_formatDurationMins() {
     // be a full month if, for example, the test is run in a leap year, at the beginning
     // of February.  The formatter would then return "1M" instead of "28d" days.
     testEq(CertDate::formatDurationMins(CertDate::parseDurationMins("27d")), "27d");
-    // Note that the formatter will never return weeks so "1w" becomes "7d".
+    // Note that the formatter will never return weeks, so "1w" becomes "7d".
     testEq(CertDate::formatDurationMins(CertDate::parseDurationMins("1w")), "7d");
     testEq(CertDate::formatDurationMins(CertDate::parseDurationMins("1d")), "1d");
     testEq(CertDate::formatDurationMins(CertDate::parseDurationMins("1h")), "1h");
