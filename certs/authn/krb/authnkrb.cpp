@@ -308,10 +308,11 @@ std::string AuthNKrb::gssErrorDescription(const OM_uint32 major_status, const OM
  * information contained in the CCR.
  *
  * @param ccr The certificate creation request (CCR) to verify
+ * @param authorized_expiration_date
  * @return True if the CCR is valid.
  * @throw std::runtime_error if the CCR is not valid
  */
-bool AuthNKrb::verify(Value &ccr) const {
+bool AuthNKrb::verify(Value &ccr, time_t &authorized_expiration_date) const {
     log_debug_printf(auth, "Verifying Kerberos CCR request%s", "\n");
 
     log_debug_printf(auth, "Checking Keytab is configured: %s\n", krb_keytab_file.c_str());
@@ -416,10 +417,8 @@ bool AuthNKrb::verify(Value &ccr) const {
         throw std::runtime_error(SB() << "Verify Credentials: CCR not_before after "
                                          "end of kerberos ticket lifetime");
     }
-    if (ccr["not_after"].as<uint32_t>() > now + peer_lifetime) {
-        // If expiration is incorrect, then set it to max allowable
-        ccr["not_after"] = now + peer_lifetime;
-    }
+    authorized_expiration_date = now + peer_lifetime;
+    // Don't check the not_after date because we will only return VALID status while authorized
 
     // MIC Verification
     auto public_key = ccr["pub_key"].as<std::string>();

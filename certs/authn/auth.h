@@ -16,15 +16,16 @@
 #include <pvxs/client.h>
 #include <pvxs/data.h>
 
-#include <CLI/App.hpp>
-
 #include "ccrmanager.h"
 #include "certfactory.h"
+#include "certstatusmanager.h"
 #include "configstd.h"
 #include "openssl.h"
 #include "security.h"
 #include "server.h"
 #include "sslinit.h"
+
+#include <CLI/App.hpp>
 
 #pragma once
 
@@ -40,12 +41,13 @@ namespace certs {
  */
 using namespace certs;
 class Auth {
-   public:
+ public:
     std::string type_{};
     std::vector<Member> verifier_fields_{};
 
     // Constructor and Destructor
-    Auth(const std::string &type, const std::vector<Member> &verifier_fields) : type_(type), verifier_fields_(verifier_fields) {}
+    Auth(const std::string &type, const std::vector<Member> &verifier_fields)
+        : type_(type), verifier_fields_(verifier_fields) {}
 
     virtual ~Auth() = default;
 
@@ -53,7 +55,8 @@ class Auth {
      * @brief Get credentials for the given configuration and usage.
      *
      * This function returns a shared pointer to a Credentials object for the given configuration and usage.
-     * Implementers should fill in the Credentials object with the appropriate values for the given configuration and usage.
+     * Implementers should fill in the Credentials object with the appropriate values for the given configuration and
+     * usage.
      *
      * @param config The configuration to use for the credentials
      * @param for_client Whether the credentials are for a client or server
@@ -70,9 +73,10 @@ class Auth {
      * Implementers should provide appropriate code to verify the authenticity of the CCR.
      *
      * @param ccr The CCR to verify
+     * @param authorized_validity the amount of time authorized for this certificate after verifying the request
      * @return True if the CCR is valid, false otherwise
      */
-    virtual bool verify(Value &ccr) const = 0;
+    virtual bool verify(Value &ccr, time_t &authorized_validity) const = 0;
 
     /**
      * @brief Get the authenticator configuration from the environment.
@@ -96,22 +100,26 @@ class Auth {
      * @param config The configuration to use for the CCR
      * @return A shared pointer to the CCR
      */
-    virtual std::shared_ptr<CertCreationRequest> createCertCreationRequest(const std::shared_ptr<Credentials> &credentials,
-                                                                           const std::shared_ptr<KeyPair> &key_pair,
-                                                                           const uint16_t &usage,
-                                                                           const ConfigAuthN &config) const = 0;
+    virtual std::shared_ptr<CertCreationRequest> createCertCreationRequest(
+        const std::shared_ptr<Credentials> &credentials,
+        const std::shared_ptr<KeyPair> &key_pair,
+        const uint16_t &usage,
+        const ConfigAuthN &config) const = 0;
 
     /**
      * @brief Get the placeholder text for the options help text.
      *
      * This function returns a string containing the placeholder text for the options help text.
-     * This will be inserted into the usage documentation for PVACMS to indicate where this authenticator's options should be placed.
-     * Implementers should return a string containing the placeholder text for the options help text.
-     * e.g. "Enter the kerberos principal name: ".  This should be enclosed in square brackets for consistency to indicate optional arguments.
+     * This will be inserted into the usage documentation for PVACMS to indicate where this authenticator's options
+     * should be placed. Implementers should return a string containing the placeholder text for the options help text.
+     * e.g. "Enter the kerberos principal name: ".  This should be enclosed in square brackets for consistency to
+     * indicate optional arguments.
      *
      * @return A string containing the placeholder text for the options help text
      */
-    virtual std::string getOptionsPlaceholderText() { return {}; }
+    virtual std::string getOptionsPlaceholderText() {
+        return {};
+    }
 
     /**
      * @brief Get the options help text.
@@ -126,20 +134,24 @@ class Auth {
      *
      * @return A string containing the options help text
      */
-    virtual std::string getOptionsHelpText() { return {}; }
+    virtual std::string getOptionsHelpText() {
+        return {};
+    }
 
     /**
      * @brief Add the options to the CLI application.
      *
      * This function adds the options to the CLI application object so that they can be parsed from the command line.
      * Implementers should add all required options to the CLI application object.
-     * They should expect to find a configuration object that matches the type of the authenticator in the map under the key of the type name.
-     * They should use this entry to store the values retrieved from the command line for the authenticator's options
+     * They should expect to find a configuration object that matches the type of the authenticator in the map under the
+     * key of the type name. They should use this entry to store the values retrieved from the command line for the
+     * authenticator's options
      *
      * @param app The CLI application object
      * @param authn_config_map A map of the authenticator configuration
      */
-    virtual void addOptions(CLI::App &app, std::map<const std::string, std::unique_ptr<client::Config>> &authn_config_map) {}
+    virtual void addOptions(CLI::App &app,
+                            std::map<const std::string, std::unique_ptr<client::Config>> &authn_config_map) {}
 
     /**
      * This function transfers the configuration from the given config object to the authenticator.
@@ -164,7 +176,10 @@ class Auth {
      * @param issuer_id the issuer ID of the CMS
      * @return The PEM encoded certificate
      */
-    std::string processCertificateCreationRequest(const std::shared_ptr<CertCreationRequest> &ccr, const std::string &cert_pv_prefix, const std::string &issuer_id, double timeout) const;
+    std::string processCertificateCreationRequest(const std::shared_ptr<CertCreationRequest> &ccr,
+                                                  const std::string &cert_pv_prefix,
+                                                  const std::string &issuer_id,
+                                                  double timeout) const;
 
     /**
      * @brief Update the definitions with the authenticator-specific definitions.
@@ -208,9 +223,12 @@ class Auth {
      */
     static Auth *getAuth(const std::string &type);
 
-    void runAuthNDaemon(const ConfigAuthN &authn_config, bool for_client, CertData &&cert_data, const std::function<CertData()> &&fn);
+    void runAuthNDaemon(const ConfigAuthN &authn_config,
+                        bool for_client,
+                        CertData &&cert_data,
+                        const std::function<CertData()> &&fn);
 
-   protected:
+ protected:
     // Called to have a standard presentation of the CCR for the
     // purposes of generating and verifying signatures
     static std::string ccrToString(const std::shared_ptr<CertCreationRequest> &ccr, const uint16_t &usage) {
@@ -239,10 +257,10 @@ class Auth {
                     << ccr["usage"].as<uint16_t>();                // Usage
     }
 
-   private:
+ private:
     server::Server config_server_{};
     class ConfigMonitorParams {
-       public:
+     public:
         const ConfigAuthN &config_;
         mutable ossl_ptr<X509> cert_{};
         const std::function<CertData()> fn_{};
@@ -347,7 +365,11 @@ std::shared_ptr<S> castAs(const std::shared_ptr<C> &base_class) {
 }
 
 template <typename ConfigT, typename AuthT>
-CertData getCertificate(bool &retrieved_credentials, ConfigT config, uint16_t cert_usage, const AuthT &authenticator, const std::string &tls_keychain_file,
+CertData getCertificate(bool &retrieved_credentials,
+                        ConfigT config,
+                        uint16_t cert_usage,
+                        const AuthT &authenticator,
+                        const std::string &tls_keychain_file,
                         const std::string &tls_keychain_pwd);
 
 template <typename ConfigT, typename AuthT>
@@ -367,7 +389,11 @@ int runAuthenticator(int argc, char *argv[], std::function<void(ConfigT &, AuthT
  * @return The certificate data
  */
 template <typename ConfigT, typename AuthT>
-CertData getCertificate(bool &retrieved_credentials, ConfigT config, uint16_t cert_usage, const AuthT &authenticator, const std::string &tls_keychain_file,
+CertData getCertificate(bool &retrieved_credentials,
+                        ConfigT config,
+                        uint16_t cert_usage,
+                        const AuthT &authenticator,
+                        const std::string &tls_keychain_file,
                         const std::string &tls_keychain_pwd) {
     DEFINE_LOGGER(auth, std::string("pvxs.auth." + authenticator.type_).c_str());
     CertData cert_data;
@@ -397,14 +423,18 @@ CertData getCertificate(bool &retrieved_credentials, ConfigT config, uint16_t ce
         log_debug_printf(auth, "CCR created for: %s Authenticator\n", authenticator.type_.c_str());
 
         // Attempt to create a certificate with the Certificate Creation Request (CCR)
-        auto p12_pem_string = authenticator.processCertificateCreationRequest(cert_creation_request, config.cert_pv_prefix, config.issuer_id, config.request_timeout_specified);
+        auto p12_pem_string = authenticator.processCertificateCreationRequest(cert_creation_request,
+                                                                              config.cert_pv_prefix,
+                                                                              config.issuer_id,
+                                                                              config.request_timeout_specified);
 
         // If the certificate was created successfully, write it to the keychain file
         if (!p12_pem_string.empty()) {
             log_debug_printf(auth, "Cert generated by PVACMS and successfully received: %s\n", p12_pem_string.c_str());
 
             // Attempt to write the certificate and private key to a cert file protected by the configured password
-            auto file_factory = IdFileFactory::create(tls_keychain_file, tls_keychain_pwd, key_pair, nullptr, nullptr, p12_pem_string);
+            auto file_factory =
+                IdFileFactory::create(tls_keychain_file, tls_keychain_pwd, key_pair, nullptr, nullptr, p12_pem_string);
             file_factory->writeIdentityFile();
 
             // Read the certificate and private key back from the keychain file for info and verification
@@ -414,18 +444,50 @@ CertData getCertificate(bool &retrieved_credentials, ConfigT config, uint16_t ce
 
             // Get the start and end dates of the certificate
             const std::string from = std::ctime(&credentials->not_before);
-            const std::string to = std::ctime(&credentials->not_after);
+            auto expiration_t = CertStatusManager::getExpirationDateFromCert(cert_data.cert);
+            const std::string expiration = std::ctime(&expiration_t);
+            time_t soft_expiration_t{0};
+            std::string soft_expiration;
+            try {
+                soft_expiration_t = CertStatusManager::getSoftExpirationDateFromCert(cert_data.cert);
+                if (soft_expiration_t > 0) {
+                    soft_expiration = std::ctime(&soft_expiration_t);
+                }
+            } catch (CertStatusNoExtensionException &e) {
+                // No soft expiration date in certificate - this is normal for older certificates
+                log_debug_printf(auth, "No soft expiration date found in certificate: %s", e.what());
+            } catch (std::exception &e) {
+                log_warn_printf(auth, "Error reading soft expiration date: %s", e.what());
+            }
 
             // Log the certificate info
-            log_info_printf(auth, "%s\n", (pvxs::SB() << "CERT_ID: " << issuer_id << ":" << serial_number).str().c_str());
+            log_info_printf(auth,
+                            "%s\n",
+                            (pvxs::SB() << "CERT_ID: " << issuer_id << ":" << serial_number).str().c_str());
             log_info_printf(auth, "%s\n", (pvxs::SB() << "TYPE: " << authenticator.type_).str().c_str());
             log_info_printf(auth, "%s\n", (pvxs::SB() << "OUTPUT TO: " << tls_keychain_file).str().c_str());
             log_info_printf(auth, "%s\n", (pvxs::SB() << "NAME: " << credentials->name).str().c_str());
             log_info_printf(auth, "%s\n", (pvxs::SB() << "ORGANIZATION: " << credentials->organization).str().c_str());
-            log_info_printf(auth, "%s\n", (pvxs::SB() << "ORGANIZATIONAL UNIT: " << credentials->organization_unit).str().c_str());
+            log_info_printf(auth,
+                            "%s\n",
+                            (pvxs::SB() << "ORGANIZATIONAL UNIT: " << credentials->organization_unit).str().c_str());
             log_info_printf(auth, "%s\n", (pvxs::SB() << "COUNTRY: " << credentials->country).str().c_str());
-            log_info_printf(auth, "%s\n",
-                            (pvxs::SB() << "VALIDITY: " << from.substr(0, from.size() - 1) << " to " << to.substr(0, to.size() - 1)).str().c_str());
+            log_info_printf(auth,
+                            "%s\n",
+                            (pvxs::SB() << "VALID FROM: " << from.substr(0, from.size() - 1)).str().c_str());
+            log_info_printf(auth,
+                            "%s\n",
+                            (pvxs::SB() << "EXPIRATION: " << expiration.substr(0, expiration.size() - 1))
+                                .str()
+                                .c_str());
+            if (soft_expiration_t) {
+                log_info_printf(auth,
+                                "%s\n",
+                                (pvxs::SB()
+                                 << "SOFT EXPIRATION: " << soft_expiration.substr(0, soft_expiration.size() - 1))
+                                    .str()
+                                    .c_str());
+            }
             std::cout << "Certificate identifier  : " << issuer_id << ":" << serial_number << std::endl;
 
             log_info_printf(auth, "--------------------------------------%s", "\n");
@@ -465,12 +527,17 @@ int runAuthenticator(int argc, char *argv[], std::function<void(ConfigT &, AuthT
         uint16_t cert_usage{pvxs::ssl::kForClient};
 
         const auto parse_result = readParameters(argc, argv, config, verbose, debug, cert_usage, daemon_mode, force);
-        if (parse_result) return parse_result == -1 ? 0 : parse_result;
+        if (parse_result)
+            return parse_result == -1 ? 0 : parse_result;
 
-        if (verbose) logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Info);
-        if (debug) logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Debug);
+        if (verbose)
+            logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Info);
+        if (verbose)
+            logger_level_set(std::string("pvxs.auth.ccr").c_str(), pvxs::Level::Info);
+        if (debug)
+            logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Debug);
 
-        // Execute special case hook if provided
+        // Execute a special case hook if provided
         if (pre_configure_hook) {
             pre_configure_hook(config, authenticator);
         }
@@ -481,30 +548,50 @@ int runAuthenticator(int argc, char *argv[], std::function<void(ConfigT &, AuthT
             std::cout << "Effective config\n" << config << std::endl;
         }
 
-        const std::string tls_keychain_file = IS_FOR_A_SERVER_(cert_usage) ? config.tls_srv_keychain_file : config.tls_keychain_file;
-        const std::string tls_keychain_pwd = IS_FOR_A_SERVER_(cert_usage) ? config.tls_srv_keychain_pwd : config.tls_keychain_pwd;
+        const std::string tls_keychain_file =
+            IS_FOR_A_SERVER_(cert_usage) ? config.tls_srv_keychain_file : config.tls_keychain_file;
+        const std::string tls_keychain_pwd =
+            IS_FOR_A_SERVER_(cert_usage) ? config.tls_srv_keychain_pwd : config.tls_keychain_pwd;
 
         CertData cert_data;
         try {
             auto new_cert_data = IdFileFactory::create(tls_keychain_file, tls_keychain_pwd)->getCertDataFromFile();
             const auto now = time(nullptr);
-            const auto not_after_time = (!cert_data.cert) ? 0 :  CertFactory::getNotAfterTimeFromCert(new_cert_data.cert);
+            const auto not_after_time =
+                (!cert_data.cert) ? 0 : CertFactory::getNotAfterTimeFromCert(new_cert_data.cert);
             if (not_after_time > now) {
                 cert_data = std::move(new_cert_data);
             }
-        } catch (std::exception &) {
-        }
+        } catch (std::exception &) {}
 
         if (!cert_data.cert || force) {
-            cert_data = getCertificate(retrieved_credentials, config, cert_usage, authenticator, tls_keychain_file, tls_keychain_pwd);
-        } else if (!daemon_mode ) {
-            log_warn_printf(auth, "%s: Valid certificate found: Use `--force` flag to overwrite\n", tls_keychain_file.c_str());
+            cert_data = getCertificate(retrieved_credentials,
+                                       config,
+                                       cert_usage,
+                                       authenticator,
+                                       tls_keychain_file,
+                                       tls_keychain_pwd);
+        } else if (!daemon_mode) {
+            log_warn_printf(auth,
+                            "%s: Valid certificate found: Use `--force` flag to overwrite\n",
+                            tls_keychain_file.c_str());
         }
 
         if (cert_data.cert && daemon_mode) {
-            authenticator.runAuthNDaemon(config, IS_USED_FOR_(cert_usage, pvxs::ssl::kForClient), std::move(cert_data),
-                                         [&retrieved_credentials, config, cert_usage, authenticator, tls_keychain_file, tls_keychain_pwd] {
-                                             return getCertificate(retrieved_credentials, config, cert_usage, authenticator, tls_keychain_file,
+            authenticator.runAuthNDaemon(config,
+                                         IS_USED_FOR_(cert_usage, pvxs::ssl::kForClient),
+                                         std::move(cert_data),
+                                         [&retrieved_credentials,
+                                          config,
+                                          cert_usage,
+                                          authenticator,
+                                          tls_keychain_file,
+                                          tls_keychain_pwd] {
+                                             return getCertificate(retrieved_credentials,
+                                                                   config,
+                                                                   cert_usage,
+                                                                   authenticator,
+                                                                   tls_keychain_file,
                                                                    tls_keychain_pwd);
                                          });
         }

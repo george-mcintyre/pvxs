@@ -62,6 +62,7 @@ class PVXS_API CertFactory {
     const std::string org_unit_;
     const time_t not_before_;
     const time_t not_after_;
+    time_t renewable_until_{0};
     const uint16_t usage_;
     std::string cert_pv_prefix_ ;
     X509 *issuer_certificate_ptr_;       // Will point to the issuer certificate when created
@@ -70,11 +71,11 @@ class PVXS_API CertFactory {
     const ossl_shared_ptr<STACK_OF(X509)> certificate_chain_;
     CertStatusSubscription cert_status_subscription_required_;
     bool no_status_;
-    bool custom_expiration_;
+    bool must_be_renewed_;
     std::string cert_config_uri_base_;
     std::string skid_;
     certstatus_t initial_status_;
-    bool allow_duplicates{true};
+    bool allow_duplicates_{true};
 
     /**
      * @brief Constructor for CertFactory
@@ -91,14 +92,16 @@ class PVXS_API CertFactory {
      * @param cert_pv_prefix the certificate management PV prefix for this factory
      * @param cert_status_subscription_required whether certificate status subscription is required
      * @param no_status whether to disable status subscription for this certificate
+     * @param must_be_renewed certificates generated with this factory must be renewed to get their full lifetime.
+     *                        The supplied `not_after` date is the first renewal date and the renew_until_date supplied afterwards is the
      * @param issuer_certificate_ptr the issuer certificate
      * @param issuer_pkey_ptr the issuer private key
      * @param issuer_chain_ptr the issuer certificate chain
      * @param initial_status the initial status
      */
-    CertFactory(uint64_t serial, const std::shared_ptr<KeyPair> &key_pair, const std::string &name, const std::string &country, const std::string &org,
+    CertFactory(const uint64_t serial, const std::shared_ptr<KeyPair> &key_pair, const std::string &name, const std::string &country, const std::string &org,
                 const std::string &org_unit, const time_t not_before, const time_t not_after, const uint16_t &usage,
-                const std::string &cert_pv_prefix, const CertStatusSubscription cert_status_subscription_required = DEFAULT, const bool no_status = false, const bool custom_expiration = false,
+                const std::string &cert_pv_prefix, const CertStatusSubscription cert_status_subscription_required = DEFAULT, const bool no_status = false, const bool must_be_renewed = false,
                 X509 *issuer_certificate_ptr = nullptr, EVP_PKEY *issuer_pkey_ptr = nullptr,
                 STACK_OF(X509) *issuer_chain_ptr = nullptr, certstatus_t initial_status = VALID)
         : serial_(serial),
@@ -117,7 +120,7 @@ class PVXS_API CertFactory {
           certificate_chain_(sk_X509_new_null()),
           cert_status_subscription_required_(cert_status_subscription_required),
           no_status_(no_status),
-          custom_expiration_(custom_expiration),
+          must_be_renewed_(must_be_renewed),
           initial_status_(initial_status) {}
 
     /**
@@ -147,7 +150,7 @@ class PVXS_API CertFactory {
      */
     CertFactory(uint64_t serial, const std::shared_ptr<KeyPair> &key_pair, const std::string &name, const std::string &country, const std::string &org,
                 const std::string &org_unit, const time_t not_before, time_t not_after, const uint16_t &usage, const std::string &cert_pv_prefix, const std::string &cert_config_uri_base,
-                const CertStatusSubscription cert_status_subscription_required = DEFAULT, const bool no_status = false, X509 *issuer_certificate_ptr = nullptr, EVP_PKEY *issuer_pkey_ptr = nullptr,
+                const CertStatusSubscription cert_status_subscription_required = DEFAULT, const bool no_status = false, const bool custom_expiration = false, X509 *issuer_certificate_ptr = nullptr, EVP_PKEY *issuer_pkey_ptr = nullptr,
                 STACK_OF(X509) *issuer_chain_ptr = nullptr, certstatus_t initial_status = VALID)
         : serial_(serial),
           key_pair_(key_pair),
@@ -165,6 +168,7 @@ class PVXS_API CertFactory {
           certificate_chain_(sk_X509_new_null()),
           cert_status_subscription_required_(cert_status_subscription_required),
           no_status_(no_status),
+          must_be_renewed_(custom_expiration),
           cert_config_uri_base_(cert_config_uri_base),
           initial_status_(initial_status) {}
 
@@ -197,7 +201,9 @@ class PVXS_API CertFactory {
     }
 
     static std::string bioToString(const ossl_ptr<BIO> &bio);
-    static void addCustomExtensionByNid(const ossl_ptr<X509> &certificate, int nid, const std::string &value, const X509 *issuer_certificate_ptr);
+    static void addCustomExtensionByNid(const ossl_ptr<X509> &certificate, int nid, const std::string &value);
+    static void addCustomTimeExtensionByNid(const ossl_ptr<X509> &certificate, int nid, time_t value);
+
     static std::string sign(const ossl_ptr<EVP_PKEY> &pkey, const std::string &data);
     static bool verifySignature(const ossl_ptr<EVP_PKEY> &pkey, const std::string &data, const std::string &signature);
 
@@ -233,8 +239,6 @@ class PVXS_API CertFactory {
     void addExtensions(const ossl_ptr<X509> &certificate) const;
 
     void addExtension(const ossl_ptr<X509> &certificate, int nid, const char *value, const X509 *subject = nullptr) const;
-
-    void addCustomExtensionByNid(const ossl_ptr<X509> &certificate, int nid, const std::string &value) const;
 
     static void writeCertToBio(const ossl_ptr<BIO> &bio, const ossl_ptr<X509> &cert);
 

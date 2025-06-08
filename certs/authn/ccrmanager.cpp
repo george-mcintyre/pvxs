@@ -14,7 +14,7 @@
 #include "openssl.h"
 #include "security.h"
 
-DEFINE_LOGGER(auth_log, "pvxs.certs.auth.ccr");
+DEFINE_LOGGER(auth_log, "pvxs.auth.ccr");
 
 namespace pvxs {
 namespace certs {
@@ -46,13 +46,23 @@ std::string CCRManager::createCertificate(const std::shared_ptr<CertCreationRequ
     auto client = client::Config::fromEnv(true).build();
     auto value(client.rpc(create_pv, arg).exec()->wait(timeout));
 
-    log_info_printf(auth_log, "X.509 CLIENT certificate%s\n", "");
-    log_info_printf(auth_log, "%s\n", value["status.value.index"].as<std::string>().c_str());
-    log_info_printf(auth_log, "%s\n", value["state"].as<std::string>().c_str());
-    log_info_printf(auth_log, "%llu\n", (unsigned long long)value["serial"].as<serial_number_t>());
-    log_info_printf(auth_log, "%s\n", value["issuer"].as<std::string>().c_str());
-    log_info_printf(auth_log, "%s\n", value["certid"].as<std::string>().c_str());
-    log_info_printf(auth_log, "%s\n", value["statuspv"].as<std::string>().c_str());
+    log_debug_printf(auth_log, "X.509 CLIENT certificate%s\n", "");
+    log_debug_printf(auth_log, "%s\n", value["status.value.index"].as<std::string>().c_str());
+    log_debug_printf(auth_log, "%s\n", value["state"].as<std::string>().c_str());
+    log_debug_printf(auth_log, "%llu\n", (unsigned long long)value["serial"].as<serial_number_t>());
+    log_debug_printf(auth_log, "%s\n", value["issuer"].as<std::string>().c_str());
+    log_debug_printf(auth_log, "%s\n", value["certid"].as<std::string>().c_str());
+    log_debug_printf(auth_log, "%s\n", value["statuspv"].as<std::string>().c_str());
+    const CertDate expiration_date(value["expiration"].as<time_t>());
+    log_debug_printf(auth_log, "Expiration Date: %s\n", expiration_date.s.c_str() );
+    const auto soft_expiration_value = value["expiration"];
+    if (soft_expiration_value) {
+        const auto soft_expiration_t = soft_expiration_value.as<time_t>();
+        if ( soft_expiration_t == expiration_date.t) {
+            const CertDate soft_expiration_date(soft_expiration_t);
+            log_debug_printf(auth_log, "SOFT EXPIRATION: %s\n", soft_expiration_date.s.c_str() );
+        }
+    }
     return value["cert"].as<std::string>();
 }
 }  // namespace certs

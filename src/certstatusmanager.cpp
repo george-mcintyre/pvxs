@@ -282,6 +282,10 @@ std::string CertStatusManager::getStatusPvFromCert(const ossl_ptr<X509> &cert) {
 
 std::string CertStatusManager::getConfigPvFromCert(const ossl_ptr<X509> &cert) { return getConfigPvFromCert(cert.get()); }
 
+time_t CertStatusManager::getExpirationDateFromCert(const ossl_ptr<X509> &cert) { return getExpirationDateFromCert(cert.get()); }
+time_t CertStatusManager::getSoftExpirationDateFromCert(const ossl_ptr<X509> &cert) { return getSoftExpirationDateFromCert(cert.get()); }
+
+
 /**
  * @brief Get the extension from the certificate.
  * This method retrieves the extension from the given certificate using the NID_PvaCertStatusURI.
@@ -316,6 +320,25 @@ X509_EXTENSION *CertStatusManager::getConfigExtension(const X509 *certificate) {
     X509_EXTENSION *extension = X509_get_ext(certificate, extension_index);
     if (!extension) {
         throw CertStatusNoExtensionException("Failed to get Certificate-Config-PV extension from the certificate.");
+    }
+    return extension;
+}
+
+/**
+ * @brief Get the extension from the certificate.
+ * This method retrieves the extension from the given certificate using the NID_PvaCertConfigURI.
+ * If the extension is not found, it throws a CertConfigNoExtensionException.
+ * @param certificate the certificate to retrieve the extension from
+ * @return the X509_EXTENSION object if found, otherwise throws an exception
+ */
+X509_EXTENSION *CertStatusManager::getSoftExpirationDateExtension(const X509 *certificate) {
+    const int extension_index = X509_get_ext_by_NID(certificate, ossl::NID_SPvaSoftExpirationDate, -1);
+    if (extension_index < 0) throw CertStatusNoExtensionException("Failed to find Soft Expiration Date extension in certificate.");
+
+    // Get the extension object from the certificate
+    X509_EXTENSION *extension = X509_get_ext(certificate, extension_index);
+    if (!extension) {
+        throw CertStatusNoExtensionException("Failed to get Soft Expiration Date extension from the certificate.");
     }
     return extension;
 }
@@ -376,6 +399,33 @@ std::string CertStatusManager::getConfigPvFromCert(const X509 *certificate) {
 
     // Return the data as a std::string
     return std::string(reinterpret_cast<const char *>(data), length);
+}
+
+time_t CertStatusManager::getSoftExpirationDateFromCert(const X509 *certificate) {
+    X509_EXTENSION * extension = getSoftExpirationDateExtension(certificate);
+
+    // Extract the ASN1_TIME data from the extension
+    ASN1_OCTET_STRING *octet_string = X509_EXTENSION_get_data(extension);
+    if (!octet_string) throw CertStatusNoExtensionException("Failed to get data from the Soft Expiration Date extension.");
+
+    const unsigned char *p = octet_string->data;
+
+    // Create ASN1_TIME from the octet string data
+    ossl_ptr<ASN1_TIME> asn1_time(d2i_ASN1_TIME(nullptr, &p, octet_string->length), false);
+    if (!asn1_time) throw CertStatusNoExtensionException("Failed to parse ASN1_TIME from the Soft Expiration Date extension.");
+
+    return CertDate::asn1TimeToTimeT(asn1_time.get());
+}
+
+time_t CertStatusManager::getExpirationDateFromCert(const X509 *certificate) {
+    // Get the notAfter field directly from the certificate
+    const ASN1_TIME *expiration = X509_get0_notAfter(certificate);
+    if (!expiration) {
+        throw CertStatusNoExtensionException("Failed to get expiration date from certificate");
+    }
+
+    // Convert ASN1_TIME to time_t using the CertDate utility
+    return CertDate::asn1TimeToTimeT(expiration);
 }
 }  // namespace certs
 }  // namespace pvxs

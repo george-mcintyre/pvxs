@@ -28,17 +28,16 @@ class ConfigStd final : public ConfigAuthN {
      * This static method creates a ConfigStd object from the environment.
      *
      * It applies the generic client config environment to the ConfigStd object, then
-     * the generic authenticator environment, and finally it extracts the standard
+     * the generic authenticator environment, and finally, it extracts the standard
      * certificate validity minutes from the environment and adds it to the ConfigStd object.
      *
-     * @return A ConfigStd object initialised from the environment
+     * @return A ConfigStd object initialized from the environment
      */
     static ConfigStd fromEnv() {
         auto config = ConfigStd{}.applyEnv();
         const auto defs = std::map<std::string, std::string>();
         config.fromAuthEnv(defs);
         config.fromStdEnv(defs);
-        if (config.cert_validity_mins == -1) config.cert_validity_mins = 30 * 24 * 60;  // Default to 30 days
         return config;
     }
 

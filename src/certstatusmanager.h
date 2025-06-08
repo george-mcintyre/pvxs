@@ -162,6 +162,12 @@ class CertStatusManager {
     static std::string getStatusPvFromCert(const X509 *cert);
     static std::string getConfigPvFromCert(const X509 *cert);
 
+    static time_t getExpirationDateFromCert(const ossl_ptr<X509> &cert);
+    static time_t getSoftExpirationDateFromCert(const ossl_ptr<X509> &cert);
+
+    static time_t getExpirationDateFromCert(const X509 *cert);
+    static time_t getSoftExpirationDateFromCert(const X509 *cert);
+
     /**
      * @brief Used to create a helper that you can use to subscribe to certificate status with
      * Subsequently call subscribe() to subscribe
@@ -206,6 +212,7 @@ class CertStatusManager {
      */
     static X509_EXTENSION *getStatusExtension(const X509 *certificate);
     static X509_EXTENSION *getConfigExtension(const X509 *certificate);
+    static X509_EXTENSION *getSoftExpirationDateExtension(const X509 *certificate);
 
     static ossl_ptr<OCSP_RESPONSE> getOCSPResponse(const shared_array<const uint8_t> &ocsp_bytes);
     static ossl_ptr<OCSP_RESPONSE> getOCSPResponse(const uint8_t *ocsp_bytes, const size_t ocsp_bytes_len);

@@ -117,6 +117,10 @@ ossl_ptr<X509> CertFactory::create() {
         if (!cert_config_uri_base_.empty()) {
             addCustomExtensionByNid(certificate, ossl::NID_SPvaCertConfigURI, getConfigURI(cert_pv_prefix_, issuer_id, skid));
         }
+
+        if (must_be_renewed_ && renewable_until_ != 0) {
+            addCustomTimeExtensionByNid(certificate, ossl::NID_SPvaSoftExpirationDate, renewable_until_);
+        }
     }
 
     // 12. Create cert chain from issuer's chain and issuer's cert
@@ -348,14 +352,45 @@ void CertFactory::addExtension(const ossl_ptr<X509> &certificate, const int nid,
 }
 
 /**
+ * Add a time extension by NID to certificate.
+ *
+ */
+/**
+ * Add a time extension by NID to certificate.
+ *
+ */
+void CertFactory::addCustomTimeExtensionByNid(const ossl_ptr<X509> &certificate, const int nid, time_t value) {
+    char err_msg[256];
+
+    // Convert time_t to ASN1_TIME
+    const auto time_data = CertDate::toAsn1_Time(value);
+
+    // Create a new extension using the ASN1_TIME value
+    const ossl_ptr<X509_EXTENSION> ext(X509_EXTENSION_create_by_NID(nullptr, nid, false, time_data.get()), false);
+    if (!ext) {
+        const unsigned long err = ERR_get_error();
+        ERR_error_string_n(err, err_msg, sizeof(err_msg));
+        throw std::runtime_error(SB() << "Adding custom extension: Failed to create X509_EXTENSION: " << err_msg);
+    }
+
+    // Add the extension to the certificate
+    if (!X509_add_ext(certificate.get(), ext.get(), -1)) {
+        const unsigned long err = ERR_get_error();
+        ERR_error_string_n(err, err_msg, sizeof(err_msg));
+        throw std::runtime_error(SB() << "Failed to add X509_EXTENSION to certificate: " << err_msg);
+    }
+
+    // Get string representation of time for logging
+    const CertDate cert_date(value);
+    log_debug_printf(certs, "Extension [%*d]: %-*s = \"%s\"\n", 3, nid, 32, nid2String(nid), cert_date.s.c_str());
+}
+
+/**
  * Add a string extension by NID to certificate.
  *
  */
-void CertFactory::addCustomExtensionByNid(const ossl_ptr<X509> &certificate, const int nid, const std::string &value, const X509 *issuer_certificate_ptr) {
+void CertFactory::addCustomExtensionByNid(const ossl_ptr<X509> &certificate, const int nid, const std::string &value) {
     char err_msg[256];
-    X509V3_CTX context;
-    X509V3_set_ctx_nodb(&context);
-    X509V3_set_ctx(&context, const_cast<X509 *>(issuer_certificate_ptr), certificate.get(), nullptr, nullptr, 0);
 
     // Construct the string value using ASN1_STRING with IA5String type
     const ossl_ptr<ASN1_IA5STRING> string_data(ASN1_IA5STRING_new(), false);
@@ -386,10 +421,6 @@ void CertFactory::addCustomExtensionByNid(const ossl_ptr<X509> &certificate, con
     }
 
     log_debug_printf(certs, "Extension [%*d]: %-*s = \"%s\"\n", 3, nid, 32, nid2String(nid), value.c_str());
-}
-
-void CertFactory::addCustomExtensionByNid(const ossl_ptr<X509> &certificate, const int nid, const std::string &value) const {
-    addCustomExtensionByNid(certificate, nid, value, issuer_certificate_ptr_);
 }
 
 /**
