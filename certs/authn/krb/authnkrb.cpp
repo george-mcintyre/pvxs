@@ -65,7 +65,6 @@ std::shared_ptr<Credentials> AuthNKrb::getCredentials(const client::Config &conf
     // Get principal info from the kerberos ticket
     const auto info = getPrincipalInfo();
     auto const &principal_name = info.principal;
-    auto const lifetime = info.lifetime;
 
     // Split the principal name into name and organization.
     const size_t at_pos = principal_name.find('@');
@@ -80,10 +79,9 @@ std::shared_ptr<Credentials> AuthNKrb::getCredentials(const client::Config &conf
     const time_t now = time(nullptr);
     kerberos_credentials->not_before = now;
     if ( krb_config.cert_validity_mins == -1 ) {
-        kerberos_credentials->not_after = now + lifetime;
+        kerberos_credentials->not_after =-1;
     } else {
         kerberos_credentials->not_after = now + krb_config.cert_validity_mins * 60;
-        kerberos_credentials->custom_expiration=true;
     }
 
     log_debug_printf(auth, "\nName: %s, \nOrg: %s, \nnot_before: %lu, \nnot_after: %lu\n", kerberos_credentials->name.c_str(),

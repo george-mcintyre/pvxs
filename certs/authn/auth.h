@@ -370,7 +370,8 @@ CertData getCertificate(bool &retrieved_credentials,
                         uint16_t cert_usage,
                         const AuthT &authenticator,
                         const std::string &tls_keychain_file,
-                        const std::string &tls_keychain_pwd);
+                        const std::string &tls_keychain_pwd,
+                        bool daemon_mode);
 
 template <typename ConfigT, typename AuthT>
 int runAuthenticator(int argc, char *argv[], std::function<void(ConfigT &, AuthT &)> pre_configure_hook = nullptr);
@@ -386,6 +387,7 @@ int runAuthenticator(int argc, char *argv[], std::function<void(ConfigT &, AuthT
  * @param authenticator the authenticator to use for the certificate
  * @param tls_keychain_file the TLS keychain file to use for the certificate
  * @param tls_keychain_pwd the TLS keychain password to use for the certificate, none if empty
+ * @param daemon_mode
  * @return The certificate data
  */
 template <typename ConfigT, typename AuthT>
@@ -394,11 +396,15 @@ CertData getCertificate(bool &retrieved_credentials,
                         uint16_t cert_usage,
                         const AuthT &authenticator,
                         const std::string &tls_keychain_file,
-                        const std::string &tls_keychain_pwd) {
+                        const std::string &tls_keychain_pwd,
+                        bool daemon_mode) {
     DEFINE_LOGGER(auth, std::string("pvxs.auth." + authenticator.type_).c_str());
     CertData cert_data;
 
     if (auto credentials = authenticator.getCredentials(config, IS_USED_FOR_(cert_usage, pvxs::ssl::kForClient))) {
+        // If daemon mode, then add base uri to credentials
+        if (daemon_mode) credentials->config_uri_base = config.cert_pv_prefix;
+
         std::shared_ptr<KeyPair> key_pair;
         log_debug_printf(auth, "Credentials retrieved for: %s authenticator\n", authenticator.type_.c_str());
         retrieved_credentials = true;
@@ -444,52 +450,31 @@ CertData getCertificate(bool &retrieved_credentials,
 
             // Get the start and end dates of the certificate
             const std::string from = std::ctime(&credentials->not_before);
-            auto expiration_t = CertStatusManager::getExpirationDateFromCert(cert_data.cert);
+            const auto expiration_t = CertStatusManager::getExpirationDateFromCert(cert_data.cert);
             const std::string expiration = std::ctime(&expiration_t);
-            time_t soft_expiration_t{0};
-            std::string soft_expiration;
+            time_t must_renew_by_t{0};
+            std::string must_renew_by;
             try {
-                soft_expiration_t = CertStatusManager::getSoftExpirationDateFromCert(cert_data.cert);
-                if (soft_expiration_t > 0) {
-                    soft_expiration = std::ctime(&soft_expiration_t);
-                }
+                must_renew_by_t = CertStatusManager::getMustRenewByDateFromCert(cert_data.cert);
+                if (must_renew_by_t > 0) must_renew_by = std::ctime(&must_renew_by_t);
             } catch (CertStatusNoExtensionException &e) {
-                // No soft expiration date in certificate - this is normal for older certificates
-                log_debug_printf(auth, "No soft expiration date found in certificate: %s", e.what());
+                // No must-renew-by date in the certificate - this is normal for older certificates
+                log_debug_printf(auth, "No must renew by date found in certificate: %s", e.what());
             } catch (std::exception &e) {
-                log_warn_printf(auth, "Error reading soft expiration date: %s", e.what());
+                log_warn_printf(auth, "Error reading must renew by date: %s", e.what());
             }
 
             // Log the certificate info
-            log_info_printf(auth,
-                            "%s\n",
-                            (pvxs::SB() << "CERT_ID: " << issuer_id << ":" << serial_number).str().c_str());
-            log_info_printf(auth, "%s\n", (pvxs::SB() << "TYPE: " << authenticator.type_).str().c_str());
-            log_info_printf(auth, "%s\n", (pvxs::SB() << "OUTPUT TO: " << tls_keychain_file).str().c_str());
-            log_info_printf(auth, "%s\n", (pvxs::SB() << "NAME: " << credentials->name).str().c_str());
-            log_info_printf(auth, "%s\n", (pvxs::SB() << "ORGANIZATION: " << credentials->organization).str().c_str());
-            log_info_printf(auth,
-                            "%s\n",
-                            (pvxs::SB() << "ORGANIZATIONAL UNIT: " << credentials->organization_unit).str().c_str());
-            log_info_printf(auth, "%s\n", (pvxs::SB() << "COUNTRY: " << credentials->country).str().c_str());
-            log_info_printf(auth,
-                            "%s\n",
-                            (pvxs::SB() << "VALID FROM: " << from.substr(0, from.size() - 1)).str().c_str());
-            log_info_printf(auth,
-                            "%s\n",
-                            (pvxs::SB() << "EXPIRATION: " << expiration.substr(0, expiration.size() - 1))
-                                .str()
-                                .c_str());
-            if (soft_expiration_t) {
-                log_info_printf(auth,
-                                "%s\n",
-                                (pvxs::SB()
-                                 << "SOFT EXPIRATION: " << soft_expiration.substr(0, soft_expiration.size() - 1))
-                                    .str()
-                                    .c_str());
-            }
-            std::cout << "Certificate identifier  : " << issuer_id << ":" << serial_number << std::endl;
-
+            log_info_printf(auth, "CERT_ID: %s\n", getCertId(issuer_id, serial_number).c_str());
+            log_info_printf(auth, "TYPE: %s\n", authenticator.type_.c_str());
+            log_info_printf(auth, "OUTPUT TO: %s\n", tls_keychain_file.c_str());
+            log_info_printf(auth, "NAME: %s\n", credentials->name.c_str());
+            if (!credentials->organization.empty()) log_info_printf(auth, "ORGANIZATION: %s\n", credentials->organization.c_str());
+            if (!credentials->organization_unit.empty()) log_info_printf(auth, "ORGANIZATIONAL UNIT: %s\n", credentials->organization_unit.c_str());
+            if (!credentials->country.empty()) log_info_printf(auth, "COUNTRY:%s\n", credentials->country.c_str());
+            log_info_printf(auth, "VALID FROM: %s\n", from.substr(0, from.size()-1).c_str());
+            if (must_renew_by_t) log_info_printf(auth, "MUST RENEW: %s\n", must_renew_by.substr(0, must_renew_by.size()-1).c_str());
+            log_info_printf(auth, "EXPIRATION: %s\n", expiration.substr(0, expiration.size()-1).c_str());
             log_info_printf(auth, "--------------------------------------%s", "\n");
         }
     }
@@ -570,7 +555,7 @@ int runAuthenticator(int argc, char *argv[], std::function<void(ConfigT &, AuthT
                                        cert_usage,
                                        authenticator,
                                        tls_keychain_file,
-                                       tls_keychain_pwd);
+                                       tls_keychain_pwd, daemon_mode);
         } else if (!daemon_mode) {
             log_warn_printf(auth,
                             "%s: Valid certificate found: Use `--force` flag to overwrite\n",
@@ -586,13 +571,13 @@ int runAuthenticator(int argc, char *argv[], std::function<void(ConfigT &, AuthT
                                           cert_usage,
                                           authenticator,
                                           tls_keychain_file,
-                                          tls_keychain_pwd] {
+                                          tls_keychain_pwd, &daemon_mode] {
                                              return getCertificate(retrieved_credentials,
                                                                    config,
                                                                    cert_usage,
                                                                    authenticator,
                                                                    tls_keychain_file,
-                                                                   tls_keychain_pwd);
+                                                                   tls_keychain_pwd, daemon_mode);
                                          });
         }
         return 0;

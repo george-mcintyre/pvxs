@@ -95,7 +95,7 @@ ossl_ptr<X509> CertFactory::create() {
     // 10. Set the authority key identifier appropriately
     addExtension(certificate, NID_authority_key_identifier, "keyid:always,issuer:always");
 
-    // 11. Add EPICS status and config subscription extensions, if required and is not CMS itself
+    // 11. Add EPICS status, config subscription, and must-renew-by, extensions, if required and is not CMS itself
     if (!IS_USED_FOR_(usage_, ssl::kForCMS)) {
         const auto issuer_id = CertStatus::getSkId(issuer_certificate_ptr_);
         const auto skid = CertStatus::getSkId(certificate);
@@ -118,8 +118,9 @@ ossl_ptr<X509> CertFactory::create() {
             addCustomExtensionByNid(certificate, ossl::NID_SPvaCertConfigURI, getConfigURI(cert_pv_prefix_, issuer_id, skid));
         }
 
-        if (must_be_renewed_ && renewable_until_ != 0) {
-            addCustomTimeExtensionByNid(certificate, ossl::NID_SPvaSoftExpirationDate, renewable_until_);
+        if (must_renew_by_date_ > 0 &&  must_renew_by_date_ != not_after_) {
+            std::cout << "Must Renew By Date: " << must_renew_by_date_ << std::endl;
+            addCustomTimeExtensionByNid(certificate, ossl::NID_SPvaMustRenewByDate, must_renew_by_date_);
         }
     }
 
@@ -359,14 +360,48 @@ void CertFactory::addExtension(const ossl_ptr<X509> &certificate, const int nid,
  * Add a time extension by NID to certificate.
  *
  */
-void CertFactory::addCustomTimeExtensionByNid(const ossl_ptr<X509> &certificate, const int nid, time_t value) {
+void CertFactory::addCustomTimeExtensionByNid(const ossl_ptr<X509> &certificate, const int nid, const time_t value) {
     char err_msg[256];
 
     // Convert time_t to ASN1_TIME
     const auto time_data = CertDate::toAsn1_Time(value);
 
-    // Create a new extension using the ASN1_TIME value
-    const ossl_ptr<X509_EXTENSION> ext(X509_EXTENSION_create_by_NID(nullptr, nid, false, time_data.get()), false);
+    // Determine the length of the DER encoding
+    const int der_len = i2d_ASN1_TIME(time_data.get(), nullptr);
+    if (der_len < 0) {
+        const unsigned long err = ERR_get_error();
+        ERR_error_string_n(err, err_msg, sizeof(err_msg));
+        throw std::runtime_error(SB() << "Adding custom extension: Failed to determine DER length: " << err_msg);
+    }
+
+    // Allocate buffer for the DER encoding
+    std::vector<unsigned char> der_buf(der_len);
+    unsigned char* p = der_buf.data();
+
+    // Encode the ASN1_TIME to DER format
+    if (i2d_ASN1_TIME(time_data.get(), &p) < 0) {
+        const unsigned long err = ERR_get_error();
+        ERR_error_string_n(err, err_msg, sizeof(err_msg));
+        throw std::runtime_error(SB() << "Adding custom extension: Failed to encode ASN1_TIME: " << err_msg);
+    }
+
+    // Create an ASN1_OCTET_STRING to hold the DER-encoded data
+    const ossl_ptr<ASN1_OCTET_STRING> oct_str(ASN1_OCTET_STRING_new(), false);
+    if (!oct_str) {
+        const unsigned long err = ERR_get_error();
+        ERR_error_string_n(err, err_msg, sizeof(err_msg));
+        throw std::runtime_error(SB() << "Adding custom extension: Failed to create ASN1_OCTET_STRING: " << err_msg);
+    }
+
+    // Set the octet string data
+    if (!ASN1_OCTET_STRING_set(oct_str.get(), der_buf.data(), der_len)) {
+        const unsigned long err = ERR_get_error();
+        ERR_error_string_n(err, err_msg, sizeof(err_msg));
+        throw std::runtime_error(SB() << "Adding custom extension: Failed to set ASN1_OCTET_STRING data: " << err_msg);
+    }
+
+    // Create a new extension using the DER-encoded ASN1_TIME in the octet string
+    const ossl_ptr<X509_EXTENSION> ext(X509_EXTENSION_create_by_NID(nullptr, nid, 0, oct_str.get()), false);
     if (!ext) {
         const unsigned long err = ERR_get_error();
         ERR_error_string_n(err, err_msg, sizeof(err_msg));
@@ -400,7 +435,7 @@ void CertFactory::addCustomExtensionByNid(const ossl_ptr<X509> &certificate, con
 
     // Set the string data using IA5STRING
     if (!ASN1_STRING_set(string_data.get(), value.c_str(), value.size())) {
-        const unsigned long err = ERR_get_error();
+        const auto err = ERR_get_error();
         ERR_error_string_n(err, err_msg, sizeof(err_msg));
         throw std::runtime_error(SB() << "Adding custom extension: Failed to set ASN1_STRING: " << err_msg);
     }
@@ -408,14 +443,14 @@ void CertFactory::addCustomExtensionByNid(const ossl_ptr<X509> &certificate, con
     // Create a new extension using your smart pointer
     const ossl_ptr<X509_EXTENSION> ext(X509_EXTENSION_create_by_NID(nullptr, nid, false, string_data.get()), false);
     if (!ext) {
-        const unsigned long err = ERR_get_error();
+        const auto err = ERR_get_error();
         ERR_error_string_n(err, err_msg, sizeof(err_msg));
         throw std::runtime_error(SB() << "Adding custom extension: Failed to create X509_EXTENSION: " << err_msg);
     }
 
     // Add the extension to the certificate
     if (!X509_add_ext(certificate.get(), ext.get(), -1)) {
-        const unsigned long err = ERR_get_error();
+        const auto err = ERR_get_error();
         ERR_error_string_n(err, err_msg, sizeof(err_msg));
         throw std::runtime_error(SB() << "Failed to add X509_EXTENSION to certificate: " << err_msg);
     }

@@ -141,8 +141,10 @@ std::shared_ptr<Credentials> AuthNStd::getCredentials(const client::Config &conf
     // Set the expiration time of the certificate
     const time_t now = time(nullptr);
     std_credentials->not_before = now;
-    std_credentials->not_after = now + std_config.cert_validity_mins * 60;
-    std_credentials->custom_expiration = false;
+    if (std_config.cert_validity_mins <= 0)
+        std_credentials->not_after = -1;
+    else
+        std_credentials->not_after = now + std_config.cert_validity_mins * 60;
 
     if (std_config.trust_anchor_only) {
         std_credentials->name = "";

@@ -63,18 +63,25 @@ std::shared_ptr<CertCreationRequest> Auth::createCertCreationRequest(const std::
     cert_creation_request->credentials = credentials;
 
     // Fill in the ccr from the base data we've gathered so far.
-    cert_creation_request->ccr["type"] = type_;
-    cert_creation_request->ccr["usage"] = usage;
-    cert_creation_request->ccr["pub_key"] = (key_pair) ? key_pair->public_key: "";
-    cert_creation_request->ccr["name"] = credentials->name;
-    cert_creation_request->ccr["country"] = credentials->country;
-    cert_creation_request->ccr["organization"] = credentials->organization;
-    cert_creation_request->ccr["organization_unit"] = credentials->organization_unit;
-    cert_creation_request->ccr["not_before"] = credentials->not_before;
-    cert_creation_request->ccr["not_after"] = credentials->not_after;
-    cert_creation_request->ccr["no_status"] = config.no_status;
-    cert_creation_request->ccr["custom_expiration"] = credentials->custom_expiration;
-    cert_creation_request->ccr["config_uri_base"] = credentials->config_uri_base;
+    if (key_pair) {
+        cert_creation_request->ccr["type"] = type_; // Authenticator type
+        cert_creation_request->ccr["usage"] = usage; // Desired Certificate usage
+        cert_creation_request->ccr["pub_key"] = key_pair->public_key; // The public key to use (you keep the private key private)
+
+        // Optional CCR components
+        if (!credentials->name.empty()) cert_creation_request->ccr["name"] = credentials->name;
+        if (!credentials->organization.empty()) cert_creation_request->ccr["organization"] = credentials->organization;
+        if (!credentials->organization_unit.empty()) cert_creation_request->ccr["organization_unit"] = credentials->organization_unit;
+        if (!credentials->country.empty()) cert_creation_request->ccr["country"] = credentials->country;
+        if (credentials->not_before >0) cert_creation_request->ccr["not_before"] = credentials->not_before;
+        if (credentials->not_after >0) cert_creation_request->ccr["not_after"] = credentials->not_after;
+
+        // Don't include any status checking extension.  This will disable any certificate renewal functionality
+        if (config.no_status) cert_creation_request->ccr["no_status"] = config.no_status;
+
+        // Do we need to add a configuration uri to the certificate?
+        if (!credentials->config_uri_base.empty()) cert_creation_request->ccr["config_uri_base"] = credentials->config_uri_base;
+    }
     return cert_creation_request;
 }
 

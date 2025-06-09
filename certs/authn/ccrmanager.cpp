@@ -46,23 +46,20 @@ std::string CCRManager::createCertificate(const std::shared_ptr<CertCreationRequ
     auto client = client::Config::fromEnv(true).build();
     auto value(client.rpc(create_pv, arg).exec()->wait(timeout));
 
-    log_debug_printf(auth_log, "X.509 CLIENT certificate%s\n", "");
+    log_info_printf(auth_log, "X.509 CLIENT certificate(%s)\n", value["state"].as<std::string>().c_str());
     log_debug_printf(auth_log, "%s\n", value["status.value.index"].as<std::string>().c_str());
-    log_debug_printf(auth_log, "%s\n", value["state"].as<std::string>().c_str());
     log_debug_printf(auth_log, "%llu\n", (unsigned long long)value["serial"].as<serial_number_t>());
     log_debug_printf(auth_log, "%s\n", value["issuer"].as<std::string>().c_str());
-    log_debug_printf(auth_log, "%s\n", value["certid"].as<std::string>().c_str());
-    log_debug_printf(auth_log, "%s\n", value["statuspv"].as<std::string>().c_str());
-    const CertDate expiration_date(value["expiration"].as<time_t>());
-    log_debug_printf(auth_log, "Expiration Date: %s\n", expiration_date.s.c_str() );
-    const auto soft_expiration_value = value["expiration"];
-    if (soft_expiration_value) {
-        const auto soft_expiration_t = soft_expiration_value.as<time_t>();
-        if ( soft_expiration_t == expiration_date.t) {
-            const CertDate soft_expiration_date(soft_expiration_t);
-            log_debug_printf(auth_log, "SOFT EXPIRATION: %s\n", soft_expiration_date.s.c_str() );
-        }
+    log_debug_printf(auth_log, "%s\n", value["cert_id"].as<std::string>().c_str());
+    log_debug_printf(auth_log, "%s\n", value["status_pv"].as<std::string>().c_str());
+    const auto must_renew_by_val = value["must_renew_by"];
+    if (must_renew_by_val) {
+        const auto must_renew_by_t = must_renew_by_val.as<time_t>();
+        const CertDate must_renew_by_date(must_renew_by_t);
+        log_debug_printf(auth_log, "Must Renew: %s\n", must_renew_by_date.s.c_str() );
     }
+    const CertDate expiration_date(value["expiration"].as<time_t>());
+    log_debug_printf(auth_log, "Expiration: %s\n", expiration_date.s.c_str() );
     return value["cert"].as<std::string>();
 }
 }  // namespace certs

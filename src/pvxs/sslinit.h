@@ -24,10 +24,10 @@ typedef epicsGuardRelease<epicsMutex> UnGuard;
 #define NID_SPvaCertConfigURIID "1.3.6.1.4.1.72473.1"
 #define SN_SPvaCertConfigURI "ASN.1 - SPvaCertConfigURI"
 #define LN_SPvaCertConfigURI "EPICS SPVA Certificate Config URI"
-// EPICS OID for "SPvaSoftExpirationDate" extension: "76383" DTMF for "SOFTE" :)
-#define NID_SPvaSoftExpirationDateID "1.3.6.1.4.1.76383.1"
-#define SN_SPvaSoftExpirationDate "ASN.1 - SPvaSoftExpirationDate"
-#define LN_SPvaSoftExpirationDate "EPICS SPVA Soft Expiration Date"
+// EPICS OID for "SPvaMustRenewByDate" extension: "73639" DTMF for "RENEW" :)
+#define NID_SPvaMustRenewByDateID "1.3.6.1.4.1.73639.1"
+#define SN_SPvaMustRenewByDate "ASN.1 - SPvaMustRenewByDate"
+#define LN_SPvaMustRenewByDate "EPICS SPVA Must Renew By Date"
 
 namespace pvxs {
 namespace ossl {
@@ -35,7 +35,7 @@ namespace ossl {
 // Custom OIDs
 extern PVXS_API int NID_SPvaCertStatusURI;
 extern PVXS_API int NID_SPvaCertConfigURI;
-extern PVXS_API int NID_SPvaSoftExpirationDate;
+extern PVXS_API int NID_SPvaMustRenewByDate;
 
 // SSL library initialization lock
 extern epicsMutex ssl_init_lock;

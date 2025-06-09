@@ -147,10 +147,10 @@ Value getCreatePrototype() {
                              Member(TypeCode::String, "issuer"),
                              Member(TypeCode::UInt64, "serial"),
                              Member(TypeCode::String, "state"),
-                             Member(TypeCode::String, "certid"),
-                             Member(TypeCode::String, "statuspv"),
+                             Member(TypeCode::String, "cert_id"),
+                             Member(TypeCode::String, "status_pv"),
+                             Member(TypeCode::UInt64, "must_renew_by"),
                              Member(TypeCode::UInt64, "expiration"),
-                             Member(TypeCode::UInt64, "soft_expiration"),
                              Member(TypeCode::String, "cert"),
                              Struct("alarm",
                                     "alarm_t",
@@ -702,11 +702,9 @@ ossl_ptr<X509> createCertificate(sql_ptr &certs_db, CertFactory &cert_factory) {
     // Print info about certificate creation
     std::string from = std::ctime(&cert_factory.not_before_);
     std::string to = std::ctime(&cert_factory.not_after_);
-    std::string soft_expiration;
+    std::string must_renew_by;
 
-    if (cert_factory.renewable_until_ > 0) {
-        soft_expiration = std::ctime(&cert_factory.renewable_until_);
-    }
+    if (cert_factory.must_renew_by_date_ > 0) must_renew_by = std::ctime(&cert_factory.must_renew_by_date_);
 
     auto const issuer_id = CertStatus::getSkId(cert_factory.issuer_certificate_ptr_);
     auto cert_id = getCertId(issuer_id, cert_factory.serial_);
@@ -730,19 +728,19 @@ ossl_ptr<X509> createCertificate(sql_ptr &certs_db, CertFactory &cert_factory) {
     log_debug_printf(pvacms, "%s\n", (SB() << "ORGANIZATIONAL UNIT: " << cert_factory.org_unit_).str().c_str());
     log_debug_printf(pvacms, "%s\n", (SB() << "COUNTRY: " << cert_factory.country_).str().c_str());
     log_debug_printf(pvacms, "%s\n", (SB() << "STATUS: " << CERT_STATE(effective_status)).str().c_str());
-    log_debug_printf(pvacms,
-                     "%s\n",
-                     (SB() << "VALIDITY: " << from.substr(0, from.size() - 1) << " to " << to.substr(0, to.size() - 1))
-                         .str()
-                         .c_str());
-
-    if (!soft_expiration.empty()) {
+    if (!must_renew_by.empty()) {
         log_debug_printf(pvacms,
                          "%s\n",
-                         (SB() << "SOFT EXPIRATION: " << soft_expiration.substr(0, soft_expiration.size() - 1))
+                         (SB() << "MUST RENEW: " << must_renew_by.substr(0, must_renew_by.size() - 1))
                              .str()
                              .c_str());
     }
+    log_debug_printf(pvacms,
+                     "%s\n",
+                     (SB() << "EXPIRATION: " << from.substr(0, from.size() - 1) << " to " << to.substr(0, to.size() - 1))
+                         .str()
+                         .c_str());
+
 
     log_debug_printf(pvacms, "--------------------------------------%s", "\n");
 
@@ -875,7 +873,7 @@ void onCreateCertificate(ConfigCms &config,
     auto pub_key = ccr["pub_key"].as<std::string>();
 
     if (pub_key.empty()) {
-        // We only want to get the trust-anchor if pub key is empty
+        // We only want to get the trust-anchor if the pub key is empty
         // Create the certificate using the certificate factory, store it in the database and return the PEM string
         auto pem_string = CertFactory::certAndCasToPemString(cert_auth_cert, nullptr);
 
@@ -890,14 +888,16 @@ void onCreateCertificate(ConfigCms &config,
         reply["state"] = CERT_STATE(VALID);
         reply["serial"] = serial;
         reply["issuer"] = issuer_id;
-        reply["certid"] = cert_id;
-        reply["statuspv"] = status_pv;
+        reply["cert_id"] = cert_id;
+        reply["status_pv"] = status_pv;
+        reply["must_renew_by"] = 0;
         reply["expiration"] = 0;
-        reply["soft_expiration"] = 0;
         reply["cert"] = pem_string;
         op->reply(reply);
         return;
     }
+
+    // OK, it looks like we need to generate a certificate then ...
 
     // First, make sure that we've updated any expired cert first
     auto const full_skid = CertStatus::getFullSkId(pub_key);
@@ -918,15 +918,29 @@ void onCreateCertificate(ConfigCms &config,
     auto usage = getStructureValue<uint16_t>(ccr, "usage");
 
     try {
-        time_t expiration_date, renew_until_date;
-        renew_until_date = expiration_date = getStructureValue<time_t>(ccr, "not_after");
+        time_t expiration_date, must_renew_by_date;
+        auto no_status = ccr["no_status"].as<bool>();
+;
+        switch (config.cert_status_subscription) {
+            case YES:
+                if (no_status)
+                    log_warn_printf(pvacms, "Ignoring Client no-status flag as PVACMS is configured for status monitoring%s\n", "");
+                no_status = false;
+                break;
+            case NO:
+                no_status = true;
+                break;
+            case DEFAULT:
+                ;
+        }
+        must_renew_by_date = expiration_date = getStructureValue<time_t>(ccr, "not_after");
         certstatus_t state = UNKNOWN;
 
         // Call the authenticator-specific verifier if not the default type
         if (type != PVXS_DEFAULT_AUTH_TYPE) {
             const auto authenticator = Auth::getAuth(type);
-            // Calling authenticator may set the renew_until_date to the max date authorized by the authenticator
-            if (!authenticator->verify(ccr, renew_until_date))
+            // Calling authenticator may set the must_renew_by_date to the max date authorized by the authenticator
+            if (!authenticator->verify(ccr, must_renew_by_date))
                 throw std::runtime_error("CCR claims are invalid");
             state = VALID;
         } else {
@@ -938,19 +952,37 @@ void onCreateCertificate(ConfigCms &config,
             }
         }
 
-        renew_until_date = std::min(renew_until_date, expiration_date);
+        if (expiration_date > 0)
+            must_renew_by_date = std::min(must_renew_by_date, expiration_date);
 
         // Set the Expiration date
-        // Use a default expiration date if none specified by client, or we have disabled custom durations
+        // Use a default expiration date if none specified by the client, or we have disabled custom durations
         if ((config.cert_disallow_ioc_custom_duration || expiration_date <= 0) &&
-            IS_USED_FOR_(usage, ssl::kForClientAndServer))
+            IS_USED_FOR_(usage, ssl::kForClientAndServer)) {
             expiration_date = now + CertDate::parseDuration(config.default_ioc_cert_validity);
+            if (expiration_date > 0)
+                log_info_printf(pvacms, "Overriding requested expiration with default: %s\n", config.default_ioc_cert_validity.c_str());
+        }
         else if ((config.cert_disallow_server_custom_duration || expiration_date <= 0) &&
-                 IS_USED_FOR_(usage, ssl::kForServer))
+                 IS_USED_FOR_(usage, ssl::kForServer)) {
             expiration_date = now + CertDate::parseDuration(config.default_server_cert_validity);
+            if (expiration_date > 0)
+                log_info_printf(pvacms, "Overriding requested expiration with default: %s\n", config.default_server_cert_validity.c_str());
+        }
         else if ((config.cert_disallow_client_custom_duration || expiration_date <= 0) &&
-                 IS_USED_FOR_(usage, ssl::kForClient))
+                 IS_USED_FOR_(usage, ssl::kForClient)) {
             expiration_date = now + CertDate::parseDuration(config.default_client_cert_validity);
+            if (expiration_date > 0)
+                log_info_printf(pvacms, "Overriding requested expiration with default: %s\n", config.default_client_cert_validity.c_str());
+        }
+
+        const auto has_must_renew_by_date = must_renew_by_date > 0 && must_renew_by_date != expiration_date;
+
+        // If there's no status, then we can't support must_renew_by dates
+        if (no_status) {
+            if (has_must_renew_by_date) log_warn_printf(pvacms, "Must-Renew-By date ignored because status monitoring is disabled%s\n", "");
+            must_renew_by_date = 0;
+        }
 
         ///////////////////
         // Make Certificate
@@ -965,20 +997,6 @@ void onCreateCertificate(ConfigCms &config,
         // Get other certificate parameters from the request
         auto country = getStructureValue<const std::string>(ccr, "country");
         auto organization_unit = getStructureValue<const std::string>(ccr, "organization_unit");
-        auto no_status = ccr["no_status"].as<bool>();
-        auto custom_expiration = ccr["custom_expiration"].as<bool>();
-        if (!no_status &&
-            ((IS_USED_FOR_(usage, ssl::kForClientAndServer) && !config.cert_disallow_ioc_custom_duration) ||
-             (IS_USED_FOR_(usage, ssl::kForClient) && !config.cert_disallow_client_custom_duration) ||
-             (IS_USED_FOR_(usage, ssl::kForServer) && !config.cert_disallow_server_custom_duration))) {
-            expiration_date = getStructureValue<time_t>(ccr, "not_after");
-        } else {
-            expiration_date = renew_until_date;
-        }
-
-        // If the requested expiration date is less than is the authorized certificate validity, then use that
-        if (expiration_date < renew_until_date)
-            renew_until_date = expiration_date;
 
         // If pending approval, then check if it has already been approved
         if (state == PENDING_APPROVAL) {
@@ -1000,17 +1018,17 @@ void onCreateCertificate(ConfigCms &config,
                                                organization_unit,
                                                not_before,
                                                expiration_date,
+                                               must_renew_by_date,
                                                usage,
                                                config.cert_pv_prefix,
+                                               config_uri_base,
                                                config.cert_status_subscription,
                                                no_status,
-                                               custom_expiration,
+                                               type != PVXS_DEFAULT_AUTH_TYPE,
                                                cert_auth_cert.get(),
                                                cert_auth_pkey.get(),
                                                cert_auth_cert_chain.get(),
                                                state);
-        certificate_factory.allow_duplicates_ = type != PVXS_DEFAULT_AUTH_TYPE;
-        certificate_factory.renewable_until_ = renew_until_date;
 
         // Create the certificate using the certificate factory, store it in the database and return the PEM string
         auto pem_string = createCertificatePemString(certs_db, certificate_factory);
@@ -1024,13 +1042,31 @@ void onCreateCertificate(ConfigCms &config,
         reply["state"] = CERT_STATE(state);
         reply["serial"] = serial;
         reply["issuer"] = issuer_id;
-        reply["certid"] = cert_id;
-        reply["statuspv"] = status_pv;
+        reply["cert_id"] = cert_id;
+        reply["status_pv"] = status_pv;
         reply["expiration"] = expiration_date;
-        if (renew_until_date > 0 && renew_until_date != expiration_date) {
-            reply["soft_expiration"] = renew_until_date;
-        }
+        if (has_must_renew_by_date) reply["must_renew_by"] = must_renew_by_date;
         reply["cert"] = pem_string;
+        // Log the certificate info
+        const auto org_val = ccr["organization"];
+        const auto org_unit_val = ccr["organizational_unit"];
+        const auto org = org_val ? org_val.as<std::string>() : "";
+        const auto org_unit = org_unit_val ? org_unit_val.as<std::string>() : "";
+
+        const std::string from = std::ctime(&now);
+        const std::string expiration = std::ctime(&expiration_date);
+        log_info_printf(pvacms, "%s *=> %s\n", cert_id.c_str(), CERT_STATE(state));
+        log_info_printf(pvacms, "TYPE: %s\n", type.c_str());
+        log_info_printf(pvacms, "NAME: %s\n", name.c_str());
+        if (org_val) log_info_printf(pvacms, "ORGANIZATION: %s\n", org.c_str());
+        if (org_unit_val) log_info_printf(pvacms, "ORGANIZATIONAL UNIT: %s\n", org_unit.c_str());
+        if (!country.empty()) log_info_printf(pvacms, "COUNTRY: %s\n", country.c_str());
+        log_info_printf(pvacms, "VALID FROM: %s\n", from.substr(0, from.size()-1).c_str());
+        if (has_must_renew_by_date) {
+            const std::string must_renew_by = std::ctime(&must_renew_by_date);
+            log_info_printf(pvacms, "MUST RENEW: %s\n", must_renew_by.substr(0, must_renew_by.size()-1).c_str());
+        }
+        log_info_printf(pvacms, "EXPIRATION: %s\n", expiration.substr(0, expiration.size()-1).c_str());
         op->reply(reply);
     } catch (std::exception &e) {
         // For any type of error return an error to the caller
@@ -1710,6 +1746,7 @@ void createAdminClientCert(const ConfigCms &config,
                                            organization_unit,
                                            not_before,
                                            not_after,
+                                           0,
                                            ssl::kForClient,
                                            config.cert_pv_prefix,
                                            YES,
@@ -1807,10 +1844,12 @@ CertData createCertAuthCertificate(const ConfigCms &config,
                                            config.cert_auth_organizational_unit,
                                            not_before,
                                            not_after,
+                                           0,
                                            ssl::kForCertAuth,
                                            config.cert_pv_prefix,
-                                           config.cert_status_subscription);
-    certificate_factory.allow_duplicates_ = false;
+                                           config.cert_status_subscription,
+                                           false,
+                                           false);
 
     const auto pem_string = createCertificatePemString(certs_db, certificate_factory);
 
@@ -1856,6 +1895,7 @@ void createServerCertificate(const ConfigCms &config,
                                            config.pvacms_organizational_unit,
                                            getNotBeforeTimeFromCert(cert_auth_cert.get()),
                                            getNotAfterTimeFromCert(cert_auth_cert.get()),
+                                           0,
                                            ssl::kForCMS,
                                            config.cert_pv_prefix,
                                            NO,
@@ -2293,6 +2333,7 @@ int readParameters(int argc,
         create_ioc_cert_in_valid_state{false}, create_all_certs_in_valid_state{false};
     bool disallow_custom_durations_client{false}, disallow_custom_durations_server{false},
         disallow_custom_durations_ioc{false}, disallow_custom_durations{false};
+    std::string cert_status_subscription;
 
     CLI::App app{"PVACMS - Certificate Management Service"};
 
@@ -2373,8 +2414,8 @@ int readParameters(int argc,
     app.add_flag("--disallow-custom-durations", disallow_custom_durations, "Disallow custom durations");
 
     app.add_option("--status-validity-mins", config.cert_status_validity_mins, "Set Status Validity Time in Minutes");
-    app.add_flag("--status-monitoring-enabled",
-                 config.cert_status_subscription,
+    app.add_option("--status-monitoring-enabled",
+                 cert_status_subscription,
                  "Require Peers to monitor Status of Certificates Generated by this server by default.  Can be "
                  "overridden in each CCR");
     app.add_option("--cert-pv-prefix",
@@ -2454,7 +2495,7 @@ int readParameters(int argc,
             << "        --disallow-custom-durations-server   Disallow custom durations for server certificates\n"
             << "        --disallow-custom-durations-ioc      Disallow custom durations for IOC certificates\n"
             << "        --disallow-custom-durations          Disallow custom durations\n"
-            << "        --status-monitoring-enabled          Require Peers to monitor Status of Certificates Generated "
+            << "        --status-monitoring-enabled <YES|NO> Require Peers to monitor Status of Certificates Generated "
                "by this\n"
             << "                                             server by default. Can be overridden in each CCR\n"
             << "        --status-validity-mins               Set Status Validity Time in Minutes\n"
@@ -2533,17 +2574,26 @@ int readParameters(int argc,
 
     if (disallow_custom_durations)
         config.cert_disallow_client_custom_duration = config.cert_disallow_server_custom_duration =
-            config.cert_disallow_ioc_custom_duration = false;
+            config.cert_disallow_ioc_custom_duration = true;
     if (disallow_custom_durations_client)
-        config.cert_disallow_client_custom_duration = false;
+        config.cert_disallow_client_custom_duration = true;
     if (disallow_custom_durations_server)
-        config.cert_disallow_server_custom_duration = false;
+        config.cert_disallow_server_custom_duration = true;
     if (disallow_custom_durations_ioc)
-        config.cert_disallow_ioc_custom_duration = false;
+        config.cert_disallow_ioc_custom_duration = true;
 
     // Override some settings for PVACMS
     config.tls_stop_if_no_cert = true;
     config.tls_client_cert_required = ConfigCommon::Optional;
+
+    if (!cert_status_subscription.empty()) {
+        try {
+            config.cert_status_subscription = parseTo<CertStatusSubscription>(cert_status_subscription);
+        } catch (const NoConvert &e) {
+            std::cerr << "Error: --status-monitoring-enabled: " << e.what() << std::endl;
+            exit(11);
+        }
+    }
 
     return 0;
 }
