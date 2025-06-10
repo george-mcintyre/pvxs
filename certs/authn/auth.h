@@ -452,16 +452,16 @@ CertData getCertificate(bool &retrieved_credentials,
             const std::string from = std::ctime(&credentials->not_before);
             const auto expiration_t = CertStatusManager::getExpirationDateFromCert(cert_data.cert);
             const std::string expiration = std::ctime(&expiration_t);
-            time_t must_renew_by_t{0};
-            std::string must_renew_by;
+            time_t renew_by_t{0};
+            std::string renew_by;
             try {
-                must_renew_by_t = CertStatusManager::getMustRenewByDateFromCert(cert_data.cert);
-                if (must_renew_by_t > 0) must_renew_by = std::ctime(&must_renew_by_t);
+                renew_by_t = CertStatusManager::getRenewByDateFromCert(cert_data.cert);
+                if (renew_by_t > 0) renew_by = std::ctime(&renew_by_t);
             } catch (CertStatusNoExtensionException &e) {
-                // No must-renew-by date in the certificate - this is normal for older certificates
-                log_debug_printf(auth, "No must renew by date found in certificate: %s", e.what());
+                // No renew-by date in the certificate - this is normal for older certificates
+                log_debug_printf(auth, "No renew-by date found in certificate: %s", e.what());
             } catch (std::exception &e) {
-                log_warn_printf(auth, "Error reading must renew by date: %s", e.what());
+                log_warn_printf(auth, "Error reading renew by date: %s", e.what());
             }
 
             // Log the certificate info
@@ -473,7 +473,7 @@ CertData getCertificate(bool &retrieved_credentials,
             if (!credentials->organization_unit.empty()) log_info_printf(auth, "ORGANIZATIONAL UNIT: %s\n", credentials->organization_unit.c_str());
             if (!credentials->country.empty()) log_info_printf(auth, "COUNTRY:%s\n", credentials->country.c_str());
             log_info_printf(auth, "VALID FROM: %s\n", from.substr(0, from.size()-1).c_str());
-            if (must_renew_by_t) log_info_printf(auth, "MUST RENEW: %s\n", must_renew_by.substr(0, must_renew_by.size()-1).c_str());
+            if (renew_by_t) log_info_printf(auth, "MUST RENEW: %s\n", renew_by.substr(0, renew_by.size()-1).c_str());
             log_info_printf(auth, "EXPIRATION: %s\n", expiration.substr(0, expiration.size()-1).c_str());
             log_info_printf(auth, "--------------------------------------%s", "\n");
         }

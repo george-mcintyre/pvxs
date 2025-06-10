@@ -52,11 +52,11 @@ std::string CCRManager::createCertificate(const std::shared_ptr<CertCreationRequ
     log_debug_printf(auth_log, "%s\n", value["issuer"].as<std::string>().c_str());
     log_debug_printf(auth_log, "%s\n", value["cert_id"].as<std::string>().c_str());
     log_debug_printf(auth_log, "%s\n", value["status_pv"].as<std::string>().c_str());
-    const auto must_renew_by_val = value["must_renew_by"];
-    if (must_renew_by_val) {
-        const auto must_renew_by_t = must_renew_by_val.as<time_t>();
-        const CertDate must_renew_by_date(must_renew_by_t);
-        log_debug_printf(auth_log, "Must Renew: %s\n", must_renew_by_date.s.c_str() );
+    const auto renew_by_val = value["renew_by"];
+    if (renew_by_val) {
+        const auto renew_by_t = renew_by_val.as<time_t>();
+        const CertDate renew_by_date(renew_by_t);
+        log_debug_printf(auth_log, "Renew By: %s\n", renew_by_date.s.c_str() );
     }
     const CertDate expiration_date(value["expiration"].as<time_t>());
     log_debug_printf(auth_log, "Expiration: %s\n", expiration_date.s.c_str() );

@@ -284,6 +284,7 @@ class CertStatusSubscriptionException final : public CertStatusException {
     X_IT(VALID)            \
     X_IT(PENDING)          \
     X_IT(PENDING_APPROVAL) \
+    X_IT(PENDING_RENEWAL)  \
     X_IT(EXPIRED)          \
     X_IT(REVOKED)
 
@@ -314,6 +315,34 @@ enum ocspcertstatus_t { OCSP_CERT_STATUS_LIST };
 // Forward declarations
 struct PVACertStatus;
 struct OCSPCertStatus;
+
+struct Certificate {
+    // The certificate's serial number
+    uint64_t serial{0};
+    // not before
+    uint64_t not_before{0};
+    // not after
+    uint64_t not_after{0};
+    // renew by
+    uint64_t renew_by{0};
+    // status
+    certstatus_t status;
+    // The certificate's issuer ID (first 8 hex digits of the hex SKID)
+    std::string issuer_id{};
+    // The certificate's SKID (subject key identifier)
+    std::string skid{};
+    // The certificate's subject CN
+    std::string cn{};
+    // The certificate's subject O
+    std::string o{};
+    // The certificate's subject OU
+    std::string ou{};
+    // The certificate's subject C
+    std::string c{};
+
+    Certificate(const uint64_t serial, const uint64_t not_after, const certstatus_t status) : serial(serial), not_after(not_after), status(status) {};
+    Certificate() = default;
+};
 
 /**
  * @brief Base class for Certificate status values.  Contains the enum index `i`

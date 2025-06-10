@@ -43,51 +43,54 @@
     "     approved INTEGER,"            \
     "     not_before INTEGER,"          \
     "     not_after INTEGER,"           \
+    "     renew_by_date INTEGER,"       \
     "     status INTEGER,"              \
     "     status_date INTEGER"          \
     ");"                                \
     "COMMIT;"
 
-#define SQL_CHECK_EXISTS_DB_FILE \
-    "SELECT name "               \
-    "FROM sqlite_master "        \
-    "WHERE type='table' "        \
+#define SQL_CHECK_EXISTS_DB_FILE       \
+    "SELECT name "                     \
+    "FROM sqlite_master "              \
+    "WHERE type='table' "              \
     "  AND name='certs';"
 
-#define SQL_CREATE_CERT    \
-    "INSERT INTO certs ( " \
-    "     serial,"         \
-    "     skid,"           \
-    "     CN,"             \
-    "     O,"              \
-    "     OU,"             \
-    "     C,"              \
-    "     approved,"       \
-    "     not_before,"     \
-    "     not_after,"      \
-    "     status,"         \
-    "     status_date"     \
-    ") "                   \
-    "VALUES ("             \
-    "     :serial,"        \
-    "     :skid,"          \
-    "     :CN,"            \
-    "     :O,"             \
-    "     :OU,"            \
-    "     :C,"             \
-    "     :approved,"      \
-    "     :not_before,"    \
-    "     :not_after,"     \
-    "     :status,"        \
-    "     :status_date"    \
+#define SQL_CREATE_CERT               \
+    "INSERT INTO certs ( "            \
+    "     serial,"                    \
+    "     skid,"                      \
+    "     CN,"                        \
+    "     O,"                         \
+    "     OU,"                        \
+    "     C,"                         \
+    "     approved,"                  \
+    "     not_before,"                \
+    "     not_after,"                 \
+    "     renew_by_date,"             \
+    "     status,"                    \
+    "     status_date"                \
+    ") "                              \
+    "VALUES ("                        \
+    "     :serial,"                   \
+    "     :skid,"                     \
+    "     :CN,"                       \
+    "     :O,"                        \
+    "     :OU,"                       \
+    "     :C,"                        \
+    "     :approved,"                 \
+    "     :not_before,"               \
+    "     :not_after,"                \
+    "     :renew_by_date,"            \
+    "     :status,"                   \
+    "     :status_date"               \
     ")"
 
-#define SQL_DUPS_SUBJECT \
-    "SELECT COUNT(*) "   \
-    "FROM certs "        \
-    "WHERE CN = :CN "    \
-    "  AND O = :O "      \
-    "  AND OU = :OU "    \
+#define SQL_DUPS_SUBJECT              \
+    "SELECT COUNT(*) "                \
+    "FROM certs "                     \
+    "WHERE CN = :CN "                 \
+    "  AND O = :O "                   \
+    "  AND OU = :OU "                 \
     "  AND C = :C "
 
 #define SQL_DUPS_SUBJECT_KEY_IDENTIFIER \
@@ -95,16 +98,35 @@
     "FROM certs "                       \
     "WHERE skid = :skid "
 
-#define SQL_CERT_STATUS   \
-    "SELECT status "      \
-    "     , status_date " \
-    "FROM certs "         \
+#define SQL_CERTS_TO_RENEW            \
+    "SELECT serial "                  \
+    "  ,    status "                  \
+    "  ,    not_after "               \
+    "FROM certs "                     \
+    "WHERE renew_by_date > 0 "        \
+    "  AND CN = :CN "                 \
+    "  AND O = :O "                   \
+    "  AND OU = :OU "                 \
+    "  AND C = :C "
+
+#define SQL_RENEW_CERTS               \
+    "UPDATE certs "                   \
+    "SET status = :status "           \
+    "  , renew_by_date = :renew_by_date " \
+    "  , status_date = :status_date " \
+    "WHERE serial = :serial "
+
+#define SQL_CERT_STATUS               \
+    "SELECT status "                  \
+    "     , status_date "             \
+    "FROM certs "                     \
     "WHERE serial = :serial"
 
-#define SQL_CERT_VALIDITY \
-    "SELECT not_before "  \
-    "     , not_after "   \
-    "FROM certs "         \
+#define SQL_CERT_VALIDITY             \
+    "SELECT not_before "              \
+    "     , not_after "               \
+    "     , renew_by "                \
+    "FROM certs "                     \
     "WHERE serial = :serial"
 
 #define SQL_CERT_SET_STATUS           \
@@ -126,15 +148,20 @@
     "WHERE not_before <= strftime('%s', 'now') " \
     "  AND not_after > strftime('%s', 'now') "
 
-#define SQL_CERT_BECOMING_INVALID \
-    "SELECT serial, status "      \
-    "FROM certs "                 \
+#define SQL_CERT_BECOMING_INVALID      \
+    "SELECT serial, status "           \
+    "FROM certs "                      \
     "WHERE "
 
-#define SQL_CERT_TO_EXPIRED \
-    "SELECT serial "        \
-    "FROM certs "           \
+#define SQL_CERT_TO_EXPIRED            \
+    "SELECT serial "                   \
+    "FROM certs "                      \
     "WHERE not_after <= strftime('%s', 'now') "
+
+#define SQL_CERT_TO_PENDING_RENEWAL    \
+    "SELECT serial "                   \
+    "FROM certs "                      \
+    "WHERE renew_by_date <= strftime('%s', 'now') "
 
 #define SQL_CERT_TO_EXPIRED_WITH_FULL_SKID      \
     "SELECT serial "                            \
@@ -238,7 +265,7 @@ uint64_t generateSerial();
 
 std::tuple<certstatus_t, time_t> getCertificateStatus(const sql_ptr &certs_db, uint64_t serial);
 void getWorstCertificateStatus(const sql_ptr &certs_db, uint64_t serial, certstatus_t &worst_status_so_far, time_t &worst_status_time_so_far);
-std::tuple<time_t, time_t> getCertificateValidity(const sql_ptr &certs_db, uint64_t serial);
+Certificate getCertificateValidity(const sql_ptr &certs_db, uint64_t serial);
 
 std::string extractCountryCode(const std::string &locale_str);
 
@@ -291,6 +318,8 @@ int readOptions(ConfigCms &config, int argc, char *argv[], bool &verbose);
 
 void updateCertificateStatus(const sql_ptr &certs_db, uint64_t serial, certstatus_t cert_status, int approval_status,
                              const std::vector<certstatus_t> &valid_status = {PENDING_APPROVAL, PENDING, VALID});
+
+void updateCertificateRenewalStatus(const sql_ptr &certs_db, serial_number_t serial, certstatus_t cert_status, time_t renew_by);
 
 certstatus_t storeCertificate(const sql_ptr &certs_db, CertFactory &cert_factory);
 

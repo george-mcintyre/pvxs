@@ -91,6 +91,14 @@ bool postUpdateToNextCertToExpire(const CertStatusFactory &cert_status_creator,
                                   const std::string &issuer_id,
                                   const std::string &full_skid = {});
 
+std::vector<Certificate> getCertificatesToRenew(const CertFactory &cert_status_creator, const sql_ptr &certs_db);
+
+bool postUpdateToNextCertToNeedRenewal(const CertStatusFactory &cert_status_creator,
+                                  server::SharedWildcardPV &status_pv,
+                                  const sql_ptr &certs_db,
+                                  const std::string &cert_pv_prefix,
+                                  const std::string &issuer_id);
+
 epicsMutex status_pv_lock;
 epicsMutex status_update_lock;
 
@@ -149,7 +157,7 @@ Value getCreatePrototype() {
                              Member(TypeCode::String, "state"),
                              Member(TypeCode::String, "cert_id"),
                              Member(TypeCode::String, "status_pv"),
-                             Member(TypeCode::UInt64, "must_renew_by"),
+                             Member(TypeCode::UInt64, "renew_by"),
                              Member(TypeCode::UInt64, "expiration"),
                              Member(TypeCode::String, "cert"),
                              Struct("alarm",
@@ -346,10 +354,10 @@ std::tuple<certstatus_t, time_t> getCertificateStatus(const sql_ptr &certs_db, s
  *
  * @param certs_db The database to get the certificate validity from
  * @param serial The serial number of the certificate
- * @return The tuple containing the not before and not after times which describe the validity of the certificate
+ * @return certificate info
  */
-std::tuple<time_t, time_t> getCertificateValidity(const sql_ptr &certs_db, serial_number_t serial) {
-    time_t not_before{}, not_after{};
+Certificate getCertificateValidity(const sql_ptr &certs_db, serial_number_t serial) {
+    Certificate certificate;
 
     const int64_t db_serial = *reinterpret_cast<int64_t *>(&serial);
     sqlite3_stmt *sql_statement;
@@ -357,15 +365,16 @@ std::tuple<time_t, time_t> getCertificateValidity(const sql_ptr &certs_db, seria
         sqlite3_bind_int64(sql_statement, sqlite3_bind_parameter_index(sql_statement, ":serial"), db_serial);
 
         if (sqlite3_step(sql_statement) == SQLITE_ROW) {
-            not_before = sqlite3_column_int64(sql_statement, 0);
-            not_after = sqlite3_column_int64(sql_statement, 1);
+            certificate.not_before = sqlite3_column_int64(sql_statement, 0);
+            certificate.not_after = sqlite3_column_int64(sql_statement, 1);
+            certificate.renew_by = sqlite3_column_int64(sql_statement, 2);
         }
     } else {
         sqlite3_finalize(sql_statement);
         throw std::logic_error(SB() << "failed to prepare sqlite statement: " << sqlite3_errmsg(certs_db.get()));
     }
 
-    return std::make_tuple(not_before, not_after);
+    return {certificate};
 }
 
 /**
@@ -490,6 +499,33 @@ void updateCertificateStatus(const sql_ptr &certs_db,
     }
 }
 
+void updateCertificateRenewalStatus(const sql_ptr &certs_db, serial_number_t serial, const certstatus_t cert_status, const time_t renew_by) {
+    Guard G(status_update_lock);
+    const int64_t db_serial = *reinterpret_cast<int64_t *>(&serial);
+    sqlite3_stmt *sql_statement;
+    int sql_status;
+    std::string sql(SQL_RENEW_CERTS);
+    const auto current_time = std::time(nullptr);
+    if ((sql_status = sqlite3_prepare_v2(certs_db.get(), sql.c_str(), -1, &sql_statement, nullptr)) == SQLITE_OK) {
+        sqlite3_bind_int(sql_statement, sqlite3_bind_parameter_index(sql_statement, ":status"), cert_status);
+        sqlite3_bind_int64(sql_statement, sqlite3_bind_parameter_index(sql_statement, ":renew_by_date"), renew_by);
+        sqlite3_bind_int64(sql_statement, sqlite3_bind_parameter_index(sql_statement, ":status_date"), current_time);
+        sqlite3_bind_int64(sql_statement, sqlite3_bind_parameter_index(sql_statement, ":serial"), db_serial);
+        sql_status = sqlite3_step(sql_statement);
+    }
+    sqlite3_finalize(sql_statement);
+
+    // Check the number of rows affected
+    if (sql_status == SQLITE_DONE) {
+        const int rows_affected = sqlite3_changes(certs_db.get());
+        if (rows_affected == 0) {
+            throw std::runtime_error("Invalid serial number");
+        }
+    } else {
+        throw std::runtime_error(SB() << "Failed to set cert status: " << sqlite3_errmsg(certs_db.get()));
+    }
+}
+
 /**
  * @brief Generates a random serial number.
  *
@@ -569,6 +605,9 @@ certstatus_t storeCertificate(const sql_ptr &certs_db, CertFactory &cert_factory
         sqlite3_bind_int(sql_statement,
                          sqlite3_bind_parameter_index(sql_statement, ":not_after"),
                          static_cast<int>(cert_factory.not_after_));
+        sqlite3_bind_int(sql_statement,
+                         sqlite3_bind_parameter_index(sql_statement, ":renew_by_date"),
+                         (cert_factory.renew_by_date_ > 0) ? static_cast<int>(cert_factory.renew_by_date_) : static_cast<int>(cert_factory.not_after_));
         sqlite3_bind_int(sql_statement, sqlite3_bind_parameter_index(sql_statement, ":status"), effective_status);
         sqlite3_bind_int(sql_statement,
                          sqlite3_bind_parameter_index(sql_statement, ":approved"),
@@ -619,9 +658,9 @@ void checkForDuplicates(const sql_ptr &certs_db, const CertFactory &cert_factory
     // Prepare SQL statements
     sqlite3_stmt *sql_statement;
 
-    const std::vector<certstatus_t> valid_status{VALID, PENDING_APPROVAL, PENDING};
+    const std::vector<certstatus_t> valid_status{VALID, PENDING_APPROVAL, PENDING_RENEWAL, PENDING};
 
-    // Check for duplicate subject
+    // Check for a duplicate subject
     std::string subject_sql(SQL_DUPS_SUBJECT);
     subject_sql += getValidStatusesClause(valid_status);
     if (sqlite3_prepare_v2(certs_db.get(), subject_sql.c_str(), -1, &sql_statement, nullptr) != SQLITE_OK) {
@@ -656,33 +695,12 @@ void checkForDuplicates(const sql_ptr &certs_db, const CertFactory &cert_factory
                                       << ", o=" << cert_factory.org_ << ", ou=" << cert_factory.org_unit_
                                       << ", c=" << cert_factory.country_);
     }
-
-    // Check for duplicate SKID
-    std::string subject_key_sql(SQL_DUPS_SUBJECT_KEY_IDENTIFIER);
-    subject_key_sql += getValidStatusesClause(valid_status);
-    if (sqlite3_prepare_v2(certs_db.get(), subject_key_sql.c_str(), -1, &sql_statement, nullptr) != SQLITE_OK) {
-        throw std::runtime_error("Failed to prepare statement");
-    }
-    sqlite3_bind_text(sql_statement,
-                      sqlite3_bind_parameter_index(sql_statement, ":skid"),
-                      cert_factory.skid_.c_str(),
-                      -1,
-                      SQLITE_STATIC);
-    bindValidStatusClauses(sql_statement, valid_status);
-
-    const auto skid_dup_status = sqlite3_step(sql_statement) == SQLITE_ROW && sqlite3_column_int(sql_statement, 0) > 0;
-    sqlite3_finalize(sql_statement);
-    if (skid_dup_status) {
-        throw std::runtime_error(
-            "Duplicate Certificate Subject Key Identifier.  Best-practices require use of a distinct Key-Pair for each "
-            "certificate");
-    }
 }
 
 /**
  * @brief The function that does the actual certificate creation in PVACMS
  *
- * Dont forget to cleanup `chain_ptr` after use with sk_X509_free()
+ * Don't forget to cleanup `chain_ptr` after use with sk_X509_free()
  *
  * @param certs_db the database to write the certificate to
  * @param cert_factory the certificate factory to use to build the certificate
@@ -702,9 +720,9 @@ ossl_ptr<X509> createCertificate(sql_ptr &certs_db, CertFactory &cert_factory) {
     // Print info about certificate creation
     std::string from = std::ctime(&cert_factory.not_before_);
     std::string to = std::ctime(&cert_factory.not_after_);
-    std::string must_renew_by;
+    std::string renew_by;
 
-    if (cert_factory.must_renew_by_date_ > 0) must_renew_by = std::ctime(&cert_factory.must_renew_by_date_);
+    if (cert_factory.renew_by_date_ > 0) renew_by = std::ctime(&cert_factory.renew_by_date_);
 
     auto const issuer_id = CertStatus::getSkId(cert_factory.issuer_certificate_ptr_);
     auto cert_id = getCertId(issuer_id, cert_factory.serial_);
@@ -720,28 +738,16 @@ ossl_ptr<X509> createCertificate(sql_ptr &certs_db, CertFactory &cert_factory) {
                                                                                                     : "CERTIFICATE"))
                                 .str();
     log_debug_printf(pvacms, "%s\n", cert_description.c_str());
-    log_debug_printf(pvacms, "%s\n", (SB() << "ID: " << cert_id).str().c_str());
-    log_debug_printf(pvacms, "%s\n", (SB() << "SERIAL: " << cert_factory.serial_).str().c_str());
-    log_debug_printf(pvacms, "%s\n", (SB() << "ISSUER ID: " << issuer_id).str().c_str());
-    log_debug_printf(pvacms, "%s\n", (SB() << "NAME: " << cert_factory.name_).str().c_str());
-    log_debug_printf(pvacms, "%s\n", (SB() << "ORGANIZATION: " << cert_factory.org_).str().c_str());
-    log_debug_printf(pvacms, "%s\n", (SB() << "ORGANIZATIONAL UNIT: " << cert_factory.org_unit_).str().c_str());
-    log_debug_printf(pvacms, "%s\n", (SB() << "COUNTRY: " << cert_factory.country_).str().c_str());
-    log_debug_printf(pvacms, "%s\n", (SB() << "STATUS: " << CERT_STATE(effective_status)).str().c_str());
-    if (!must_renew_by.empty()) {
-        log_debug_printf(pvacms,
-                         "%s\n",
-                         (SB() << "MUST RENEW: " << must_renew_by.substr(0, must_renew_by.size() - 1))
-                             .str()
-                             .c_str());
-    }
-    log_debug_printf(pvacms,
-                     "%s\n",
-                     (SB() << "EXPIRATION: " << from.substr(0, from.size() - 1) << " to " << to.substr(0, to.size() - 1))
-                         .str()
-                         .c_str());
-
-
+    log_debug_printf(pvacms, "ID: %s\n", cert_id.c_str());
+    log_debug_printf(pvacms, "ISSUER ID: %s\n", issuer_id.c_str());
+    log_debug_printf(pvacms, "SERIAL: %s\n", (SB() << std::setw(20) << std::setfill('0') << cert_factory.serial_).str().c_str());
+    log_debug_printf(pvacms, "NAME: %s\n", cert_factory.name_.c_str());
+    log_debug_printf(pvacms, "ORGANIZATION: %s\n", cert_factory.org_.c_str());
+    log_debug_printf(pvacms, "ORGANIZATIONAL UNIT: %s\n", cert_factory.org_unit_.c_str());
+    log_debug_printf(pvacms, "COUNTRY: %s\n", cert_factory.country_.c_str());
+    log_debug_printf(pvacms, "STATUS: %s\n", CERT_STATE(effective_status));
+    if (!renew_by.empty()) log_debug_printf(pvacms, "MUST RENEW: %s\n", renew_by.substr(0, renew_by.size() - 1).c_str());
+    log_debug_printf(pvacms, "EXPIRATION: %s to %s\n", from.substr(0, from.size() - 1).c_str(), to.substr(0, to.size() - 1).c_str());
     log_debug_printf(pvacms, "--------------------------------------%s", "\n");
 
     return certificate;
@@ -759,6 +765,7 @@ ossl_ptr<X509> createCertificate(sql_ptr &certs_db, CertFactory &cert_factory) {
  * @return A PEM string representation of the certificate.
  */
 std::string createCertificatePemString(sql_ptr &certs_db, CertFactory &cert_factory) {
+    // Create the actual certificate
     const auto cert = createCertificate(certs_db, cert_factory);
 
     // Write out as PEM string for return to client
@@ -890,7 +897,7 @@ void onCreateCertificate(ConfigCms &config,
         reply["issuer"] = issuer_id;
         reply["cert_id"] = cert_id;
         reply["status_pv"] = status_pv;
-        reply["must_renew_by"] = 0;
+        reply["renew_by"] = 0;
         reply["expiration"] = 0;
         reply["cert"] = pem_string;
         op->reply(reply);
@@ -918,7 +925,7 @@ void onCreateCertificate(ConfigCms &config,
     auto usage = getStructureValue<uint16_t>(ccr, "usage");
 
     try {
-        time_t expiration_date, must_renew_by_date;
+        time_t expiration_date, renew_by_date;
         auto no_status = ccr["no_status"].as<bool>();
 ;
         switch (config.cert_status_subscription) {
@@ -933,14 +940,14 @@ void onCreateCertificate(ConfigCms &config,
             case DEFAULT:
                 ;
         }
-        must_renew_by_date = expiration_date = getStructureValue<time_t>(ccr, "not_after");
+        renew_by_date = expiration_date = getStructureValue<time_t>(ccr, "not_after");
         certstatus_t state = UNKNOWN;
 
         // Call the authenticator-specific verifier if not the default type
         if (type != PVXS_DEFAULT_AUTH_TYPE) {
             const auto authenticator = Auth::getAuth(type);
-            // Calling authenticator may set the must_renew_by_date to the max date authorized by the authenticator
-            if (!authenticator->verify(ccr, must_renew_by_date))
+            // Calling authenticator may set the renew_by_date to the max date authorized by the authenticator
+            if (!authenticator->verify(ccr, renew_by_date))
                 throw std::runtime_error("CCR claims are invalid");
             state = VALID;
         } else {
@@ -953,7 +960,7 @@ void onCreateCertificate(ConfigCms &config,
         }
 
         if (expiration_date > 0)
-            must_renew_by_date = std::min(must_renew_by_date, expiration_date);
+            renew_by_date = std::min(renew_by_date, expiration_date);
 
         // Set the Expiration date
         // Use a default expiration date if none specified by the client, or we have disabled custom durations
@@ -976,12 +983,12 @@ void onCreateCertificate(ConfigCms &config,
                 log_info_printf(pvacms, "Overriding requested expiration with default: %s\n", config.default_client_cert_validity.c_str());
         }
 
-        const auto has_must_renew_by_date = must_renew_by_date > 0 && must_renew_by_date != expiration_date;
+        const auto has_renew_by_date = renew_by_date > 0 && renew_by_date != expiration_date;
 
-        // If there's no status, then we can't support must_renew_by dates
+        // If there's no status, then we can't support renew_by dates
         if (no_status) {
-            if (has_must_renew_by_date) log_warn_printf(pvacms, "Must-Renew-By date ignored because status monitoring is disabled%s\n", "");
-            must_renew_by_date = 0;
+            if (has_renew_by_date) log_warn_printf(pvacms, "Must-Renew-By date ignored because status monitoring is disabled%s\n", "");
+            renew_by_date = 0;
         }
 
         ///////////////////
@@ -1018,7 +1025,7 @@ void onCreateCertificate(ConfigCms &config,
                                                organization_unit,
                                                not_before,
                                                expiration_date,
-                                               must_renew_by_date,
+                                               renew_by_date,
                                                usage,
                                                config.cert_pv_prefix,
                                                config_uri_base,
@@ -1033,6 +1040,40 @@ void onCreateCertificate(ConfigCms &config,
         // Create the certificate using the certificate factory, store it in the database and return the PEM string
         auto pem_string = createCertificatePemString(certs_db, certificate_factory);
 
+        ///////////////////////////////////////////////
+        // Renew linked certificates where appropriate
+
+        // Get a list of all certs with the same skid that are not EXPIRED or REVOKED
+        const auto linked_certificates = getCertificatesToRenew(certificate_factory, certs_db);
+
+        // For each cert,
+        for ( const auto &linked_certificate : linked_certificates ) {
+            // The new renewal date is the renewal date from this ccr unless it's less than the expiration date of the linked cert
+            const auto new_renewal_date = std::min(linked_certificate.not_after, static_cast<uint64_t>(renew_by_date));
+
+            if ( linked_certificate.status == PENDING_RENEWAL) {
+                // Update the status to VALID and post an update to listeners
+
+                // Create a cert status to post
+                const auto status_date = std::time(nullptr); // Status date
+                const std::string pv_name(getCertStatusURI(config.cert_pv_prefix, issuer_id, linked_certificate.serial));
+                const auto cert_status = cert_status_factory.createPVACertificateStatus(linked_certificate.serial, VALID, status_date);
+                const auto new_status = static_cast<certstatus_t>(cert_status.status.i);
+
+                updateCertificateRenewalStatus(certs_db, linked_certificate.serial, new_status, new_renewal_date);
+                postCertificateStatus(shared_status_pv, pv_name, linked_certificate.serial, cert_status);
+                log_info_printf(pvacmsmonitor, "%s ==> VALID\n", getCertId(issuer_id, linked_certificate.serial).c_str());
+            } else { // VALID, PENDING_APPROVAL, PENDING
+                // Update the renew_by date if it's less than the new one
+                if (linked_certificate.renew_by < new_renewal_date) {
+                    updateCertificateRenewalStatus(certs_db, linked_certificate.serial, linked_certificate.status, new_renewal_date);
+                    log_info_printf(pvacmsmonitor, "%s *=*      \n", getCertId(issuer_id, linked_certificate.serial).c_str());
+                }
+            }
+        }
+
+
+        ///////////////////////////////////////////////
         // Construct and return the reply
         auto cert_id = getCertId(issuer_id, serial);
         auto status_pv = getCertStatusURI(config.cert_pv_prefix, issuer_id, serial);
@@ -1045,7 +1086,7 @@ void onCreateCertificate(ConfigCms &config,
         reply["cert_id"] = cert_id;
         reply["status_pv"] = status_pv;
         reply["expiration"] = expiration_date;
-        if (has_must_renew_by_date) reply["must_renew_by"] = must_renew_by_date;
+        if (has_renew_by_date) reply["renew_by"] = renew_by_date;
         reply["cert"] = pem_string;
         // Log the certificate info
         const auto org_val = ccr["organization"];
@@ -1062,9 +1103,9 @@ void onCreateCertificate(ConfigCms &config,
         if (org_unit_val) log_info_printf(pvacms, "ORGANIZATIONAL UNIT: %s\n", org_unit.c_str());
         if (!country.empty()) log_info_printf(pvacms, "COUNTRY: %s\n", country.c_str());
         log_info_printf(pvacms, "VALID FROM: %s\n", from.substr(0, from.size()-1).c_str());
-        if (has_must_renew_by_date) {
-            const std::string must_renew_by = std::ctime(&must_renew_by_date);
-            log_info_printf(pvacms, "MUST RENEW: %s\n", must_renew_by.substr(0, must_renew_by.size()-1).c_str());
+        if (has_renew_by_date) {
+            const std::string renew_by = std::ctime(&renew_by_date);
+            log_info_printf(pvacms, "MUST RENEW: %s\n", renew_by.substr(0, renew_by.size()-1).c_str());
         }
         log_info_printf(pvacms, "EXPIRATION: %s\n", expiration.substr(0, expiration.size()-1).c_str());
         op->reply(reply);
@@ -1109,7 +1150,7 @@ void onGetStatus(const ConfigCms &config,
         CertStatusFactory(cert_auth_cert, cert_auth_pkey, cert_auth_chain, config.cert_status_validity_mins));
     try {
         std::vector<serial_number_t> cert_auth_serial_numbers;
-        log_debug_printf(pvacms, "GET STATUS: Certificate %s:%llu\n", issuer_id.c_str(), (unsigned long long)serial);
+        log_debug_printf(pvacms, "GET STATUS: Certificate %s\n", getCertId(our_issuer_id, serial).c_str());
 
         if (our_issuer_id != issuer_id) {
             throw std::runtime_error(SB() << "Issuer ID of certificate status requested: " << issuer_id
@@ -1177,7 +1218,7 @@ void onRevoke(const ConfigCms &config,
     try {
         Guard G(status_update_lock);
         serial_number_t serial = getParameters(parameters);
-        log_debug_printf(pvacms, "REVOKE: Certificate %s:%llu\n", our_issuer_id.c_str(), (unsigned long long)serial);
+        log_debug_printf(pvacms, "REVOKE: Certificate %s\n", getCertId(our_issuer_id, serial).c_str());
 
         // set status value
         updateCertificateStatus(certs_db, serial, REVOKED, 0);
@@ -1227,13 +1268,12 @@ void onApprove(const ConfigCms &config,
         Guard G(status_update_lock);
         std::string issuer_id;
         serial_number_t serial = getParameters(parameters);
-        log_debug_printf(pvacms, "APPROVE: Certificate %s:%llu\n", our_issuer_id.c_str(), (unsigned long long)serial);
+        log_debug_printf(pvacms, "APPROVE: Certificate %s\n", getCertId(our_issuer_id, serial).c_str());
 
         // set status value
         const auto status_date(time(nullptr));
-        time_t not_before, not_after;
-        std::tie(not_before, not_after) = getCertificateValidity(certs_db, serial);
-        const certstatus_t new_state = status_date < not_before ? PENDING : status_date >= not_after ? EXPIRED : VALID;
+        Certificate certificate(getCertificateValidity(certs_db, serial));
+        const certstatus_t new_state = status_date < certificate.not_before ? PENDING : status_date >= certificate.not_after ? EXPIRED : status_date >= certificate.renew_by ? PENDING_RENEWAL : VALID;
         updateCertificateStatus(certs_db, serial, new_state, 1, {PENDING_APPROVAL});
 
         const auto cert_status = cert_status_creator.createPVACertificateStatus(serial, new_state, status_date);
@@ -1242,6 +1282,7 @@ void onApprove(const ConfigCms &config,
             case VALID:
             case EXPIRED:
             case PENDING:
+            case PENDING_RENEWAL:
                 log_info_printf(pvacms, "%s ==> %s\n", getCertId(our_issuer_id, serial).c_str(), CERT_STATE(new_state));
                 break;
             default:
@@ -1287,7 +1328,7 @@ void onDeny(const ConfigCms &config,
         Guard G(status_update_lock);
         std::string issuer_id;
         serial_number_t serial = getParameters(parameters);
-        log_debug_printf(pvacms, "DENY: Certificate %s:%llu\n", our_issuer_id.c_str(), (unsigned long long)serial);
+        log_debug_printf(pvacms, "DENY: Certificate %s\n", getCertId(our_issuer_id, serial).c_str());
 
         // set status value
         updateCertificateStatus(certs_db, serial, REVOKED, 0, {PENDING_APPROVAL});
@@ -2165,7 +2206,7 @@ bool postUpdateToNextCertToExpire(const CertStatusFactory &cert_status_creator,
     bool updated{false};
     sqlite3_stmt *stmt;
     std::string expired_sql(full_skid.empty() ? SQL_CERT_TO_EXPIRED : SQL_CERT_TO_EXPIRED_WITH_FULL_SKID);
-    const std::vector<certstatus_t> expired_status{VALID, PENDING_APPROVAL, PENDING};
+    const std::vector<certstatus_t> expired_status{VALID, PENDING_APPROVAL, PENDING_RENEWAL, PENDING};
     expired_sql += getValidStatusesClause(expired_status);
     if (sqlite3_prepare_v2(certs_db.get(), expired_sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
         bindValidStatusClauses(stmt, expired_status);
@@ -2178,11 +2219,117 @@ bool postUpdateToNextCertToExpire(const CertStatusFactory &cert_status_creator,
             const uint64_t serial = *reinterpret_cast<uint64_t *>(&db_serial);
             try {
                 const std::string pv_name(getCertStatusURI(cert_pv_prefix, issuer_id, serial));
-                updateCertificateStatus(certs_db, serial, EXPIRED, -1, {VALID, PENDING_APPROVAL, PENDING});
+                updateCertificateStatus(certs_db, serial, EXPIRED, -1, {VALID, PENDING_APPROVAL, PENDING_RENEWAL, PENDING});
                 const auto status_date = std::time(nullptr);
                 const auto cert_status = cert_status_creator.createPVACertificateStatus(serial, EXPIRED, status_date);
                 postCertificateStatus(status_pv, pv_name, serial, cert_status);
                 log_info_printf(pvacmsmonitor, "%s ==> EXPIRED\n", getCertId(issuer_id, serial).c_str());
+            } catch (const std::runtime_error &e) {
+                log_err_printf(pvacmsmonitor, "PVACMS Certificate Monitor Error: %s\n", e.what());
+            }
+        }
+        sqlite3_finalize(stmt);
+    } else {
+        log_err_printf(pvacmsmonitor, "PVACMS Certificate Monitor Error: %s\n", sqlite3_errmsg(certs_db.get()));
+    }
+    return updated;
+}
+
+/**
+ * @brief Cet a list of all certificates that need renewing related to the cert that the factory made
+ *
+ * @param cert_factory The certificate factory that just made a certificate
+ * @param certs_db the database to look in
+ */
+std::vector<Certificate> getCertificatesToRenew(const CertFactory &cert_factory, const sql_ptr &certs_db) {
+    Guard G(status_update_lock);
+    std::vector<Certificate> certs_to_renew;
+
+    sqlite3_stmt *stmt;
+    std::string to_renew_sql(SQL_CERTS_TO_RENEW);
+    const std::vector<certstatus_t> to_renew_status{VALID, PENDING_APPROVAL, PENDING_RENEWAL, PENDING};
+    to_renew_sql += getValidStatusesClause(to_renew_status);
+    if (sqlite3_prepare_v2(certs_db.get(), to_renew_sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt,
+                          sqlite3_bind_parameter_index(stmt, ":CN"),
+                          cert_factory.name_.c_str(),
+                          -1,
+                          SQLITE_STATIC);
+        sqlite3_bind_text(stmt,
+                          sqlite3_bind_parameter_index(stmt, ":O"),
+                          cert_factory.org_.c_str(),
+                          -1,
+                          SQLITE_STATIC);
+        sqlite3_bind_text(stmt,
+                          sqlite3_bind_parameter_index(stmt, ":OU"),
+                          cert_factory.org_unit_.c_str(),
+                          -1,
+                          SQLITE_STATIC);
+        sqlite3_bind_text(stmt,
+                          sqlite3_bind_parameter_index(stmt, ":C"),
+                          cert_factory.country_.c_str(),
+                          -1,
+                          SQLITE_STATIC);
+        bindValidStatusClauses(stmt, to_renew_status);
+
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            int64_t db_serial = sqlite3_column_int64(stmt, 0);
+            const auto serial = *reinterpret_cast<uint64_t *>(&db_serial);
+            if ( serial != cert_factory.serial_ ) {
+                const auto status = static_cast<certstatus_t>(sqlite3_column_int(stmt, 1));
+                const uint64_t not_after = sqlite3_column_int64(stmt, 2);
+                certs_to_renew.push_back({serial, not_after, status});
+            }
+        }
+        sqlite3_finalize(stmt);
+    } else {
+        log_err_printf(pvacmsmonitor, "PVACMS Cert Renewal Error: %s\n", sqlite3_errmsg(certs_db.get()));
+    }
+    return certs_to_renew;
+}
+
+/**
+ * @brief Post an update to the next certificate that is needs renewal
+ *
+ * This function will post an update to the next certificate that is needs renewal.
+ * Certificates that need renewal are those that are in the VALID, PENDING_APPROVAL or PENDING state
+ * and the renew_by_date time is now in the past.
+ *
+ * We can change the status of the certificate to PENDING_RENEWAL and post the status to the shared wildcard PV.
+ *
+ * We only do one at a time so we can reschedule the rest for the next loop
+ *
+ * @param cert_status_creator The certificate status creator
+ * @param status_pv the status pv
+ * @param certs_db the database
+ * @param cert_pv_prefix Specifies the prefix for all PVs published by this PVACMS.  Default `CERT`
+ * @param issuer_id The issuer ID of this PVACMS.
+ */
+bool postUpdateToNextCertToNeedRenewal(const CertStatusFactory &cert_status_creator,
+                                  server::SharedWildcardPV &status_pv,
+                                  const sql_ptr &certs_db,
+                                  const std::string &cert_pv_prefix,
+                                  const std::string &issuer_id) {
+    Guard G(status_update_lock);
+    bool updated{false};
+    sqlite3_stmt *stmt;
+    std::string pending_renewal_sql(SQL_CERT_TO_PENDING_RENEWAL);
+    const std::vector<certstatus_t> pending_renewal_status{VALID, PENDING_APPROVAL, PENDING};
+    pending_renewal_sql += getValidStatusesClause(pending_renewal_status);
+    if (sqlite3_prepare_v2(certs_db.get(), pending_renewal_sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+        bindValidStatusClauses(stmt, pending_renewal_status);
+
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            updated = true;
+            int64_t db_serial = sqlite3_column_int64(stmt, 0);
+            const uint64_t serial = *reinterpret_cast<uint64_t *>(&db_serial);
+            try {
+                const std::string pv_name(getCertStatusURI(cert_pv_prefix, issuer_id, serial));
+                updateCertificateStatus(certs_db, serial, PENDING_RENEWAL, -1, {VALID, PENDING_APPROVAL, PENDING});
+                const auto status_date = std::time(nullptr);
+                const auto cert_status = cert_status_creator.createPVACertificateStatus(serial, PENDING_RENEWAL, status_date);
+                postCertificateStatus(status_pv, pv_name, serial, cert_status);
+                log_info_printf(pvacmsmonitor, "%s ==> PENDING_RENEWAL\n", getCertId(issuer_id, serial).c_str());
             } catch (const std::runtime_error &e) {
                 log_err_printf(pvacmsmonitor, "PVACMS Certificate Monitor Error: %s\n", e.what());
             }
@@ -2210,11 +2357,34 @@ bool postUpdateToNextCertToExpire(const CertStatusFactory &cert_status_creator,
  */
 void postUpdateToNextCertToExpire(const CertStatusFactory &cert_status_creator,
                                   const StatusMonitor &status_monitor_params) {
-    postUpdateToNextCertToExpire(cert_status_creator,
+    while (postUpdateToNextCertToExpire(cert_status_creator,
                                  status_monitor_params.status_pv_,
                                  status_monitor_params.certs_db_,
                                  status_monitor_params.config_.cert_pv_prefix,
-                                 status_monitor_params.issuer_id_);
+                                 status_monitor_params.issuer_id_));
+}
+
+/**
+ * @brief Post an update to the next certificate that needs renewal
+ *
+ * This function will post an update to the next certificate that needs renewal.
+ * Certificates that need renewal are those that are in the VALID, PENDING_APPROVAL or PENDING state
+ * and the not after time is now in the past.
+ *
+ * We can change the status of the certificate to PENDING_RENEWAL and post the status to the shared wildcard PV.
+ *
+ * We only do one at a time so we can reschedule the rest for the next loop
+ *
+ * @param cert_status_creator The certificate status creator
+ * @param status_monitor_params The status monitor parameters
+ */
+void postUpdateToNextCertToNeedRenewal(const CertStatusFactory &cert_status_creator,
+                                  const StatusMonitor &status_monitor_params) {
+    while (postUpdateToNextCertToNeedRenewal(cert_status_creator,
+                                 status_monitor_params.status_pv_,
+                                 status_monitor_params.certs_db_,
+                                 status_monitor_params.config_.cert_pv_prefix,
+                                 status_monitor_params.issuer_id_));
 }
 
 /**
@@ -2292,11 +2462,14 @@ timeval statusMonitor(const StatusMonitor &status_monitor_params) {
                                                      status_monitor_params.cert_auth_pkey_,
                                                      status_monitor_params.cert_auth_cert_chain_,
                                                      status_monitor_params.config_.cert_status_validity_mins));
-    // Search for next cert to become valid and update it
+    // Search for the next cert to become valid and update it
     postUpdateToNextCertBecomingValid(cert_status_creator, status_monitor_params);
 
-    // Search for any certs that have expired
+    // Search for all certs that have expired
     postUpdateToNextCertToExpire(cert_status_creator, status_monitor_params);
+
+    // Search for all certs that need renewal
+    postUpdateToNextCertToNeedRenewal(cert_status_creator, status_monitor_params);
 
     // Search for certs that are becoming invalid
     if (!status_monitor_params.active_status_validity_.empty()) {

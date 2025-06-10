@@ -22,7 +22,7 @@ namespace ossl {
 // Custom OIDs
 PVXS_API int NID_SPvaCertStatusURI = NID_undef;
 PVXS_API int NID_SPvaCertConfigURI = NID_undef;
-PVXS_API int NID_SPvaMustRenewByDate = NID_undef;
+PVXS_API int NID_SPvaRenewByDate = NID_undef;
 
 // SSL library initialization lock
 epicsMutex ssl_init_lock;
@@ -36,7 +36,7 @@ epicsMutex ssl_init_lock;
  * SSL_library_init(), OpenSSL_add_all_algorithms(), ERR_load_crypto_strings(),
  * OpenSSL_add_all_ciphers(), and OpenSSL_add_all_digests().
  *
- * It will also create and register the custom certificate status, config URI, and must renew by OIDs.
+ * It will also create and register the custom certificate status, config URI, and renew by OIDs.
  */
 PVXS_API void sslInit() {
     Guard G(ssl_init_lock);
@@ -61,10 +61,10 @@ PVXS_API void sslInit() {
             throw std::runtime_error("Failed to create NID for " SN_SPvaCertConfigURI ": " LN_SPvaCertConfigURI);
         }
 
-        // Create the custom must renew by date OID
-        NID_SPvaMustRenewByDate = OBJ_create(NID_SPvaMustRenewByDateID, SN_SPvaMustRenewByDate, LN_SPvaMustRenewByDate);
-        if (NID_SPvaMustRenewByDate == NID_undef) {
-            throw std::runtime_error("Failed to create NID for " SN_SPvaMustRenewByDate ": " LN_SPvaMustRenewByDate);
+        // Create the custom renew by date OID
+        NID_SPvaRenewByDate = OBJ_create(NID_SPvaRenewByDateID, SN_SPvaRenewByDate, LN_SPvaRenewByDate);
+        if (NID_SPvaRenewByDate == NID_undef) {
+            throw std::runtime_error("Failed to create NID for " SN_SPvaRenewByDate ": " LN_SPvaRenewByDate);
         }
     }
 }
