@@ -245,7 +245,7 @@ void AuthNKrb::gssNameFromString(const std::string &name, gss_name_t &target_nam
  * @param minor_status the minor status code or the last error
  * @return the error description
  */
-std::string AuthNKrb::gssErrorDescription(const OM_uint32 major_status, const OM_uint32 minor_status) {
+std::string AuthNKrb::gssErrorDescription(const OM_uint32 major_status, const OM_uint32 minor_status, bool only_first) {
     OM_uint32 msg_ctx;
     OM_uint32 minor;
     gss_buffer_desc status_string;
@@ -260,6 +260,7 @@ std::string AuthNKrb::gssErrorDescription(const OM_uint32 major_status, const OM
         snprintf(context, GSS_STATUS_BUFFER_LEN, "%.*s\n", static_cast<int>(status_string.length), static_cast<char *>(status_string.value));
         error_description << context;
         gss_release_buffer(&minor, &status_string);
+        if (only_first) return error_description.str();
     } while (msg_ctx);
 
     msg_ctx = 0;
@@ -467,7 +468,7 @@ PrincipalInfo AuthNKrb::getPrincipalInfo() {
     log_debug_printf(auth, "gss_inquire_cred%s", "\n");
     major_status = gss_inquire_cred(&minor_status, cred_handle, &name, &lifetime, nullptr, nullptr);
     if (major_status != GSS_S_COMPLETE) {
-        const auto error_description = gssErrorDescription(major_status, minor_status);
+        const auto error_description = gssErrorDescription(major_status, minor_status, true);
         gss_release_cred(&minor_status, &cred_handle);
         throw std::runtime_error(SB() << "getPrincipalInfo: Failed to inquire credentials: " << error_description);
     }

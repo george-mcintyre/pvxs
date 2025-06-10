@@ -180,7 +180,7 @@ class AuthNKrb final : public Auth {
     std::string krb_keytab_file{};
     std::string krb_realm{PVXS_KRB_DEFAULT_VALIDATOR_REALM };
 
-    static std::string gssErrorDescription(OM_uint32 major_status, OM_uint32 minor_status);
+    static std::string gssErrorDescription(OM_uint32 major_status, OM_uint32 minor_status, bool only_first = false);
 
     static void gssNameFromString(const std::string &name, gss_name_t &target_name);
     static PrincipalInfo getPrincipalInfo();

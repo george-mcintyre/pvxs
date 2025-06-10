@@ -265,13 +265,15 @@ class Auth {
         mutable ossl_ptr<X509> cert_{};
         const std::function<CertData()> fn_{};
         int adaptive_timeout_mins_{0};
+        Value config_pv_value{getConfigurationPrototype()};
 #define PVXS_CONFIG_MONITOR_TIMEOUT_MAX 1440
+#define CERT_RENEWAL_LEAD_TIME 30
 
         ConfigMonitorParams(const ConfigAuthN &config, ossl_ptr<X509> &cert, const std::function<CertData()> &&fn)
             : config_(config), cert_(std::move(cert)), fn_(std::move(fn)) {}
     };
 
-    static timeval configurationMonitor(ConfigMonitorParams &config_monitor_params, server::SharedPV &pv);
+    static timeval configurationMonitor(std::shared_ptr<ConfigMonitorParams> config_monitor_params, server::SharedPV &pv);
     static std::string formatTimeDuration(time_t total_seconds);
 
     /**
@@ -291,7 +293,7 @@ class Auth {
                                  Member(TypeCode::UInt64, "serial"),
                                  Member(TypeCode::String, "issuer_id"),
                                  Member(TypeCode::String, "keychain"),
-                                 Member(TypeCode::String, "expires_in"),
+                                 Member(TypeCode::String, "renewal_date"),
                              })
                          .create();
         return value;
