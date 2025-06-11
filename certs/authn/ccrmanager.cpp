@@ -59,7 +59,7 @@ std::string CCRManager::createCertificate(const std::shared_ptr<CertCreationRequ
         log_debug_printf(auth_log, "Renew By: %s\n", renew_by.s.c_str() );
     }
     const CertDate expiration_date(value["expiration"].as<time_t>());
-    log_debug_printf(auth_log, "Expiration: %s\n", expiration_date.s.c_str() );
+    log_debug_printf(auth_log, "Expires On: %s\n", expiration_date.s.c_str() );
     return value["cert"].as<std::string>();
 }
 }  // namespace certs

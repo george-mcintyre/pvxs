@@ -509,12 +509,11 @@ in the current working directory.
 .. code-block:: console
 
     2025-06-08T18:00:49.487647000 INFO pvxs.certs.cms X.509 certificate authority certificate
-    2025-06-08T18:00:49.487665000 INFO pvxs.certs.cms CERT_ID: fedcba98:13822586378443716801
-    2025-06-08T18:00:49.487693000 INFO pvxs.certs.cms NAME: admin
-    2025-06-08T18:00:49.487708000 INFO pvxs.certs.cms ORGANIZATION:
-    2025-06-08T18:00:49.487731000 INFO pvxs.certs.cms ORGANIZATIONAL UNIT:
-    2025-06-08T18:00:49.487746000 INFO pvxs.certs.cms STATUS: VALID
-    2025-06-08T18:00:49.487758000 INFO pvxs.certs.cms VALIDITY: Sun Jun  8 18:00:49 2025 to Fri Jun  8 18:00:49 2029
+    2025-06-08T18:00:49.487665000 INFO pvxs.certs.cms    CERT ID: fedcba98:13822586378443716801
+    2025-06-08T18:00:49.487693000 INFO pvxs.certs.cms SUBJECT  C: admin
+    2025-06-08T18:00:49.487746000 INFO pvxs.certs.cms     STATUS: VALID
+    2025-06-08T18:00:49.487758000 INFO pvxs.certs.cms VALID FROM: Sun Jun  8 18:00:49 2025
+    2025-06-08T18:00:49.487758000 INFO pvxs.certs.cms EXPIRES ON: Fri Jun  8 18:00:49 2029
 
     admin.p12
 

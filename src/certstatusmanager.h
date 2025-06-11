@@ -150,6 +150,7 @@ class CertStatusManager {
      */
     static std::string getConfigPvFromCert(const ossl_ptr<X509> &cert);
 
+
     /**
      * @brief Get the status PV from a Cert.
      * This function gets the PVA extension that stores the status PV in the certificate
@@ -159,6 +160,9 @@ class CertStatusManager {
      * @return a blank string if no extension exists, otherwise contains the status PV
      *         e.g. CERT:STATUS:0293823f:098294739483904875
      */
+    static std::string getIssuerIdFromCert(const X509* cert_ptr);
+    static std::string getSerialFromCert(const X509* cert_ptr);
+    static std::string getCertIdFromCert(const X509 *cert);
     static std::string getStatusPvFromCert(const X509 *cert);
     static std::string getConfigPvFromCert(const X509 *cert);
 
@@ -213,7 +217,6 @@ class CertStatusManager {
     static X509_EXTENSION *getStatusExtension(const X509 *certificate);
     static X509_EXTENSION *getConfigExtension(const X509 *certificate);
     static X509_EXTENSION *getRenewByDateExtension(const X509 *certificate);
-
     static ossl_ptr<OCSP_RESPONSE> getOCSPResponse(const shared_array<const uint8_t> &ocsp_bytes);
     static ossl_ptr<OCSP_RESPONSE> getOCSPResponse(const uint8_t *ocsp_bytes, const size_t ocsp_bytes_len);
     static bool verifyOCSPResponse(const ossl_ptr<OCSP_BASICRESP> &basic_response, X509_STORE *trusted_store_ptr);

@@ -149,10 +149,11 @@ If you want a prepackaged environment, try the following.  You will need two ter
 
     Certificate Details:
     ============================================
-    Subject        : CN=admin, C=US
-    Issuer         : CN=EPICS Root, C=US, O=certs.epics.org, OU=EPICS Certificate Authority
-    Valid from     : Sat Mar 08 09:45:46 2025 UTC
-    Cert Expires   : Mon Mar 09 09:45:46 2026 UTC
+    Certificate ID : 06e4748c:9522902379233552024
+    Entity Subject : CN=admin, C=US
+    Issuer Subject : CN=EPICS Root, C=US, O=certs.epics.org, OU=EPICS Certificate Authority
+    Valid From     : Sat Mar 08 09:45:46 2025 UTC
+    Expires On     : Mon Mar 09 09:45:46 2026 UTC
     --------------------------------------------
 
     Certificate Status:
@@ -664,10 +665,11 @@ to the Admin User's keychain file
 
     Certificate Details:
     ============================================
-    Subject        : CN=admin, C=US
-    Issuer         : CN=EPICS Root Certificate Authority, C=US, O=certs.epics.org, OU=EPICS Certificate Authority
-    Valid from     : Tue Mar 04 14:53:32 2025 UTC
-    Cert Expires   : Thu Mar 05 14:53:32 2026 UTC
+    Certificate ID : 2535f0b8:7810503273530005364
+    Entity Subject : CN=admin, C=US
+    Issuer Subject : CN=EPICS Root Certificate Authority, C=US, O=certs.epics.org, OU=EPICS Certificate Authority
+    Valid From     : Tue Mar 04 14:53:32 2025 UTC
+    Expires On     : Thu Mar 05 14:53:32 2026 UTC
     --------------------------------------------
 
     Certificate Status:

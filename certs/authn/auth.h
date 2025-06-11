@@ -453,12 +453,12 @@ CertData getCertificate(bool &retrieved_credentials,
             // Get the start and end dates of the certificate
             const std::string from = std::ctime(&credentials->not_before);
             const auto expiration_t = CertStatusManager::getExpirationDateFromCert(cert_data.cert);
-            const std::string expiration = std::ctime(&expiration_t);
+            const std::string expiration_s = std::ctime(&expiration_t);
             time_t renew_by_t{0};
-            std::string renew_by;
+            std::string renew_by_s;
             try {
                 renew_by_t = CertStatusManager::getRenewByFromCert(cert_data.cert);
-                if (renew_by_t > 0) renew_by = std::ctime(&renew_by_t);
+                if (renew_by_t > 0) renew_by_s = std::ctime(&renew_by_t);
             } catch (CertStatusNoExtensionException &e) {
                 // No renew-by date in the certificate - this is normal for older certificates
                 log_debug_printf(auth, "No renew-by date found in certificate: %s", e.what());
@@ -467,16 +467,16 @@ CertData getCertificate(bool &retrieved_credentials,
             }
 
             // Log the certificate info
-            log_info_printf(auth, "CERT_ID: %s\n", getCertId(issuer_id, serial_number).c_str());
-            log_info_printf(auth, "TYPE: %s\n", authenticator.type_.c_str());
-            log_info_printf(auth, "OUTPUT TO: %s\n", tls_keychain_file.c_str());
-            log_info_printf(auth, "NAME: %s\n", credentials->name.c_str());
-            if (!credentials->organization.empty()) log_info_printf(auth, "ORGANIZATION: %s\n", credentials->organization.c_str());
-            if (!credentials->organization_unit.empty()) log_info_printf(auth, "ORGANIZATIONAL UNIT: %s\n", credentials->organization_unit.c_str());
-            if (!credentials->country.empty()) log_info_printf(auth, "COUNTRY:%s\n", credentials->country.c_str());
+            log_info_printf(auth, "   CERT ID: %s\n", getCertId(issuer_id, serial_number).c_str());
+            log_info_printf(auth, "AUTHN TYPE: %s\n", authenticator.type_.c_str());
+            log_info_printf(auth, " OUTPUT TO: %s\n", tls_keychain_file.c_str());
+            log_info_printf(auth, "SUBJECT CN: %s\n", credentials->name.c_str());
+            if (!credentials->organization.empty()) log_info_printf(auth, "SUBJECT  O: %s\n", credentials->organization.c_str());
+            if (!credentials->organization_unit.empty()) log_info_printf(auth, "SUBJECT OU: %s\n", credentials->organization_unit.c_str());
+            if (!credentials->country.empty()) log_info_printf(auth, "SUBJECT  C:%s\n", credentials->country.c_str());
             log_info_printf(auth, "VALID FROM: %s\n", from.substr(0, from.size()-1).c_str());
-            if (renew_by_t) log_info_printf(auth, "MUST RENEW: %s\n", renew_by.substr(0, renew_by.size()-1).c_str());
-            log_info_printf(auth, "EXPIRATION: %s\n", expiration.substr(0, expiration.size()-1).c_str());
+            if (renew_by_t) log_info_printf(auth, "RENEWAL BY: %s\n", renew_by_s.substr(0, renew_by_s.size()-1).c_str());
+            log_info_printf(auth, "EXPIRES ON: %s\n", expiration_s.substr(0, expiration_s.size()-1).c_str());
             log_info_printf(auth, "--------------------------------------%s", "\n");
         }
     }

@@ -720,9 +720,9 @@ ossl_ptr<X509> createCertificate(sql_ptr &certs_db, CertFactory &cert_factory) {
     // Print info about certificate creation
     std::string from = std::ctime(&cert_factory.not_before_);
     std::string to = std::ctime(&cert_factory.not_after_);
-    std::string renew_by;
+    std::string renew_by_s;
 
-    if (cert_factory.renew_by_ > 0) renew_by = std::ctime(&cert_factory.renew_by_);
+    if (cert_factory.renew_by_ > 0) renew_by_s = std::ctime(&cert_factory.renew_by_);
 
     auto const issuer_id = CertStatus::getSkId(cert_factory.issuer_certificate_ptr_);
     auto cert_id = getCertId(issuer_id, cert_factory.serial_);
@@ -738,16 +738,17 @@ ossl_ptr<X509> createCertificate(sql_ptr &certs_db, CertFactory &cert_factory) {
                                                                                                     : "CERTIFICATE"))
                                 .str();
     log_debug_printf(pvacms, "%s\n", cert_description.c_str());
-    log_debug_printf(pvacms, "ID: %s\n", cert_id.c_str());
-    log_debug_printf(pvacms, "ISSUER ID: %s\n", issuer_id.c_str());
-    log_debug_printf(pvacms, "SERIAL: %s\n", (SB() << std::setw(20) << std::setfill('0') << cert_factory.serial_).str().c_str());
-    log_debug_printf(pvacms, "NAME: %s\n", cert_factory.name_.c_str());
-    log_debug_printf(pvacms, "ORGANIZATION: %s\n", cert_factory.org_.c_str());
-    log_debug_printf(pvacms, "ORGANIZATIONAL UNIT: %s\n", cert_factory.org_unit_.c_str());
-    log_debug_printf(pvacms, "COUNTRY: %s\n", cert_factory.country_.c_str());
-    log_debug_printf(pvacms, "STATUS: %s\n", CERT_STATE(effective_status));
-    if (!renew_by.empty()) log_debug_printf(pvacms, "MUST RENEW: %s\n", renew_by.substr(0, renew_by.size() - 1).c_str());
-    log_debug_printf(pvacms, "EXPIRATION: %s to %s\n", from.substr(0, from.size() - 1).c_str(), to.substr(0, to.size() - 1).c_str());
+    log_debug_printf(pvacms, "   CERT ID: %s\n", cert_id.c_str());
+    log_debug_printf(pvacms, " ISSUER ID: %s\n", issuer_id.c_str());
+    log_debug_printf(pvacms, "SERIAL NUM: %s\n", (SB() << std::setw(20) << std::setfill('0') << cert_factory.serial_).str().c_str());
+    log_debug_printf(pvacms, "SUBJECT CN: %s\n", cert_factory.name_.c_str());
+    if (!cert_factory.org_.empty()) log_debug_printf(pvacms, "SUBJECT  O: %s\n", cert_factory.org_.c_str());
+    if (!cert_factory.org_unit_.empty()) log_debug_printf(pvacms, "SUBJECT OU: %s\n", cert_factory.org_unit_.c_str());
+    if (!cert_factory.country_.empty()) log_debug_printf(pvacms, "SUBJECT  C: %s\n", cert_factory.country_.c_str());
+    log_debug_printf(pvacms, "    STATUS: %s\n", CERT_STATE(effective_status));
+    log_debug_printf(pvacms, "VALID FROM: %s\n", from.substr(0, from.size() - 1).c_str());
+    if (!renew_by_s.empty()) log_debug_printf(pvacms, "RENEWAL BY: %s\n", renew_by_s.substr(0, renew_by_s.size() - 1).c_str());
+    log_debug_printf(pvacms, "EXPIRES ON: %s\n", to.substr(0, to.size() - 1).c_str());
     log_debug_printf(pvacms, "--------------------------------------%s", "\n");
 
     return certificate;
@@ -1092,17 +1093,17 @@ void onCreateCertificate(ConfigCms &config,
         const std::string from = std::ctime(&now);
         const std::string expiration_s = std::ctime(&expiration);
         log_info_printf(pvacms, "%s *=> %s\n", cert_id.c_str(), CERT_STATE(state));
-        log_info_printf(pvacms, "TYPE: %s\n", type.c_str());
-        log_info_printf(pvacms, "NAME: %s\n", name.c_str());
-        if (org_val) log_info_printf(pvacms, "ORGANIZATION: %s\n", org.c_str());
-        if (org_unit_val) log_info_printf(pvacms, "ORGANIZATIONAL UNIT: %s\n", org_unit.c_str());
-        if (!country.empty()) log_info_printf(pvacms, "COUNTRY: %s\n", country.c_str());
+        log_info_printf(pvacms, "AUTHN TYPE: %s\n", type.c_str());
+        log_info_printf(pvacms, "SUBJECT CN: %s\n", name.c_str());
+        if (org_val) log_info_printf(pvacms, "SUBJECT  O: %s\n", org.c_str());
+        if (org_unit_val) log_info_printf(pvacms, "SUBJECT OU: %s\n", org_unit.c_str());
+        if (!country.empty()) log_info_printf(pvacms, "SUBJECT  C: %s\n", country.c_str());
         log_info_printf(pvacms, "VALID FROM: %s\n", from.substr(0, from.size()-1).c_str());
         if (has_renew_by) {
             const std::string renew_by_s = std::ctime(&renew_by);
-            log_info_printf(pvacms, "MUST RENEW: %s\n", renew_by_s.substr(0, renew_by_s.size()-1).c_str());
+            log_info_printf(pvacms, "RENEWAL BY: %s\n", renew_by_s.substr(0, renew_by_s.size()-1).c_str());
         }
-        log_info_printf(pvacms, "EXPIRATION: %s\n", expiration_s.substr(0, expiration_s.size()-1).c_str());
+        log_info_printf(pvacms, "EXPIRES ON: %s\n", expiration_s.substr(0, expiration_s.size()-1).c_str());
         op->reply(reply);
     } catch (std::exception &e) {
         // For any type of error return an error to the caller
@@ -2291,10 +2292,10 @@ DbCert getOriginalLinkedCert(CertFactory &cert_factory, const sql_ptr &certs_db,
                 renew_by = sqlite3_column_int64(stmt, 2);
                 status = static_cast<certstatus_t>(sqlite3_column_int(stmt, 3));
 
-                log_info_printf(pvacmsmonitor, "%s %s %s\n",
-                    getCertId(issuer_id, cert_factory.serial_).c_str(),
-                    (!re_renew)? "..↻": "-=↻",
-                    getCertId(issuer_id, serial).c_str());
+                log_info_printf(pvacms, "%s %s %s\n",
+                    getCertId(issuer_id, serial).c_str(),
+                    (!re_renew)? "..↻": ".↻↻",
+                    getCertId(issuer_id, cert_factory.serial_).c_str());
             }
             sqlite3_finalize(stmt);
         }

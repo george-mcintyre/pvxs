@@ -218,6 +218,24 @@ inline std::string getConfigURI(const std::string &cert_pv_prefix, const std::st
 }
 
 /**
+ * @brief Generates a serial number string as used in a certificate ID.
+ *
+ * Left pad with zeros in 20 characters
+ *
+ * @param serial The serial number of the certificate.
+ * @return The the serial number string.
+ *
+ * @see SB
+ */
+inline std::string getSerialString(const uint64_t &serial) {
+    std::ostringstream oss;
+    oss << std::setw(20)
+        << std::setfill('0')
+        << serial;
+    return oss.str();
+}
+
+/**
  * @brief Generates a unique certificate ID based on the issuer ID and serial number.
  *
  * This function takes the issuer ID and serial number as input and combines them
@@ -231,14 +249,10 @@ inline std::string getConfigURI(const std::string &cert_pv_prefix, const std::st
  * @see SB
  */
 inline std::string getCertId(const std::string &issuer_id, const uint64_t &serial) {
-    // constexpr int serial_bits = 64;
-    // constexpr int serial_len = static_cast<int>(std::log10(std::pow(2, serial_bits))) + 1;
     std::ostringstream oss;
     oss << issuer_id
         << ":"
-        << std::setw(20)
-        << std::setfill('0')
-        << serial;
+        << getSerialString(serial);
     return oss.str();
 }
 

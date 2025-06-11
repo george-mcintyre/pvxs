@@ -329,7 +329,7 @@ X509_EXTENSION *CertStatusManager::getConfigExtension(const X509 *certificate) {
  * This method retrieves the extension from the given certificate using the NID_PvaCertConfigURI.
  * If the extension is not found, it throws a CertConfigNoExtensionException.
  * @param certificate the certificate to retrieve the extension from
- * @return the X509_EXTENSION object if found, otherwise throws an exception
+ * @return the X509_EXTENSION object, if found, otherwise throws an exception
  */
 X509_EXTENSION *CertStatusManager::getRenewByDateExtension(const X509 *certificate) {
     const int extension_index = X509_get_ext_by_NID(certificate, ossl::NID_SPvaRenewByDate, -1);
@@ -340,6 +340,53 @@ X509_EXTENSION *CertStatusManager::getRenewByDateExtension(const X509 *certifica
     if (!extension) throw CertStatusNoExtensionException("Failed to get Renew By Date extension from the certificate.");
     return extension;
 }
+
+std::string CertStatusManager::getIssuerIdFromCert(const X509* cert_ptr) {
+    const ossl_ptr<AUTHORITY_KEYID> akid(static_cast<AUTHORITY_KEYID*>(X509_get_ext_d2i(cert_ptr, NID_authority_key_identifier, nullptr, nullptr)),
+                                       false);
+    if (!akid || !akid->keyid) throw CertStatusNoExtensionException("Failed to get Authority Key Identifier.");
+
+    // Convert the first 8 chars to hex
+    std::stringstream ss;
+    for (int i = 0; i < akid->keyid->length && ss.tellp() < 8; i++) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(akid->keyid->data[i]);
+    }
+
+    return ss.str();
+}
+
+std::string CertStatusManager::getSerialFromCert(const X509* cert_ptr) {
+    const ASN1_INTEGER* serial = X509_get0_serialNumber(cert_ptr);
+    if (!serial) {
+        throw CertStatusNoExtensionException("Failed to get Serial Number from certificate.");
+    }
+
+    // Convert ASN1_INTEGER to BIGNUM
+    const ossl_ptr<BIGNUM> bn(ASN1_INTEGER_to_BN(serial, nullptr), false);
+    if (!bn) {
+        throw CertStatusNoExtensionException("Failed to convert Serial Number to BIGNUM.");
+    }
+
+    // Convert BIGNUM to decimal string
+    char* decimal_str = BN_bn2dec(bn.get());
+    if (!decimal_str) {
+        throw CertStatusNoExtensionException("Failed to convert Serial Number to string.");
+    }
+
+    // Create a C++ string and free the C string
+    std::string result(decimal_str);
+    OPENSSL_free(decimal_str);
+
+    return result;
+}
+
+std::string CertStatusManager::getCertIdFromCert(const X509 *cert) {
+    const std::string issuer_id = getIssuerIdFromCert(cert);
+    const std::string serial = getSerialFromCert(cert);
+
+    return SB() << issuer_id << ":" << std::setw(20) << std::setfill('0') << serial;
+}
+
 
 /**
  * @brief Get the string value of a custom extension by NID from a certificate.

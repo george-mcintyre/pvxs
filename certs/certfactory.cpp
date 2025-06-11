@@ -204,22 +204,22 @@ void CertFactory::setSubject(const ossl_ptr<X509> &certificate) const {
         if (X509_NAME_add_entry_by_txt(subject_name, "CN", MBSTRING_ASC, reinterpret_cast<const unsigned char *>(name_.c_str()), -1, -1, 0) != 1) {
             throw std::runtime_error(SB() << "Failed to set common name in certificate subject: " << name_);
         }
-        log_debug_printf(certs, "Common Name: %s\n", name_.c_str());
+        log_debug_printf(certs, "SUBJECT CN: %s\n", name_.c_str());
         if (!country_.empty() &&
             X509_NAME_add_entry_by_txt(subject_name, "C", MBSTRING_ASC, reinterpret_cast<const unsigned char *>(country_.c_str()), -1, -1, 0) != 1) {
             throw std::runtime_error(SB() << "Failed to set country in certificate subject: " << name_);
         }
-        log_debug_printf(certs, "Country: %s\n", country_.c_str());
+        log_debug_printf(certs, "SUBJECT  C: %s\n", country_.c_str());
         if (!org_.empty() &&
             X509_NAME_add_entry_by_txt(subject_name, "O", MBSTRING_ASC, reinterpret_cast<const unsigned char *>(org_.c_str()), -1, -1, 0) != 1) {
             throw std::runtime_error(SB() << "Failed to set org in certificate subject: " << name_);
         }
-        log_debug_printf(certs, "Organization: %s\n", org_.c_str());
+        log_debug_printf(certs, "SUBJECT  O: %s\n", org_.c_str());
         if (!org_unit_.empty() &&
             X509_NAME_add_entry_by_txt(subject_name, "OU", MBSTRING_ASC, reinterpret_cast<const unsigned char *>(org_unit_.c_str()), -1, -1, 0) != 1) {
             throw std::runtime_error(SB() << "Failed to set country in certificate subject: " << name_);
         }
-        log_debug_printf(certs, "Organizational Unit: %s\n", org_unit_.c_str());
+        log_debug_printf(certs, "SUBJECT OU: %s\n", org_unit_.c_str());
     }
 }
 
