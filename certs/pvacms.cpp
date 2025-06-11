@@ -2521,7 +2521,7 @@ int readParameters(int argc,
         create_ioc_cert_in_valid_state{false}, create_all_certs_in_valid_state{false};
     bool disallow_custom_durations_client{false}, disallow_custom_durations_server{false},
         disallow_custom_durations_ioc{false}, disallow_custom_durations{false};
-    std::string cert_status_subscription;
+    std::string cert_status_subscription, cert_validity;
 
     CLI::App app{"PVACMS - Certificate Management Service"};
 
@@ -2589,6 +2589,22 @@ int readParameters(int argc,
     app.add_flag("--certs-dont-require-approval",
                  create_all_certs_in_valid_state,
                  "Generate All Certificates in VALID state");
+
+    app.add_option("--cert_validity-client",
+                   config.default_client_cert_validity,
+                   "Specify PVACMS default duration for client certificates");
+
+    app.add_option("--cert_validity-server",
+                   config.default_client_cert_validity,
+                   "Specify PVACMS default duration for server certificates");
+
+    app.add_option("--cert_validity-ioc",
+                   config.default_client_cert_validity,
+                   "Specify PVACMS default duration for IOC certificates");
+
+    app.add_option("--cert_validity",
+                   cert_validity,
+                   "Specify PVACMS default duration for all certificates");
 
     app.add_flag("--disallow-custom-durations-client",
                  disallow_custom_durations_client,
@@ -2679,6 +2695,10 @@ int readParameters(int argc,
             << "        --ioc-dont-require-approval          Generate IOC Certificates in VALID state\n"
             << "        --server-dont-require-approval       Generate Server Certificates in VALID state\n"
             << "        --certs-dont-require-approval        Generate All Certificates in VALID state\n"
+            << "        --cert_validity-client <duration>    Default duration for client certificates\n"
+            << "        --cert_validity-server <duration>    Default duration for server certificates\n"
+            << "        --cert_validity-ioc <duration>       Default duration for IOC certificates\n"
+            << "        --cert_validity <duration>           Default duration for all certificates\n"
             << "        --disallow-custom-durations-client   Disallow custom durations for client certificates\n"
             << "        --disallow-custom-durations-server   Disallow custom durations for server certificates\n"
             << "        --disallow-custom-durations-ioc      Disallow custom durations for IOC certificates\n"
@@ -2759,6 +2779,11 @@ int readParameters(int argc,
         config.cert_server_require_approval = false;
     if (create_ioc_cert_in_valid_state)
         config.cert_ioc_require_approval = false;
+
+    if (!cert_validity.empty()) {
+        config.default_client_cert_validity = config.default_server_cert_validity = config.default_ioc_cert_validity =
+            cert_validity;
+    }
 
     if (disallow_custom_durations)
         config.cert_disallow_client_custom_duration = config.cert_disallow_server_custom_duration =

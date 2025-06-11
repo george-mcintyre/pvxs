@@ -288,29 +288,30 @@ std::string AuthNKrb::gssErrorDescription(const OM_uint32 major_status, const OM
  * the configured keytab (`krb5_keytab_file`) that allows passwordless Kerberos
  * authentication.
  *
- * It then "accepts" the client's token to establish a security context.  If successful
+ * It then "accepts" the client's token to establish a security context.  If successful,
  * this means that the client's token is valid with the KDC and the client is therefore
  * authentic.
  *
  * It then compares the peer principal name from the context with the
- * peer principal name provided in the CCR.  If these do not match then an
+ * peer principal name provided in the CCR.  If these do not match, then an
  * exception is thrown.
  *
- * It then verifies the MIC over the public key in the CCR.  If this fails
+ * It then verifies the MIC over the public key in the CCR.  If this fails,
  * then an exception is thrown.  It would mean that the public key has been
  * tampered with or the kerberos ticket has been compromised.
  *
- * Finally the function checks that the CCR fields are valid.  This involves
+ * Finally, the function checks that the CCR fields are valid.  This involves
  * verification that the not_before and not_after times are within the valid
  * lifetime of the kerberos ticket, and that the organisation unit and country
  * are empty strings.
  *
- * If all of the above checks pass then the function returns true indicating
+ * If all of the above checks pass, then the function returns true indicating
  * that the CCR is valid, and that certificate creation can proceed with the
  * information contained in the CCR.
  *
  * @param ccr The certificate creation request (CCR) to verify
- * @param authenticated_expiration_date
+ * @param authenticated_expiration_date The amount of time the authenticator says we can
+ *                                      have.  Leave empty for defaults
  * @return True if the CCR is valid.
  * @throw std::runtime_error if the CCR is not valid
  */
