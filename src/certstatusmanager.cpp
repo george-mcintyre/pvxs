@@ -283,7 +283,7 @@ std::string CertStatusManager::getStatusPvFromCert(const ossl_ptr<X509> &cert) {
 std::string CertStatusManager::getConfigPvFromCert(const ossl_ptr<X509> &cert) { return getConfigPvFromCert(cert.get()); }
 
 time_t CertStatusManager::getExpirationDateFromCert(const ossl_ptr<X509> &cert) { return getExpirationDateFromCert(cert.get()); }
-time_t CertStatusManager::getRenewByDateFromCert(const ossl_ptr<X509> &cert) { return getRenewByDateFromCert(cert.get()); }
+time_t CertStatusManager::getRenewByFromCert(const ossl_ptr<X509> &cert) { return getRenewByFromCert(cert.get()); }
 
 
 /**
@@ -399,7 +399,7 @@ std::string CertStatusManager::getConfigPvFromCert(const X509 *cert) {
     return std::string(reinterpret_cast<const char *>(data), length);
 }
 
-time_t CertStatusManager::getRenewByDateFromCert(const X509 *cert) {
+time_t CertStatusManager::getRenewByFromCert(const X509 *cert) {
     X509_EXTENSION *extension = getRenewByDateExtension(cert);
 
     // Extract the ASN1_OCTET_STRING data from the extension

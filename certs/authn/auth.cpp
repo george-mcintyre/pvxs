@@ -148,7 +148,7 @@ void Auth::runAuthNDaemon(const ConfigAuthN &authn_config, bool for_client, Cert
         const CertDate expiry_date = X509_get_notAfter(config_monitor_params->cert_.get());
         CertDate renew_by = expiry_date;
         try {
-            renew_by = CertStatusManager::getRenewByDateFromCert(config_monitor_params->cert_);
+            renew_by = CertStatusManager::getRenewByFromCert(config_monitor_params->cert_);
         } catch (...) {}
         const std::string renew_by_s = std::ctime(&renew_by.t);
 
@@ -188,7 +188,7 @@ timeval Auth::configurationMonitor(std::shared_ptr<ConfigMonitorParams> config_m
     const CertDate expiry_date = X509_get_notAfter(config_monitor_params->cert_.get());
     CertDate renew_by = expiry_date;
     try {
-        renew_by = CertStatusManager::getRenewByDateFromCert(config_monitor_params->cert_);
+        renew_by = CertStatusManager::getRenewByFromCert(config_monitor_params->cert_);
     } catch (...) {}
     time_t expires_in = renew_by.t - now - CERT_RENEWAL_LEAD_TIME;
 
@@ -217,7 +217,7 @@ timeval Auth::configurationMonitor(std::shared_ptr<ConfigMonitorParams> config_m
     const CertDate new_expiry_date = X509_get_notAfter(config_monitor_params->cert_.get());
     CertDate new_renew_by = new_expiry_date;
     try {
-        new_renew_by = CertStatusManager::getRenewByDateFromCert(config_monitor_params->cert_);
+        new_renew_by = CertStatusManager::getRenewByFromCert(config_monitor_params->cert_);
     } catch (...) {}
     expires_in = new_renew_by.t - now - CERT_RENEWAL_LEAD_TIME;
     const std::string new_renew_by_s = std::ctime(&new_renew_by.t);

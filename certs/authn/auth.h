@@ -457,7 +457,7 @@ CertData getCertificate(bool &retrieved_credentials,
             time_t renew_by_t{0};
             std::string renew_by;
             try {
-                renew_by_t = CertStatusManager::getRenewByDateFromCert(cert_data.cert);
+                renew_by_t = CertStatusManager::getRenewByFromCert(cert_data.cert);
                 if (renew_by_t > 0) renew_by = std::ctime(&renew_by_t);
             } catch (CertStatusNoExtensionException &e) {
                 // No renew-by date in the certificate - this is normal for older certificates

@@ -163,10 +163,10 @@ class CertStatusManager {
     static std::string getConfigPvFromCert(const X509 *cert);
 
     static time_t getExpirationDateFromCert(const ossl_ptr<X509> &cert);
-    static time_t getRenewByDateFromCert(const ossl_ptr<X509> &cert);
+    static time_t getRenewByFromCert(const ossl_ptr<X509> &cert);
 
     static time_t getExpirationDateFromCert(const X509 *cert);
-    static time_t getRenewByDateFromCert(const X509 *cert);
+    static time_t getRenewByFromCert(const X509 *cert);
 
     /**
      * @brief Used to create a helper that you can use to subscribe to certificate status with
