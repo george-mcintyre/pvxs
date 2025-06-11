@@ -598,120 +598,135 @@ that contains a working LDAP with the following characteristics:
 Long Running Certificates
 --------------------------
 
-In Experimental Physics and Industrial Control Systems it is very important to
-maintain connections without interruption.  Even a short microsecond break can
-be catastrophic as it can signal unavailability of a device and lead to
-fail-safely logic that will interfere with the correct running of experiments.
+In Experimental Physics and Industrial Control Systems, maintaining uninterrupted connections is critical. Even a microsecond break can trigger fail-safety mechanisms that might disrupt experiments.
 
-With openssl 1.3 support for renegotiating connections was deprecated due to security
-concerns.  This means that once a TLS connection has been established with an IOC
-over Secure PVaccess we can't change out the certificate without breaking and
-re-establishing the connection.
+With TLS 1.3 (implemented in OpenSSL), renegotiation has been completely removed from the protocol due to serious security vulnerabilities. Previous versions of TLS allowed session
+renegotiation, which permitted changing security parameters (including certificates) without closing the connection. However, this feature was exploited in
+several attacks, including the "Triple Handshake Attack" and "Secure Renegotiation" vulnerabilities.
 
-We have a implemented a solution for this problem which involves creating very long running
-certificates (decades), allowing them to be REVOKED at will by administrators, implementing
-a kind of "soft-expiration" that is tied to the authenticator configuration, and finally
-the ability to renew these certificates, live, without reloading the connection.d
+This means that once a TLS connection has been established with an IOC over Secure PVAccess, we cannot change the certificate without breaking and re-establishing the connection. Our solution to this problem involves:
+
+- Creating very long running certificates (decades)
+- Allowing them to be `REVOKED` by administrators when necessary
+- Implementing a kind of "soft-expiration" tied to authenticator configuration
+- Providing the ability to renew certificates without breaking existing connections
 
 Specifying long running certificates
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-
 Common to all Authenticators - commandline parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Uses the -t,--time flag to specify a duration for the certificate.  Ty specify a string
-using any combination of the the following formatting components you want
+Use the `-t,--time` flag to specify a duration for the certificate using these components:
 
-- `y` - Year.  e.g. 2y or 2 y for two years
-- `M` - Month. e.g. 4M or 6M for months
-- `w` - Week. e.g. 1w for weeks
-- `d` - Day. e.g. 1d for days
-- `h` - Hour. e.g. 12h or 48h for hours
-- `m` - Minute. e.g. 30m for 30 minutes.  30 also gives 30 mintues without the `m`
-- `s` - Second. e.g. 2s for seconds.  Seconds are truncated away
+- `y` - Years (e.g., `2y` for two years)
+- `M` - Months (e.g., `6M` for six months)
+- `w` - Weeks (e.g., `1w` for one week)
+- `d` - Days (e.g., `15d` for 15 days)
+- `h` - Hours (e.g., `12h` for 12 hours)
+- `m` - Minutes (e.g., `30m` for 30 minutes, or simply `30`)
+- `s` - Seconds (e.g., `45s` for 45 seconds)
 
-e.g. `1y and 6M`
+Examples:
 
-This will specify a duration of 1 year and 6 months (punctuation is ignored).
+- `1y and 6M` - one year and six months
+- `2y3M15d` - two years, three months, and 15 days
 
-Calculation of duration.  A natural understanding of time is used.  So if you say 6 months
-that will put you on the other side of daylight savings time, so the actual hour of the day would
-be normally change by one hour, but the calculation we have implemented makes sure its at the same time
-of the day 6 months from now, whenever you do it.  If you look at the UTC time then you'll see a
-difference in the hour.
-
-This also works for leap years etc.  If you say 1 year it will always be exactly the same day of the month in a year
-irrespective of whether there is a leap year or not.
-
-Using the environment variables to set the amount of time required for all Authenticators.
+The system uses natural time understanding, accounting for daylight savings, leap years, etc. For example, if you specify 1
+year, the certificate will expire on the same calendar day next year, regardless of leap years.
 
 Common to all Authenticators - environment variables
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-`EPICS_AUTH_CERT_VALIDITY_MINS` - this can be used to set a duration for any Authenticator you
-run subsequently.  It is set in the same way as the commandline parameter with the same format.
-
+`EPICS_AUTH_CERT_VALIDITY_MINS` - sets a global duration for any Authenticator using the same format as the commandline parameter.
 
 PVACMS Defaults - Parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-PVACMS defaults to 6 months for the length of a certificate if it is not overriden
-in the user's request or by other server environment variables.
+PVACMS defaults to 6 months for certificate duration unless overridden by:
 
- - `EPICS_PVACMS_CERT_VALIDITY` - <duration specification> - this allows setting of default amount of time for Any Certificates
- - `EPICS_PVACMS_CERT_VALIDITY_CLIENT` - <duration specification> - this allows setting of default amount of time for Client Certificates
- - `EPICS_PVACMS_CERT_VALIDITY_CLIENT` - <duration specification> - this allows setting of default amount of time for Server Certificates
- - `EPICS_PVACMS_CERT_VALIDITY_CLIENT` - <duration specification> - this allows setting of default amount of time for IOC Certificates
- - `EPICS_PVACMS_DISALLOW_CUSTOM_DURATION` - YES/NO - this variable can be used to prevent clients from specifying durations for Any Certificates.
- - `EPICS_PVACMS_DISALLOW_CLIENT_CUSTOM_DURATION` - YES/NO - this variable can be used to prevent clients from specifying durations for Client Certificates.
- - `EPICS_PVACMS_DISALLOW_SERVER_CUSTOM_DURATION` - YES/NO - this variable can be used to prevent clients from specifying durations for Server Certificates.
- - `EPICS_PVACMS_DISALLOW_IOC_CUSTOM_DURATION` - YES/NO - this variable can be used to prevent clients from specifying durations for IOC Certificates.
-
+- `--cert_validity <duration>` - default duration for all certificates
+- `--cert_validity-client <duration>` - default for client certificates
+- `--cert_validity-server <duration>` - default for server certificates
+- `--cert_validity-ioc <duration>` - default for IOC certificates
+- `--disallow-custom-durations` - prevents clients from specifying durations for any certificates
+- `--disallow-custom-durations-client` - restricts custom durations for client certificates
+- `--disallow-custom-durations-server` - restricts custom durations for server certificates
+- `--disallow-custom-durations-ioc` - restricts custom durations for IOC certificates
 
 PVACMS Defaults - Environment Variables
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-PVACMS defaults to 6 months for the length of a certificate if it is not overriden
-in the user's request or by other server environment variables.
+Values can also be set using environment variables:
 
- - `EPICS_PVACMS_CERT_VALIDITY` - <duration specification> - this allows setting of default amount of time for Any Certificates
- - `EPICS_PVACMS_CERT_VALIDITY_CLIENT` - <duration specification> - this allows setting of default amount of time for Client Certificates
- - `EPICS_PVACMS_CERT_VALIDITY_CLIENT` - <duration specification> - this allows setting of default amount of time for Server Certificates
- - `EPICS_PVACMS_CERT_VALIDITY_CLIENT` - <duration specification> - this allows setting of default amount of time for IOC Certificates
- - `EPICS_PVACMS_DISALLOW_CUSTOM_DURATION` - YES/NO - this variable can be used to prevent clients from specifying durations for Any Certificates.
- - `EPICS_PVACMS_DISALLOW_CLIENT_CUSTOM_DURATION` - YES/NO - this variable can be used to prevent clients from specifying durations for Client Certificates.
- - `EPICS_PVACMS_DISALLOW_SERVER_CUSTOM_DURATION` - YES/NO - this variable can be used to prevent clients from specifying durations for Server Certificates.
- - `EPICS_PVACMS_DISALLOW_IOC_CUSTOM_DURATION` - YES/NO - this variable can be used to prevent clients from specifying durations for IOC Certificates.
-
-
+- `EPICS_PVACMS_CERT_VALIDITY` - default duration for all certificates
+- `EPICS_PVACMS_CERT_VALIDITY_CLIENT` - default for client certificates
+- `EPICS_PVACMS_CERT_VALIDITY_SERVER` - default for server certificates
+- `EPICS_PVACMS_CERT_VALIDITY_IOC` - default for IOC certificates
+- `EPICS_PVACMS_DISALLOW_CUSTOM_DURATION` - YES/NO to prevent custom durations for any certificates
+- `EPICS_PVACMS_DISALLOW_CLIENT_CUSTOM_DURATION` - YES/NO for client certificates
+- `EPICS_PVACMS_DISALLOW_SERVER_CUSTOM_DURATION` - YES/NO for server certificates
+- `EPICS_PVACMS_DISALLOW_IOC_CUSTOM_DURATION` - YES/NO for IOC certificates
 
 The Authenticator Controls the Certificate Renewal Date
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The actual amount of time that the certificate will have before it needs to be renewed
-is ultimately determined by the Authenticator and by extension, the network administrators who
-control the Authentication methods (Kerberos, LDAP, etc.)
+The actual time before a certificate needs renewal is determined by the Authenticator (and by extension, the network administrators controlling the authentication methods).
 
-This is known as the **Authenticated Expiration Date** .
+This is known as the **Authenticated Expiration Date**:
 
-- Standard - The Standard Authenticator simply starts from a default of 6
+- **Standard Authenticator**: Default is 6 months with no upper limit (subject to admin approval)
+- **Kerberos**: Limited by service ticket lifetime (typically 1 day)
+- **LDAP**: Limited by server default (typically 1 day)
 
+Mapping requested duration to certificate expiration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Two critical dates govern certificate lifecycle:
 
+- **Requested Duration → Certificate Expiration Date**: When the certificate becomes invalid
+- **Authenticated Expiration → Certificate Renew-By Date**: When the certificate should be renewed
 
+The PVACMS will change a certificate's status from `VALID` to `PENDING_RENEWAL` when it reaches the
+renew-by date. Certificates in this state can't establish new connections, but existing connections
+can continue until the certificate is renewed.
 
-* Validity in Authenticators set using yMwdhms
-    * Seconds truncated
-* Authenticated expiration date is the date an authenticator can give you based on the authentication (and no more).
-* If you want more then request it, and if the server is configured to give it to you it will create a cert with a renew-by date set to the amount of time you would get from the authenticator but the cert expiration date would be set to your requested value.
-* You can’t use the certificate after the renew-by date because the status returned from any status request after the renew-by date will return PENDING_RENEWAL - equivalent to OCSP UNKNOWN.  The certificate is (according to TLS still VALID) but we the CMS says its PENDING_RENEWAL
-* But you can renew it by simply doing the same action again. In this case a new cert is obtained that can either be used to replace the original one, but the original certificate will then start to give VALID status as soon as you’ve requested and been granted a new certificate.
-* The new certificate will also have a renew-by date set and that will now apply to the status for both it and the original certificate.  You can do this as many times as you want and each time it keeps only the last certificate and the original certificate in the database.
-* In the case of Kerberos the authenticated-expiration date is determined by finding the simple minimum of PVACMS lifetime and the lifetime of the requester’s service ticket - aka the lifetime of the kerberos context.
-* A user can specify a long expiration date for certificates (or it can be configured)
-* The authenticated-expiration date is combined with the requested expiration date in the following ways.
-    * First you can’t specify a custom expiration date (this
+How do we enforce Renew By dates
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+All certificates with renew-by dates must have certificate status monitoring enabled. If status
+monitoring is disabled for the PVACMS server, generating certificates with renew-by dates will be forbidden.
+
+Secure PVAccess monitors certificate status and reacts to state changes:
+
+- `VALID`: Certificate is operational
+- `PENDING_RENEWAL`: Certificate needs renewal but isn't revoked
+- `REVOKED` / `EXPIRED`: Certificate is permanently invalidated
+
+When a certificate transitions to `PENDING_RENEWAL`:
+
+- IOCs/servers will only accept TCP connections (no TLS)
+- Clients won't search for TLS protocol services
+- Monitoring consoles will pause until certificate renewal
+
+Renewing certificates
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To renew a certificate, simply perform the same action used to get the original certificate. PVACMS will:
+
+1. Recognize that the certificate is for the same subject
+2. Automatically renew it
+3. Keep both the new certificate and the original one active
+
+This means:
+
+- Existing connections using the long-running certificate continue without interruption
+- New connections will use the newer certificate
+
+You can renew certificates multiple times, and the system will always keep the last certificate obtained as well as the original, renewed one.
+
+Best practice: Renew before the certificate enters `PENDING_RENEWAL` state to maintain uninterrupted service. If renewal occurs after the renew-by date, the certificate will automatically transition back to `VALID` upon successful renewal.
+
 
 Authorization
 -------------
