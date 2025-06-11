@@ -146,16 +146,16 @@ void Auth::runAuthNDaemon(const ConfigAuthN &authn_config, bool for_client, Cert
 
         // Check the amount of time before the certificate expires or the renew_by date
         const CertDate expiry_date = X509_get_notAfter(config_monitor_params->cert_.get());
-        CertDate renew_by_date = expiry_date;
+        CertDate renew_by = expiry_date;
         try {
-            renew_by_date = CertStatusManager::getRenewByDateFromCert(config_monitor_params->cert_);
+            renew_by = CertStatusManager::getRenewByDateFromCert(config_monitor_params->cert_);
         } catch (...) {}
-        const std::string renew_by = std::ctime(&renew_by_date.t);
+        const std::string renew_by_s = std::ctime(&renew_by.t);
 
         setValue<std::string>(config_monitor_params->config_pv_value, "issuer_id", issuer_id);
         setValue<std::string>(config_monitor_params->config_pv_value, "keychain", for_client ? authn_config.tls_keychain_file : authn_config.tls_srv_keychain_file);
         setValue<uint64_t>(config_monitor_params->config_pv_value, "serial", serial);
-        setValue<std::string>(config_monitor_params->config_pv_value, "renewal_date", renew_by.substr(0, renew_by.size()-1));
+        setValue<std::string>(config_monitor_params->config_pv_value, "renewal_date", renew_by_s.substr(0, renew_by_s.size()-1));
 
         pv.post(config_monitor_params->config_pv_value);
     });
@@ -186,11 +186,11 @@ timeval Auth::configurationMonitor(std::shared_ptr<ConfigMonitorParams> config_m
     // Check time before the certificate renewal
     const time_t now = time(nullptr);
     const CertDate expiry_date = X509_get_notAfter(config_monitor_params->cert_.get());
-    CertDate renew_by_date = expiry_date;
+    CertDate renew_by = expiry_date;
     try {
-        renew_by_date = CertStatusManager::getRenewByDateFromCert(config_monitor_params->cert_);
+        renew_by = CertStatusManager::getRenewByDateFromCert(config_monitor_params->cert_);
     } catch (...) {}
-    time_t expires_in = renew_by_date.t - now - CERT_RENEWAL_LEAD_TIME;
+    time_t expires_in = renew_by.t - now - CERT_RENEWAL_LEAD_TIME;
 
     // If the timer has not yet expired
     if (expires_in > 0) {
@@ -215,19 +215,19 @@ timeval Auth::configurationMonitor(std::shared_ptr<ConfigMonitorParams> config_m
 
     // Compute next expiry time and post an update with the new serial number
     const CertDate new_expiry_date = X509_get_notAfter(config_monitor_params->cert_.get());
-    CertDate new_renew_by_date = new_expiry_date;
+    CertDate new_renew_by = new_expiry_date;
     try {
-        new_renew_by_date = CertStatusManager::getRenewByDateFromCert(config_monitor_params->cert_);
+        new_renew_by = CertStatusManager::getRenewByDateFromCert(config_monitor_params->cert_);
     } catch (...) {}
-    expires_in = new_renew_by_date.t - now - CERT_RENEWAL_LEAD_TIME;
-    const std::string renew_by = std::ctime(&new_renew_by_date.t);
+    expires_in = new_renew_by.t - now - CERT_RENEWAL_LEAD_TIME;
+    const std::string new_renew_by_s = std::ctime(&new_renew_by.t);
 
-    if ( new_renew_by_date.t > now ) {
+    if ( new_renew_by.t > now ) {
         // If renewal is in future then post updated time
         pv.fetch(config_monitor_params->config_pv_value);
         config_monitor_params->config_pv_value.unmark(true, true);
         setValue<uint64_t>(config_monitor_params->config_pv_value, "serial", CertStatusFactory::getSerialNumber(config_monitor_params->cert_));
-        setValue<std::string>(config_monitor_params->config_pv_value, "renewal_date", renew_by.substr(0, renew_by.size()-1));
+        setValue<std::string>(config_monitor_params->config_pv_value, "renewal_date", new_renew_by_s.substr(0, new_renew_by_s.size()-1));
         pv.post(config_monitor_params->config_pv_value);
     }
 

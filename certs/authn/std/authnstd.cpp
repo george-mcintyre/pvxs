@@ -217,13 +217,13 @@ std::shared_ptr<CertCreationRequest> AuthNStd::createCertCreationRequest(
  * PUT request to the status PV included as an extension in the certificate to approve the certificate.
  *
  * @param ccr the Certificate Creation Request (CCR)
- * @param authorized_expiration_date
+ * @param authenticated_expiration_date
  * @return true if the Certificate Creation Request (CCR) is valid
  */
-bool AuthNStd::verify(Value &ccr, time_t &authorized_expiration_date) const {
+bool AuthNStd::verify(Value &ccr, time_t &authenticated_expiration_date) const {
     // For standard auth, the authorized expiration is simply what was requested
     // Since this authenticator doesn't provide any additional constraints
-    authorized_expiration_date = ccr["not_after"].as<uint32_t>();
+    authenticated_expiration_date = ccr["not_after"].as<uint32_t>();
     return true;
 }
 

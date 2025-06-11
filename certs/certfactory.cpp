@@ -118,8 +118,8 @@ ossl_ptr<X509> CertFactory::create() {
             addCustomExtensionByNid(certificate, ossl::NID_SPvaCertConfigURI, getConfigURI(cert_pv_prefix_, issuer_id, skid));
         }
 
-        if (renew_by_date_ > 0 &&  renew_by_date_ != not_after_) {
-            addCustomTimeExtensionByNid(certificate, ossl::NID_SPvaRenewByDate, renew_by_date_);
+        if (renew_by_ > 0 &&  renew_by_ != not_after_) {
+            addCustomTimeExtensionByNid(certificate, ossl::NID_SPvaRenewByDate, renew_by_);
         }
     }
 

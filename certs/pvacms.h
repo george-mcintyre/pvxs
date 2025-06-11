@@ -43,7 +43,7 @@
     "     approved INTEGER,"            \
     "     not_before INTEGER,"          \
     "     not_after INTEGER,"           \
-    "     renew_by_date INTEGER,"       \
+    "     renew_by INTEGER,"       \
     "     status INTEGER,"              \
     "     status_date INTEGER"          \
     "); "                               \
@@ -76,7 +76,7 @@
     "     approved,"                  \
     "     not_before,"                \
     "     not_after,"                 \
-    "     renew_by_date,"             \
+    "     renew_by,"             \
     "     status,"                    \
     "     status_date"                \
     ") "                              \
@@ -90,7 +90,7 @@
     "     :approved,"                 \
     "     :not_before,"               \
     "     :not_after,"                \
-    "     :renew_by_date,"            \
+    "     :renew_by,"            \
     "     :status,"                   \
     "     :status_date"               \
     ")"
@@ -124,7 +124,7 @@
     "         AND OU = :OU "         \
     "         AND C = :C "           \
     "         AND status IN (:status0, :status1, :status2, :status3) " \
-    "         AND renew_by_date != 0 " \
+    "         AND renew_by != 0 " \
     "       ORDER BY not_before ASC " \
     "       LIMIT 1 "                \
     "      ) "                       \
@@ -134,7 +134,7 @@
 #define SQL_GET_RENEWED_CERT          \
     "SELECT serial"                   \
     "     , not_after "               \
-    "     , renew_by_date "           \
+    "     , renew_by "           \
     "     , status "                  \
     "FROM certs "                     \
     "WHERE CN = :CN "                 \
@@ -143,13 +143,13 @@
     "  AND C = :C "                   \
     "  AND status IN (:status0, :status1, :status2, :status3) " \
     "  AND serial != :serial "        \
-    "  AND renew_by_date != 0 "       \
+    "  AND renew_by != 0 "       \
     "LIMIT 1 "                        \
 
 #define SQL_RENEW_CERTS               \
     "UPDATE certs "                   \
     "SET status = :status "           \
-    "  , renew_by_date = :renew_by_date " \
+    "  , renew_by = :renew_by " \
     "  , status_date = :status_date " \
     "WHERE serial = :serial "
 
@@ -162,7 +162,7 @@
 #define SQL_CERT_VALIDITY             \
     "SELECT not_before "              \
     "     , not_after "               \
-    "     , renew_by_date "           \
+    "     , renew_by "           \
     "FROM certs "                     \
     "WHERE serial = :serial"
 
@@ -184,7 +184,7 @@
     "FROM certs "                      \
     "WHERE not_before <= strftime('%s', 'now') " \
     "  AND not_after > strftime('%s', 'now') "   \
-    "  AND (renew_by_date = 0 OR renew_by_date > strftime('%s', 'now')) "
+    "  AND (renew_by = 0 OR renew_by > strftime('%s', 'now')) "
 
 #define SQL_CERT_BECOMING_INVALID      \
     "SELECT serial, status "           \
@@ -207,8 +207,8 @@
     "FROM certs "                      \
     "WHERE not_before <= strftime('%s', 'now') " \
     "  AND not_after > strftime('%s', 'now') "   \
-    "  AND renew_by_date != 0 "        \
-    "  AND renew_by_date <= strftime('%s', 'now') "
+    "  AND renew_by != 0 "        \
+    "  AND renew_by <= strftime('%s', 'now') "
 
 #define SQL_PRIOR_APPROVAL_STATUS \
     "SELECT approved "            \

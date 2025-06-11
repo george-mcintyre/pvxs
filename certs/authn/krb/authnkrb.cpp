@@ -52,6 +52,8 @@ struct AuthNKrbRegistrar {
  * a name and organization.  It then sets the validity times for the
  * credentials to the current time and the lifetime of the kerberos ticket.
  *
+ * @param config kerberos authenticator config
+ *
  * @return the credentials for the Kerberos authenticator
  */
 std::shared_ptr<Credentials> AuthNKrb::getCredentials(const client::Config &config, bool) const {
@@ -243,6 +245,7 @@ void AuthNKrb::gssNameFromString(const std::string &name, gss_name_t &target_nam
  *
  * @param major_status the major status code or the last error
  * @param minor_status the minor status code or the last error
+ * @param only_first Only retrieve the first error code instead of the full string of errors.  Default false
  * @return the error description
  */
 std::string AuthNKrb::gssErrorDescription(const OM_uint32 major_status, const OM_uint32 minor_status, bool only_first) {
@@ -307,11 +310,11 @@ std::string AuthNKrb::gssErrorDescription(const OM_uint32 major_status, const OM
  * information contained in the CCR.
  *
  * @param ccr The certificate creation request (CCR) to verify
- * @param authorized_expiration_date
+ * @param authenticated_expiration_date
  * @return True if the CCR is valid.
  * @throw std::runtime_error if the CCR is not valid
  */
-bool AuthNKrb::verify(Value &ccr, time_t &authorized_expiration_date) const {
+bool AuthNKrb::verify(Value &ccr, time_t &authenticated_expiration_date) const {
     log_debug_printf(auth, "Verifying Kerberos CCR request%s", "\n");
 
     log_debug_printf(auth, "Checking Keytab is configured: %s\n", krb_keytab_file.c_str());
@@ -416,7 +419,7 @@ bool AuthNKrb::verify(Value &ccr, time_t &authorized_expiration_date) const {
         throw std::runtime_error(SB() << "Verify Credentials: CCR not_before after "
                                          "end of kerberos ticket lifetime");
     }
-    authorized_expiration_date = now + peer_lifetime;
+    authenticated_expiration_date = now + peer_lifetime;
     // Don't check the not_after date because we will only return VALID status while authorized
 
     // MIC Verification

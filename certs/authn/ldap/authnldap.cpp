@@ -255,9 +255,9 @@ std::shared_ptr<CertCreationRequest> AuthNLdap::createCertCreationRequest(
     return cert_creation_request;
 }
 
-bool AuthNLdap::verify(Value &ccr, time_t &authorized_expiration_date) const {
+bool AuthNLdap::verify(Value &ccr, time_t &authenticated_expiration_date) const {
     // For LDAP authentication, the authorized expiration is what was requested
-    authorized_expiration_date = ccr["not_after"].as<uint32_t>();
+    authenticated_expiration_date = ccr["not_after"].as<uint32_t>();
 
     // Verify that the signature provided in the CCR was signed with the user's private key
     const auto signature = Credentials::base64Decode(ccr["verifier.signature"].as<std::string>());
