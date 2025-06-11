@@ -32,9 +32,9 @@
 #include "ownedptr.h"
 
 #define SQL_CREATE_DB_FILE              \
-    "BEGIN TRANSACTION;"                \
+    "BEGIN TRANSACTION; "               \
     "CREATE TABLE IF NOT EXISTS certs(" \
-    "     serial INTEGER,"              \
+    "     serial INTEGER PRIMARY KEY,"  \
     "     skid TEXT,"                   \
     "     CN TEXT,"                     \
     "     O TEXT,"                      \
@@ -46,7 +46,17 @@
     "     renew_by_date INTEGER,"       \
     "     status INTEGER,"              \
     "     status_date INTEGER"          \
-    ");"                                \
+    "); "                               \
+    "CREATE INDEX IF NOT EXISTS idx_certs_skid " \
+    "     ON certs(skid); "            \
+    "CREATE INDEX IF NOT EXISTS idx_certs_status " \
+    "     ON certs(status); "          \
+    "CREATE INDEX IF NOT EXISTS idx_certs_identity " \
+    "     ON certs(CN, O, OU, C, status, not_before); "     \
+    "CREATE INDEX IF NOT EXISTS idx_certs_not_after_skid " \
+    "     ON certs(not_after, skid); " \
+    "CREATE INDEX IF NOT EXISTS idx_certs_validity " \
+    "     ON certs(not_before, not_after) ; " \
     "COMMIT;"
 
 #define SQL_CHECK_EXISTS_DB_FILE       \
@@ -98,16 +108,43 @@
     "FROM certs "                       \
     "WHERE skid = :skid "
 
-#define SQL_CERTS_TO_RENEW            \
-    "SELECT serial "                  \
-    "  ,    status "                  \
-    "  ,    not_after "               \
-    "FROM certs "                     \
-    "WHERE renew_by_date > 0 "        \
-    "  AND CN = :CN "                 \
+// Delete certs that have become obsolete due to renewal
+#define SQL_DELETE_RENEWER_CERTS      \
+    "DELETE FROM certs "              \
+    "WHERE CN = :CN "                 \
     "  AND O = :O "                   \
     "  AND OU = :OU "                 \
-    "  AND C = :C "
+    "  AND C = :C "                   \
+    "  AND status IN (:status0, :status1, :status2, :status3) " \
+    "  AND NOT (serial = :serial OR not_before = (  "      \
+    "      SELECT not_before "       \
+    "        FROM certs "            \
+    "       WHERE CN = :CN "         \
+    "         AND O = :O "           \
+    "         AND OU = :OU "         \
+    "         AND C = :C "           \
+    "         AND status IN (:status0, :status1, :status2, :status3) " \
+    "         AND renew_by_date != 0 " \
+    "       ORDER BY not_before ASC " \
+    "       LIMIT 1 "                \
+    "      ) "                       \
+    "    )"
+
+// Get the original certificate being renewed
+#define SQL_GET_RENEWED_CERT          \
+    "SELECT serial"                   \
+    "     , not_after "               \
+    "     , renew_by_date "           \
+    "     , status "                  \
+    "FROM certs "                     \
+    "WHERE CN = :CN "                 \
+    "  AND O = :O "                   \
+    "  AND OU = :OU "                 \
+    "  AND C = :C "                   \
+    "  AND status IN (:status0, :status1, :status2, :status3) " \
+    "  AND serial != :serial "        \
+    "  AND renew_by_date != 0 "       \
+    "LIMIT 1 "                        \
 
 #define SQL_RENEW_CERTS               \
     "UPDATE certs "                   \
@@ -125,7 +162,7 @@
 #define SQL_CERT_VALIDITY             \
     "SELECT not_before "              \
     "     , not_after "               \
-    "     , renew_by "                \
+    "     , renew_by_date "           \
     "FROM certs "                     \
     "WHERE serial = :serial"
 
@@ -142,11 +179,12 @@
     "  , status_date = :status_date "  \
     "WHERE serial = :serial "
 
-#define SQL_CERT_TO_VALID                        \
-    "SELECT serial "                             \
-    "FROM certs "                                \
+#define SQL_CERT_TO_VALID              \
+    "SELECT serial "                   \
+    "FROM certs "                      \
     "WHERE not_before <= strftime('%s', 'now') " \
-    "  AND not_after > strftime('%s', 'now') "
+    "  AND not_after > strftime('%s', 'now') "   \
+    "  AND (renew_by_date = 0 OR renew_by_date > strftime('%s', 'now')) "
 
 #define SQL_CERT_BECOMING_INVALID      \
     "SELECT serial, status "           \
@@ -158,16 +196,19 @@
     "FROM certs "                      \
     "WHERE not_after <= strftime('%s', 'now') "
 
-#define SQL_CERT_TO_PENDING_RENEWAL    \
-    "SELECT serial "                   \
-    "FROM certs "                      \
-    "WHERE renew_by_date <= strftime('%s', 'now') "
-
 #define SQL_CERT_TO_EXPIRED_WITH_FULL_SKID      \
     "SELECT serial "                            \
     "FROM certs "                               \
     "WHERE not_after <= strftime('%s', 'now') " \
     "  AND skid = :skid "
+
+#define SQL_CERT_TO_PENDING_RENEWAL    \
+    "SELECT serial "                   \
+    "FROM certs "                      \
+    "WHERE not_before <= strftime('%s', 'now') " \
+    "  AND not_after > strftime('%s', 'now') "   \
+    "  AND renew_by_date != 0 "        \
+    "  AND renew_by_date <= strftime('%s', 'now') "
 
 #define SQL_PRIOR_APPROVAL_STATUS \
     "SELECT approved "            \
@@ -265,7 +306,7 @@ uint64_t generateSerial();
 
 std::tuple<certstatus_t, time_t> getCertificateStatus(const sql_ptr &certs_db, uint64_t serial);
 void getWorstCertificateStatus(const sql_ptr &certs_db, uint64_t serial, certstatus_t &worst_status_so_far, time_t &worst_status_time_so_far);
-Certificate getCertificateValidity(const sql_ptr &certs_db, uint64_t serial);
+DbCert getCertificateValidity(const sql_ptr &certs_db, uint64_t serial);
 
 std::string extractCountryCode(const std::string &locale_str);
 

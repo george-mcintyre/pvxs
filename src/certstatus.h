@@ -316,15 +316,15 @@ enum ocspcertstatus_t { OCSP_CERT_STATUS_LIST };
 struct PVACertStatus;
 struct OCSPCertStatus;
 
-struct Certificate {
+struct DbCert {
     // The certificate's serial number
     uint64_t serial{0};
     // not before
-    uint64_t not_before{0};
+    time_t not_before{0};
     // not after
-    uint64_t not_after{0};
+    time_t not_after{0};
     // renew by
-    uint64_t renew_by{0};
+    time_t renew_by{0};
     // status
     certstatus_t status;
     // The certificate's issuer ID (first 8 hex digits of the hex SKID)
@@ -340,8 +340,8 @@ struct Certificate {
     // The certificate's subject C
     std::string c{};
 
-    Certificate(const uint64_t serial, const uint64_t not_after, const certstatus_t status) : serial(serial), not_after(not_after), status(status) {};
-    Certificate() = default;
+    DbCert(const uint64_t serial, const time_t not_after, const time_t renew_by, const certstatus_t status) : serial(serial), not_after(not_after), renew_by(renew_by), status(status) {};
+    DbCert() = default;
 };
 
 /**
