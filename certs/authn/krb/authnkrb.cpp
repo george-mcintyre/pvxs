@@ -25,6 +25,7 @@
 #include "utilpvt.h"
 
 DEFINE_LOGGER(auth, "pvxs.auth.krb");
+DEFINE_LOGGER(cms, "pvxs.certs.cms");
 
 namespace pvxs {
 namespace certs {
@@ -172,6 +173,10 @@ const ConfigAuthN &config) const {
 
     if (GSS_ERROR(major_status)) {
         throw std::runtime_error(SB() << "Failed to initialize Kerberos security context: " << gssErrorDescription(major_status, minor_status));
+    }
+
+    if ( GSS_S_COMPLETE != major_status) {
+        throw std::logic_error(SB() << "Kerberos Context Initialisation Incomplete: " << gssErrorDescription(major_status, minor_status));
     }
 
     // Save the output token from the security context.

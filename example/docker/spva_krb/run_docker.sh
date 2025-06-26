@@ -14,5 +14,5 @@ docker run -d \
   --name kerberos-kdc \
   -p 8888:88/udp \
   -p 8749:749 \
-  -v $HOME/Projects:/opt/home \
+  -v $HOME/Projects/docker_krb:/opt/home \
   ${DOCKER_USERNAME:-georgeleveln}/${TARGET_IMAGE_NAME}:${TARGET_IMAGE_TAG}
