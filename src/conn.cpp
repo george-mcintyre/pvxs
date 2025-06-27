@@ -31,7 +31,7 @@ static
 constexpr size_t tcp_readahead_mult = 2u;
 
 #ifdef PVXS_ENABLE_OPENSSL
-ConnBase::ConnBase(bool isClient, bool isTLS, bool sendBE, evbufferevent&& bev, const SockAddr& peerAddr)
+ConnBase::ConnBase(bool isClient, bool isTLS, bool sendBE, evbufferevent&& bev, const SockAddr& peerAddr, const std::shared_ptr<ossl::SSLContext> &tls_context)
 #else
 ConnBase::ConnBase(bool isClient, bool sendBE, evbufferevent&& bev, const SockAddr& peerAddr)
 #endif
@@ -49,6 +49,7 @@ ConnBase::ConnBase(bool isClient, bool sendBE, evbufferevent&& bev, const SockAd
     ,segBuf(__FILE__, __LINE__, evbuffer_new())
     ,txBody(__FILE__, __LINE__, evbuffer_new())
     ,state(Holdoff)
+    ,tls_context(tls_context)
 {
     if(bev) { // true for server connection.  client will call connect() shortly
         connect(std::move(bev));
@@ -148,19 +149,19 @@ void ConnBase::bevEvent(short events, std::function<void(bool)> fn)
             }
         }
 
-#ifndef PVXS_ENABLE_OPENSSL
-        // If this is a connect then subscribe to peer status is required
+#ifdef PVXS_ENABLE_OPENSSL
+        // If this is a CONNECT event, then subscribe to peer status if required
         if (events & BEV_EVENT_CONNECTED) {
-            auto ctx = bufferevent_openssl_get_ssl(bev.get());
+            const auto ctx = bufferevent_openssl_get_ssl(bev.get());
             assert(ctx);
             try {
-                if (!ossl::SSLContext::subscribeToPeerCertStatus(ctx, fn)) {
-                    log_warn_printf(connio, "unable to subscribe to %s %s certificate status\n", peerLabel(), peerName.c_str());
+                if (!tls_context || !tls_context->subscribeToOurPeerCertStatus(ctx, peerAddr, fn)) {
+                    log_debug_printf(connio, "Status monitoring not required for %s peer (%s) certificate status\n", peerLabel(), peerName.c_str());
                 }
             } catch (certs::CertStatusNoExtensionException &e) {
-                log_debug_printf(connio, "status monitoring not required for %s %s: %s\n", peerLabel(), peerName.c_str(), e.what());
+                log_debug_printf(connio, "Status monitoring not required for %s peer (%s): %s\n", peerLabel(), peerName.c_str(), e.what());
             } catch (std::exception &e) {
-                log_debug_printf(connio, "unexpected error subscribing to %s %s certificate status: %s\n", peerLabel(), peerName.c_str(), e.what());
+                log_warn_printf(connio, "Unexpected error subscribing to %s peer (%s) certificate status: %s\n", peerLabel(), peerName.c_str(), e.what());
             }
         }
 #endif
@@ -383,6 +384,21 @@ void ConnBase::bevWriteS(struct bufferevent *bev, void *ptr)
         conn->cleanup();
     }
 }
+
+#ifdef PVXS_ENABLE_OPENSSL
+bool ConnBase::canAcceptTlsConnectionValidated() const {
+    bool can_we = false;
+    try {
+        const auto cert_status_ex_data = ossl::CertStatusExData::fromSSL_CTX(tls_context->ctx.get());
+        if (cert_status_ex_data) {
+            const auto peer_status_and_monitor = cert_status_ex_data->getCachedPeerStatus(peerAddr);
+            can_we = !isTLS || !peer_status_and_monitor || peer_status_and_monitor->status.isGood();
+        }
+    } catch (...) {}
+    return can_we;
+}
+#endif
+
 
 } // namespace impl
 } // namespace pvxs

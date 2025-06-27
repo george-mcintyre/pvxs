@@ -270,7 +270,7 @@ private:
     virtual void disconnected(const std::shared_ptr<OperationBase> &self) override final;
 };
 
-struct ContextImpl : public std::enable_shared_from_this<ContextImpl>
+struct ContextImpl : std::enable_shared_from_this<ContextImpl>
 {
     SockAttach attach;
     IfaceMap& ifmap;
@@ -284,9 +284,12 @@ struct ContextImpl : public std::enable_shared_from_this<ContextImpl>
     bool isRunning() const { return state == Running; }
 
 #ifdef PVXS_ENABLE_OPENSSL
-    bool isContextReadyForTls() const { return tls_context && tls_context->state == ossl::SSLContext::TlsReady && !tls_context->hasExpired(); }
+    bool isContextReadyForTls() const {
+        Guard G(tls_context->lock);
+        return tls_context && tls_context->state == ossl::SSLContext::TlsReady && !tls_context->hasExpired();
+    }
     bool isInitialisedForTls(const std::shared_ptr<ossl::SSLContext> &context) const {
-        return context && context->state >= ossl::SSLContext::TcpReady && !((certs::CertificateStatus)context->get_status()).isRevokedOrExpired() && !tls_context->hasExpired();
+        return context && context->state >= ossl::SSLContext::TcpReady && !certs::CertificateStatus(context->get_status()).isRevokedOrExpired() && !tls_context->hasExpired();
     }
     bool isTlsEnabled() const { return tls_context && tls_context->state > ossl::SSLContext::DegradedMode && !tls_context->hasExpired(); }
     void initialiseState() {
@@ -318,7 +321,7 @@ struct ContextImpl : public std::enable_shared_from_this<ContextImpl>
             const auto now = time(nullptr);
             if (expiry_date.t > now) {
                 // Set up the callback to point to this context
-                event_assign(cert_expiration_timer.get(), tcp_loop.base, -1, EV_TIMEOUT | EV_PERSIST, &certExpirationHandlerS, context);
+                event_assign(cert_expiration_timer.get(), tcp_loop->base, -1, EV_TIMEOUT | EV_PERSIST, &certExpirationHandlerS, context);
 
                 // Add the event for 2 second after expiration while ignoring errors
                 const auto expires_in = (expiry_date.t - now) + 2;
@@ -399,7 +402,7 @@ struct ContextImpl : public std::enable_shared_from_this<ContextImpl>
 
     std::vector<std::pair<SockEndpoint, std::shared_ptr<Connection>>> nameServers;
 
-    const evbase tcp_loop;
+    std::shared_ptr<evbase> tcp_loop;
     const evevent searchRx4, searchRx6;
     const evevent searchTimer;
     const evevent initialSearcher;
@@ -418,7 +421,7 @@ struct ContextImpl : public std::enable_shared_from_this<ContextImpl>
 #endif
     INST_COUNTER(ClientContextImpl);
 
-    ContextImpl(const Config& conf, evbase tcp_loop);
+    ContextImpl(const Config& conf, std::shared_ptr<evbase> tcp_loop);
     ~ContextImpl();
 
     void startNS();
@@ -453,7 +456,10 @@ struct ContextImpl : public std::enable_shared_from_this<ContextImpl>
     void reloadTlsFromConfig(const Config& new_config = {});
     void enableTlsForPeerConnection(const Connection* client_conn = nullptr);
 
-    bool canAcceptTlsConnectionValidation() const { return tls_context && tls_context->state == ossl::SSLContext::TlsReady; }
+    bool canAcceptTlsSearchReply() const {
+        return tls_context && tls_context->state == ossl::SSLContext::TlsReady;
+    }
+
     bool readyToEmitTlsSearch() const { return tls_context && tls_context->state >= ossl::SSLContext::TcpReady; }
 #endif
 };

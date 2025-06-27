@@ -90,12 +90,12 @@ void test_call()
     base = evbase();
     // loop stopped
 
-    testFalse(internal.assertInRunningLoop());
+    testFalse(internal->assertInRunningLoop());
     testThrows<std::logic_error>([&internal]() {
-        internal.call([]() {});
+        internal->call([]() {});
     });
 
-    testFalse(internal.tryCall([](){}));
+    testFalse(internal->tryCall([](){}));
 }
 
 void test_fill_evbuf()

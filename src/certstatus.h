@@ -791,7 +791,7 @@ struct OCSPStatus {
      * @brief Verify that the status validity dates are currently valid and the status is known
      * @return true if the status is still valid
      */
-    bool isValid() const noexcept { // NOLINT(*-convert-member-functions-to-static)
+    bool isStatusOfStatusValid() const noexcept { // NOLINT(*-convert-member-functions-to-static)
         const auto now(std::time(nullptr));
         return status_valid_until_date.t > now;
     }
@@ -808,7 +808,7 @@ struct OCSPStatus {
      *
      * @return true if the status is GOOD, false otherwise
      */
-    bool isGood() const noexcept { return isValid() && ocsp_status == OCSP_CERTSTATUS_GOOD; }
+    bool isGood() const noexcept { return isStatusOfStatusValid() && ocsp_status == OCSP_CERTSTATUS_GOOD; }
 
     virtual explicit operator CertificateStatus() const noexcept;
 

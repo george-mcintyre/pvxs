@@ -187,7 +187,7 @@ std::shared_ptr<Operation> GetBuilder::_exec_info()
 
     auto context(ctx->impl->shared_from_this());
 
-    auto op(std::make_shared<InfoOp>(context->tcp_loop));
+    auto op(std::make_shared<InfoOp>(*context->tcp_loop));
     if(_result) {
         op->done = std::move(_result);
     } else {
@@ -215,7 +215,7 @@ std::shared_ptr<Operation> GetBuilder::_exec_info()
 
     auto name(std::move(_name));
     auto server(std::move(_server));
-    context->tcp_loop.dispatch([=]() {
+    context->tcp_loop->dispatch([=]() {
         // on worker
         try {
             op->chan = Channel::build(context, name, server);

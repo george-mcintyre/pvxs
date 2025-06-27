@@ -80,7 +80,7 @@ struct MonitorOp final : public ServerOp
         if(!op->scheduled && op->state==Executing && !op->queue.empty() && (!op->pipeline || op->window))
         {
             // based on operation state, yes
-            server->acceptor_loop.dispatch([op](){
+            server->acceptor_loop->dispatch([op](){
                 auto ch(op->chan.lock());
                 if(!ch)
                     return;
@@ -187,7 +187,7 @@ struct MonitorOp final : public ServerOp
 
             if(!self->lowMarkPending && self->window <= self->low && self->onLowMark) {
                 self->lowMarkPending = true;
-                conn->iface->server->acceptor_loop.dispatch([self]() {
+                conn->iface->server->acceptor_loop->dispatch([self]() {
                     decltype (self->onLowMark) fn;
                     {
                         Guard G(self->lock);
@@ -205,7 +205,7 @@ struct MonitorOp final : public ServerOp
             // reschedule myself
             assert(!self->scheduled); // we've been holding the lock, so this should not have changed
 
-            conn->iface->server->acceptor_loop.dispatch([self]() {
+            conn->iface->server->acceptor_loop->dispatch([self]() {
                 doReply(self);
             });
             self->scheduled = true;
@@ -314,7 +314,7 @@ struct ServerMonitorControl : public server::MonitorControlOp
         auto serv = server.lock();
         if(!serv)
             return;
-        serv->acceptor_loop.call([this, low, high](){
+        serv->acceptor_loop->call([this, low, high](){
             if(auto oper = op.lock()) {
                 Guard G(oper->lock);
                 oper->low = std::min(low, oper->ackAt-1u);
@@ -329,7 +329,7 @@ struct ServerMonitorControl : public server::MonitorControlOp
         auto serv = server.lock();
         if(!serv)
             return;
-        serv->acceptor_loop.call([this, &fn](){
+        serv->acceptor_loop->call([this, &fn](){
             if(auto oper = op.lock())
                 oper->onStart = std::move(fn);
         });
@@ -339,7 +339,7 @@ struct ServerMonitorControl : public server::MonitorControlOp
         auto serv = server.lock();
         if(!serv)
             return;
-        serv->acceptor_loop.call([this, &fn](){
+        serv->acceptor_loop->call([this, &fn](){
             if(auto oper = op.lock())
                 oper->onHighMark = std::move(fn);
         });
@@ -349,7 +349,7 @@ struct ServerMonitorControl : public server::MonitorControlOp
         auto serv = server.lock();
         if(!serv)
             return;
-        serv->acceptor_loop.call([this, &fn](){
+        serv->acceptor_loop->call([this, &fn](){
             if(auto oper = op.lock())
                 oper->onLowMark = std::move(fn);
         });
@@ -389,7 +389,7 @@ struct ServerMonitorSetup : public server::MonitorSetupOp
         auto serv = server.lock();
         if(!serv)
             return ret;
-        serv->acceptor_loop.call([this, &type, &ret, &mask](){
+        serv->acceptor_loop->call([this, &type, &ret, &mask](){
             if(auto oper = op.lock()) {
                 if(oper->state!=ServerOp::Creating)
                     return;
@@ -412,7 +412,7 @@ struct ServerMonitorSetup : public server::MonitorSetupOp
         if(!serv)
             return;
         auto op(this->op);
-        serv->acceptor_loop.dispatch([op, msg]() mutable {
+        serv->acceptor_loop->dispatch([op, msg]() mutable {
             if(auto oper = op.lock()) {
                 if(oper->state==ServerOp::Creating) {
                     oper->msg = std::move(msg);
@@ -426,7 +426,7 @@ struct ServerMonitorSetup : public server::MonitorSetupOp
         auto serv = server.lock();
         if(!serv)
             return;
-        serv->acceptor_loop.call([this, &fn](){
+        serv->acceptor_loop->call([this, &fn](){
             if(auto oper = op.lock())
                 oper->onClose = std::move(fn);
         });
@@ -609,7 +609,7 @@ void ServerConn::handle_MONITOR()
 
             if(!op->highMarkPending && op->window > op->high && op->onHighMark && !op->finished) {
                 op->highMarkPending = true;
-                iface->server->acceptor_loop.dispatch([op](){
+                iface->server->acceptor_loop->dispatch([op](){
                     decltype(op->onHighMark) fn;
                     {
                         Guard G(op->lock);
@@ -652,7 +652,7 @@ void ServerConn::handle_MONITOR()
                 auto self(it->second);
                 opByIOID.erase(it);
 
-                iface->server->acceptor_loop.dispatch([self](){
+                iface->server->acceptor_loop->dispatch([self](){
                     self->cleanup();
                 });
 

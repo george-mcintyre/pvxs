@@ -215,7 +215,7 @@ std::shared_ptr<Connect> ConnectBuilder::exec() {
 
     auto syncCancel(_syncCancel);
     auto context(ctx->impl->shared_from_this());
-    auto op(std::make_shared<ConnectImpl>(context->tcp_loop, _pvname));
+    auto op(std::make_shared<ConnectImpl>(*context->tcp_loop, _pvname));
     op->_onConn = std::move(_onConn);
     op->_onDis = std::move(_onDis);
 
@@ -237,7 +237,7 @@ std::shared_ptr<Connect> ConnectBuilder::exec() {
     });
 
     auto server(std::move(_server));
-    context->tcp_loop.dispatch([=]() {
+    context->tcp_loop->dispatch([=]() {
         // on worker
         op->chan = Channel::build(context, op->_name, server);
 
@@ -377,13 +377,13 @@ void Context::close() {
 void Context::hurryUp() {
     if (!pvt) throw std::logic_error("NULL Context");
 
-    pvt->impl->manager.loop().call([this]() { pvt->impl->poke(); });
+    pvt->impl->manager.loop()->call([this]() { pvt->impl->poke(); });
 }
 
 void Context::cacheClear(const std::string& name, cacheAction action) {
     if (!pvt) throw std::logic_error("NULL Context");
 
-    pvt->impl->tcp_loop.call([this, name, action]() {
+    pvt->impl->tcp_loop->call([this, name, action]() {
         // run twice to ensure both mark and sweep of all unused channels
         log_debug_printf(setup, "cacheClear('%s')\n", name.c_str());
         pvt->impl->cacheClean(name, action);
@@ -394,13 +394,13 @@ void Context::cacheClear(const std::string& name, cacheAction action) {
 void Context::ignoreServerGUIDs(const std::vector<ServerGUID>& guids) {
     if (!pvt) throw std::logic_error("NULL Context");
 
-    pvt->impl->manager.loop().call([this, &guids]() { pvt->impl->ignoreServerGUIDs = guids; });
+    pvt->impl->manager.loop()->call([this, &guids]() { pvt->impl->ignoreServerGUIDs = guids; });
 }
 
 Report Context::report(bool zero) const {
     Report ret;
 
-    pvt->impl->tcp_loop.call([this, &ret, zero]() {
+    pvt->impl->tcp_loop->call([this, &ret, zero]() {
         for (auto& pair : pvt->impl->connByAddr) {
             auto conn = pair.second.lock();
             if (!conn) continue;
@@ -448,7 +448,7 @@ static Value buildCAMethod() {
         .create();
 }
 
-ContextImpl::ContextImpl(const Config& conf, const evbase tcp_loop)
+ContextImpl::ContextImpl(const Config& conf, std::shared_ptr<evbase> tcp_loop)
     : ifmap(IfaceMap::instance()),
       effective([conf]() -> Config {
           Config eff(conf);
@@ -462,15 +462,15 @@ ContextImpl::ContextImpl(const Config& conf, const evbase tcp_loop)
       tls_context(nullptr),
 #endif
       tcp_loop(tcp_loop),
-      searchRx4(__FILE__, __LINE__, event_new(tcp_loop.base, searchTx4.sock, EV_READ | EV_PERSIST, &ContextImpl::onSearchS, this)),
-      searchRx6(__FILE__, __LINE__, event_new(tcp_loop.base, searchTx6.sock, EV_READ | EV_PERSIST, &ContextImpl::onSearchS, this)),
-      searchTimer(__FILE__, __LINE__, event_new(tcp_loop.base, -1, EV_TIMEOUT, &ContextImpl::tickSearchS, this)),
-      initialSearcher(__FILE__, __LINE__, event_new(tcp_loop.base, -1, EV_TIMEOUT, &ContextImpl::initialSearchS, this)),
+      searchRx4(__FILE__, __LINE__, event_new(tcp_loop->base, searchTx4.sock, EV_READ | EV_PERSIST, &ContextImpl::onSearchS, this)),
+      searchRx6(__FILE__, __LINE__, event_new(tcp_loop->base, searchTx6.sock, EV_READ | EV_PERSIST, &ContextImpl::onSearchS, this)),
+      searchTimer(__FILE__, __LINE__, event_new(tcp_loop->base, -1, EV_TIMEOUT, &ContextImpl::tickSearchS, this)),
+      initialSearcher(__FILE__, __LINE__, event_new(tcp_loop->base, -1, EV_TIMEOUT, &ContextImpl::initialSearchS, this)),
       manager(UDPManager::instance(effective.shareUDP())),
-      beaconCleaner(__FILE__, __LINE__, event_new(manager.loop().base, -1, EV_TIMEOUT | EV_PERSIST, &ContextImpl::tickBeaconCleanS, this)),
-      cacheCleaner(__FILE__, __LINE__, event_new(tcp_loop.base, -1, EV_TIMEOUT | EV_PERSIST, &ContextImpl::cacheCleanS, this)),
-      nsChecker(__FILE__, __LINE__, event_new(tcp_loop.base, -1, EV_TIMEOUT | EV_PERSIST, &ContextImpl::onNSCheckS, this)),
-      cert_expiration_timer(__FILE__, __LINE__, event_new(tcp_loop.base, -1, EV_TIMEOUT | EV_PERSIST, &ContextImpl::certExpirationHandlerS, nullptr))
+      beaconCleaner(__FILE__, __LINE__, event_new(manager.loop()->base, -1, EV_TIMEOUT | EV_PERSIST, &ContextImpl::tickBeaconCleanS, this)),
+      cacheCleaner(__FILE__, __LINE__, event_new(tcp_loop->base, -1, EV_TIMEOUT | EV_PERSIST, &ContextImpl::cacheCleanS, this)),
+      nsChecker(__FILE__, __LINE__, event_new(tcp_loop->base, -1, EV_TIMEOUT | EV_PERSIST, &ContextImpl::onNSCheckS, this)),
+      cert_expiration_timer(__FILE__, __LINE__, event_new(tcp_loop->base, -1, EV_TIMEOUT | EV_PERSIST, &ContextImpl::certExpirationHandlerS, nullptr))
 {
 #ifdef PVXS_ENABLE_OPENSSL
     if (effective.isTlsConfigured()) {
@@ -575,13 +575,13 @@ ContextImpl::ContextImpl(const Config& conf, const evbase tcp_loop)
 #endif
 }
 
-ContextImpl::~ContextImpl() { tcp_loop.sync(); };
+ContextImpl::~ContextImpl() { tcp_loop->sync(); };
 
 void ContextImpl::startNS() {
     if (nameServers.empty())  // vector size const after ctor, contents remain mutable
         return;
 
-    tcp_loop.call([this]() {
+    tcp_loop->call([this]() {
         // start connections to name servers
         for (auto& ns : nameServers) {
             const auto& serv = ns.first;
@@ -607,7 +607,7 @@ void ContextImpl::close() {
     log_debug_printf(setup, "context %p close\n", this);
 
     // terminate all active connections
-    tcp_loop.call([this]() {
+    tcp_loop->call([this]() {
         if (state == Stopped) return;
         state = Stopped;
 
@@ -636,7 +636,7 @@ void ContextImpl::close() {
         // we are orphaning some Operations
     });
 
-    tcp_loop.sync();
+    tcp_loop->sync();
 
     // ensure any in-progress callbacks have completed
     manager.sync();
@@ -785,7 +785,7 @@ static void procSearchReply(ContextImpl& self, const SockAddr& src, uint8_t peer
 
 #ifdef PVXS_ENABLE_OPENSSL
     bool isTLS = proto == "tls";
-    if (!found || !(isTCP || (isTLS && self.canAcceptTlsConnectionValidation())))
+    if (!found || !(isTCP || (isTLS && self.canAcceptTlsSearchReply())))
 #else
     if (!found || !isTCP)
 #endif
@@ -1244,7 +1244,7 @@ Context::Pvt::Pvt(const Config& conf)
     : loop("PVXCTCP", epicsThreadPriorityCAServerLow),
       impl(std::make_shared<ContextImpl>(conf, loop.internal()))
 #else
-Context::Pvt::Pvt(const Config& conf) : loop("PVXCTCP", epicsThreadPriorityCAServerLow), impl(std::make_shared<ContextImpl>(conf, loop.internal())) {}
+Context::Pvt::Pvt(const Config& conf) : loop("PVXCTCP", epicsThreadPriorityCAServerLow), impl(std::make_shared<ContextImpl>(conf, loop.internal()))
 #endif
 {
 }
@@ -1256,14 +1256,11 @@ void Context::reconfigure(const Config& new_conf) {
 
 #ifdef PVXS_ENABLE_OPENSSL
     if (new_conf.isTlsConfigured()) {
-        if (pvt->impl->tls_context) pvt->impl->tls_context->setDegradedMode(true);
         // Force reload of context from cert
-        pvt->impl->manager.loop().call([this, &new_conf]() mutable { pvt->impl->reloadTlsFromConfig(new_conf); });
-        pvt->impl->manager.loop().sync();
+        pvt->impl->manager.loop()->call([this, &new_conf]() mutable { pvt->impl->reloadTlsFromConfig(new_conf); });
     }
-#else
-    pvt->impl->manager.loop().sync();
 #endif
+    pvt->impl->manager.loop()->sync();
 }
 
 #ifdef PVXS_ENABLE_OPENSSL
@@ -1278,6 +1275,8 @@ void Context::certExpirationHandler() {
  * @param new_config optional config (check the is_initialized flag to see if its blank or not)
  */
 void ContextImpl::reloadTlsFromConfig(const Config& new_config) {
+    tls_context->setDegradedMode(true);
+
     // If already valid then don't do anything
     if (isContextReadyForTls()) return;
     try {

@@ -276,11 +276,11 @@ evbase::evbase(const std::string &name, unsigned prio)
 
 evbase::~evbase() {}
 
-evbase evbase::internal() const
+std::shared_ptr<evbase> evbase::internal() const
 {
-    evbase ret;
-    ret.pvt = decltype(pvt)(pvt->internal_self);
-    ret.base = base;
+    auto ret = std::make_shared<evbase>();
+    ret->pvt = decltype(pvt)(pvt->internal_self);
+    ret->base = base;
     return ret;
 }
 
@@ -1103,17 +1103,17 @@ Timer Timer::Pvt::buildOneShot(double delay, const evbase& base, std::function<v
     if(!cb)
         throw std::invalid_argument("NULL cb");
 
-    auto internal(std::make_shared<Timer::Pvt>(base, std::move(cb)));
+    auto internal(std::make_shared<Pvt>(base, std::move(cb)));
 
     Timer ret;
-    ret.pvt = decltype (internal)(internal.get(), [internal](Timer::Pvt*) mutable {
+    ret.pvt = decltype (internal)(internal.get(), [internal](Pvt*) mutable {
         // from user thread
         auto temp(std::move(internal));
         auto loop(temp->base);
         // std::bind for lack of c++14 generalized capture
         // to move internal ref to worker for dtor
 
-        loop.tryCall(std::bind([](std::shared_ptr<Timer::Pvt>& internal) {
+        loop.tryCall(std::bind([](std::shared_ptr<Pvt>& internal) {
                          // on worker
                          // ordering of dispatch()/call() ensures creation before destruction
                          internal->cancel();

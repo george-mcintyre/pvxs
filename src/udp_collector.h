@@ -30,7 +30,7 @@ struct PVXS_API UDPManager
     static void cleanup();
     ~UDPManager();
 
-    evbase& loop();
+    std::shared_ptr<evbase>& loop();
 
     struct Beacon {
         const SockAddr& src;

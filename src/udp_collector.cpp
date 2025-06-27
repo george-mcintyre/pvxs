@@ -95,7 +95,7 @@ public:
 struct UDPManager::Pvt {
     SockAttach attach;
 
-    evbase loop;
+    std::shared_ptr<evbase> loop;
     IfaceMap& ifmap;
 
     // only manipulate from loop worker thread
@@ -103,7 +103,7 @@ struct UDPManager::Pvt {
     std::map<std::pair<int, uint16_t>, UDPCollector*> collectors;
 
     Pvt()
-        :loop("PVXUDP", epicsThreadPriorityCAServerLow-4)
+        :loop(std::make_shared<evbase>("PVXUDP", epicsThreadPriorityCAServerLow-4))
         ,ifmap(IfaceMap::instance())
     {}
     ~Pvt()
@@ -141,10 +141,10 @@ UDPCollector::UDPCollector(UDPManager::Pvt *manager, int af, uint16_t requested_
     ,lo_addr(SockAddr::loopback(bind_addr.family()))
     ,sock(af, SOCK_DGRAM, 0)
     ,rx(__FILE__, __LINE__,
-        event_new(manager->loop.base, sock.sock, EV_READ|EV_PERSIST, &handle_static, this))
+        event_new(manager->loop->base, sock.sock, EV_READ|EV_PERSIST, &handle_static, this))
     ,beaconMsg(src)
 {
-    manager->loop.assertInLoop();
+    manager->loop->assertInLoop();
 
     epicsSocketEnableAddressUseForDatagramFanout(sock.sock);
     sock.enable_SO_RXQ_OVFL();
@@ -187,13 +187,13 @@ UDPCollector::UDPCollector(UDPManager::Pvt *manager, int af, uint16_t requested_
 
 UDPCollector::~UDPCollector()
 {
-    manager->loop.assertInLoop();
+    manager->loop->assertInLoop();
 
     manager->collectors.erase(std::make_pair(bind_addr.family(), bind_addr.port()));
 
     // we should only be destroyed after that last listener has removed itself
     assert(listeners.empty());
-    manager->loop.assertInLoop();
+    manager->loop->assertInLoop();
 }
 
 void UDPCollector::addListener(UDPListener *l)
@@ -486,7 +486,7 @@ void UDPCollector::forwardM(const SockAddr& origin, const uint8_t *pbuf, size_t 
 
 bool UDPCollector::reply(const void *msg, size_t msglen) const
 {
-    manager->loop.assertInLoop();
+    manager->loop->assertInLoop();
 
     log_hex_printf(logio, Level::Debug, msg, msglen, "Send %s -> %s\n",
                    bind_addr.tostring().c_str(), src.tostring().c_str());
@@ -513,7 +513,7 @@ static struct udp_gbl_t {
 
 UDPManager::~UDPManager() {}
 
-evbase& UDPManager::loop()
+std::shared_ptr<evbase>& UDPManager::loop()
 {
     if(!pvt)
         throw std::logic_error("NULL UDPManager");
@@ -563,7 +563,7 @@ std::unique_ptr<UDPListener> UDPManager::onBeacon(SockEndpoint &dest,
 
     std::unique_ptr<UDPListener> ret;
 
-    pvt->loop.call([this, &ret, &dest, &cb](){
+    pvt->loop->call([this, &ret, &dest, &cb](){
         // from event loop worker
 
         ret.reset(new UDPListener(pvt, dest));
@@ -593,7 +593,7 @@ std::unique_ptr<UDPListener> UDPManager::onSearch(SockEndpoint &dest,
 
     std::unique_ptr<UDPListener> ret;
 
-    pvt->loop.call([this, &ret, &dest, &cb](){
+    pvt->loop->call([this, &ret, &dest, &cb](){
         // from event loop worker
 
         ret.reset(new UDPListener(pvt, dest));
@@ -619,7 +619,7 @@ void UDPManager::sync()
     if(!pvt)
         throw std::invalid_argument("UDPManager null");
 
-    pvt->loop.sync();
+    pvt->loop->sync();
 }
 
 UDPListener::UDPListener(const std::shared_ptr<UDPManager::Pvt> &manager, SockEndpoint &ep)
@@ -631,12 +631,12 @@ UDPListener::UDPListener(const std::shared_ptr<UDPManager::Pvt> &manager, SockEn
     }())
     ,active(false)
 {
-    manager->loop.assertInLoop();
+    manager->loop->assertInLoop();
 }
 
 UDPListener::~UDPListener()
 {
-    manager->loop.call([this](){
+    manager->loop->call([this](){
         // from event loop worker
 
         if(active)
@@ -648,7 +648,7 @@ UDPListener::~UDPListener()
 
 void UDPListener::start(bool s)
 {
-    manager->loop.call([this, s](){
+    manager->loop->call([this, s](){
         if(s && !active) {
             collector->addListener(this);
 

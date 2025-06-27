@@ -27,6 +27,9 @@
 #include "ownedptr.h"
 
 namespace pvxs {
+namespace ossl {
+struct CertStatusExData;
+}
 
 // Forward def
 namespace client {
@@ -176,13 +179,13 @@ class CertStatusManager {
      * @brief Used to create a helper that you can use to subscribe to certificate status with
      * Subsequently call subscribe() to subscribe
      *
-     * @param trusted_store_ptr the trusted store that we'll use to verify the OCSP responses received
+     * @param cert_status_ex_data the trusted store that we'll use to verify the OCSP responses received
      * @param ctx_cert certificate you want to subscribe to
      * @param callback the callback to call when a status change has appeared
      *
      * @see unsubscribe()
      */
-    static cert_status_ptr<CertStatusManager> subscribe(X509_STORE *trusted_store_ptr, const std::string &status_pv, StatusCallback &&callback);
+    static cert_status_ptr<CertStatusManager> subscribe(ossl::CertStatusExData *cert_status_ex_data, const std::string &status_pv, StatusCallback &&callback);
 
     /**
      * @brief Unsubscribe from listening to certificate status

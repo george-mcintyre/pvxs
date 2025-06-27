@@ -25,6 +25,7 @@
 #include "certstatusfactory.h"
 #include "configcms.h"
 #include "evhelper.h"
+#include "openssl.h"
 #include "ownedptr.h"
 
 namespace pvxs {
@@ -59,7 +60,7 @@ ossl_ptr<OCSP_RESPONSE> CertStatusManager::getOCSPResponse(const shared_array<co
  */
 ossl_ptr<OCSP_RESPONSE> CertStatusManager::getOCSPResponse(const uint8_t *ocsp_bytes, const size_t ocsp_bytes_len) {
     // Create a BIO for the OCSP response
-    ossl_ptr<BIO> bio(BIO_new_mem_buf(ocsp_bytes, static_cast<int>(ocsp_bytes_len)), false);
+    const ossl_ptr<BIO> bio(BIO_new_mem_buf(ocsp_bytes, static_cast<int>(ocsp_bytes_len)), false);
     if (!bio) {
         throw OCSPParseException("Failed to create BIO for OCSP response");
     }
@@ -176,7 +177,7 @@ PVXS_API ParsedOCSPStatus CertStatusManager::parse(const ossl_ptr<OCSP_RESPONSE>
  * @param trusted_store_ptr the trusted store to verify the status response against
  * @return a manager of this subscription that you can use to `unsubscribe()`, `waitForValue()` and `getValue()`
  */
-cert_status_ptr<CertStatusManager> CertStatusManager::subscribe(X509_STORE *trusted_store_ptr, const std::string &status_pv, StatusCallback &&callback) {
+cert_status_ptr<CertStatusManager> CertStatusManager::subscribe(ossl::CertStatusExData *cert_status_ex_data, const std::string &status_pv, StatusCallback &&callback) {
     // Construct the URI
     log_debug_printf(status, "Starting Status Subscription: %s\n", status_pv.c_str());
 
@@ -191,21 +192,21 @@ cert_status_ptr<CertStatusManager> CertStatusManager::subscribe(X509_STORE *trus
         cert_status_manager->callback_ref = std::move(fn);
         std::weak_ptr<CertStatusManager> weak_cert_status_manager(cert_status_manager);
 
-        log_debug_printf(status, "Subscribing to peer status: %s", "");
+        log_debug_printf(status, "Subscribing to certificate status: %s", status_pv.c_str());
         auto sub = cert_status_manager->client_->monitor(status_pv)
                        .maskConnected(true)
                        .maskDisconnected(true)
-                       .event([trusted_store_ptr, weak_cert_status_manager](client::Subscription &sub) {
+                       .event([cert_status_ex_data, weak_cert_status_manager](client::Subscription &s) {
                            try {
-                               auto cert_status_manager = weak_cert_status_manager.lock();
-                               if (!cert_status_manager) return;
-                               auto update = sub.pop();
+                               const auto csm = weak_cert_status_manager.lock();
+                               if (!csm) return;
+                               const auto update = s.pop();
                                if (update) {
                                    try {
-                                       auto status_update{PVACertificateStatus(update, trusted_store_ptr)};
+                                       auto status_update{PVACertificateStatus(update, cert_status_ex_data->trusted_store_ptr)};
                                        log_debug_printf(status, "Status subscription received: %s\n", status_update.status.s.c_str());
-                                       cert_status_manager->status_ = std::make_shared<CertificateStatus>(status_update);
-                                       (*cert_status_manager->callback_ref)(status_update);
+                                       csm->status_ = std::make_shared<CertificateStatus>(status_update);
+                                       (*csm->callback_ref)(status_update);
                                    } catch (OCSPParseException &e) {
                                        log_debug_printf(status, "Ignoring invalid status update: %s\n", e.what());
                                    } catch (std::invalid_argument &e) {
@@ -263,7 +264,12 @@ bool CertStatusManager::verifyOCSPResponse(const ossl_ptr<OCSP_BASICRESP> &basic
     // Verify the OCSP response.  Values greater than 0 mean verified
     const int verify_result = OCSP_basic_verify(basic_response.get(), cert_auth_cert_chain.get(), trusted_store_ptr, 0);
     if (verify_result <= 0) {
-        throw OCSPParseException("OCSP_basic_verify failed");
+        // Get detailed error information
+        const unsigned long err = ERR_get_error();
+        char err_buf[256];
+        ERR_error_string_n(err, err_buf, sizeof(err_buf));
+
+        throw OCSPParseException(SB() << std::string("OCSP_basic_verify failed: ") << err_buf);
     }
 
     return true;
@@ -291,7 +297,7 @@ time_t CertStatusManager::getRenewByFromCert(const ossl_ptr<X509> &cert) { retur
  * This method retrieves the extension from the given certificate using the NID_PvaCertStatusURI.
  * If the extension is not found, it throws a CertStatusNoExtensionException.
  * @param certificate the certificate to retrieve the extension from
- * @return the X509_EXTENSION object if found, otherwise throws an exception
+ * @return the X509_EXTENSION object, if found, otherwise throws an exception
  */
 X509_EXTENSION *CertStatusManager::getStatusExtension(const X509 *certificate) {
     const int extension_index = X509_get_ext_by_NID(certificate, ossl::NID_SPvaCertStatusURI, -1);
@@ -310,7 +316,7 @@ X509_EXTENSION *CertStatusManager::getStatusExtension(const X509 *certificate) {
  * This method retrieves the extension from the given certificate using the NID_PvaCertConfigURI.
  * If the extension is not found, it throws a CertConfigNoExtensionException.
  * @param certificate the certificate to retrieve the extension from
- * @return the X509_EXTENSION object if found, otherwise throws an exception
+ * @return the X509_EXTENSION object, if found, otherwise throws an exception
  */
 X509_EXTENSION *CertStatusManager::getConfigExtension(const X509 *certificate) {
     const int extension_index = X509_get_ext_by_NID(certificate, ossl::NID_SPvaCertConfigURI, -1);

@@ -19,7 +19,7 @@
 #include "p12filefactory.h"
 #include "security.h"
 
-DEFINE_LOGGER(config, "pvxs.auth.config");
+DEFINE_LOGGER(config_, "pvxs.auth.config");
 
 namespace pvxs {
 namespace certs {
@@ -139,7 +139,9 @@ void Auth::runAuthNDaemon(const ConfigAuthN &authn_config, bool for_client, Cert
     config_pv.open(config_monitor_params->config_pv_value);
 
     // Create a server with a custom timer event that runs our configuration monitor
-    config_server_ = server::Server(config, [config_monitor_params, &config_pv](short) { return configurationMonitor(config_monitor_params, config_pv); });
+    config_server_ = server::Server(config, [config_monitor_params, config_pv](short) mutable {
+        return configurationMonitor(config_monitor_params, config_pv);
+    });
 
     config_pv.onFirstConnect([&config_monitor_params, &for_client, &authn_config, &issuer_id](server::SharedPV &pv) {
         const auto serial = CertStatusFactory::getSerialNumber(config_monitor_params->cert_);
@@ -149,7 +151,9 @@ void Auth::runAuthNDaemon(const ConfigAuthN &authn_config, bool for_client, Cert
         CertDate renew_by = expiry_date;
         try {
             renew_by = CertStatusManager::getRenewByFromCert(config_monitor_params->cert_);
-        } catch (...) {}
+        } catch (const std::exception &e) {
+            log_err_printf(config_, "Error reading renew by date: %s\n", e.what());
+        }
         const std::string renew_by_s = std::ctime(&renew_by.t);
 
         setValue<std::string>(config_monitor_params->config_pv_value, "issuer_id", issuer_id);
@@ -209,7 +213,7 @@ timeval Auth::configurationMonitor(std::shared_ptr<ConfigMonitorParams> config_m
 
         config_monitor_params->adaptive_timeout_mins_ =
             !config_monitor_params->adaptive_timeout_mins_ ? 1 : std::min(config_monitor_params->adaptive_timeout_mins_ * 2, PVXS_CONFIG_MONITOR_TIMEOUT_MAX);
-        log_err_printf(config, "Config refresh error.  Retry in %d mins: %s\n", config_monitor_params->adaptive_timeout_mins_, e.what());
+        log_err_printf(config_, "Config refresh error.  Retry in %d mins: %s\n", config_monitor_params->adaptive_timeout_mins_, e.what());
         return {config_monitor_params->adaptive_timeout_mins_ * 60, 0};
     }
 

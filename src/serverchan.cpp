@@ -73,7 +73,7 @@ void ServerChannelControl::onOp(std::function<void(std::unique_ptr<server::Conne
     if(!serv)
         return;
 
-    serv->acceptor_loop.call([this, &fn](){
+    serv->acceptor_loop->call([this, &fn](){
         auto ch = chan.lock();
         if(!ch)
             return;
@@ -88,7 +88,7 @@ void ServerChannelControl::onRPC(std::function<void(std::unique_ptr<server::Exec
     if(!serv)
         return;
 
-    serv->acceptor_loop.call([this, &fn](){
+    serv->acceptor_loop->call([this, &fn](){
         auto ch = chan.lock();
         if(!ch)
             return;
@@ -103,7 +103,7 @@ void ServerChannelControl::onSubscribe(std::function<void(std::unique_ptr<server
     if(!serv)
         return;
 
-    serv->acceptor_loop.call([this, &fn](){
+    serv->acceptor_loop->call([this, &fn](){
         auto ch = chan.lock();
         if(!ch)
             return;
@@ -118,7 +118,7 @@ void ServerChannelControl::onClose(std::function<void(const std::string&)>&& fn)
     if(!serv)
         return;
 
-    serv->acceptor_loop.call([this, &fn](){
+    serv->acceptor_loop->call([this, &fn](){
         auto ch = chan.lock();
         if(!ch || ch->state==ServerChan::Destroy)
             return;
@@ -134,7 +134,7 @@ void ServerChannelControl::close()
     if(!serv)
         return;
 
-    serv->acceptor_loop.call([this](){
+    serv->acceptor_loop->call([this](){
         auto ch = chan.lock();
         if(!ch)
             return;
@@ -162,7 +162,7 @@ void ServerChannelControl::_updateInfo(const std::shared_ptr<const ReportInfo>& 
     if(!serv)
         return;
 
-    serv->acceptor_loop.call([this, &info](){
+    serv->acceptor_loop->call([this, &info](){
         auto ch = chan.lock();
         if(!ch)
             return;

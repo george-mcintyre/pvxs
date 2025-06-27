@@ -9,6 +9,7 @@
 #include "evhelper.h"
 #include "dataimpl.h"
 #include "certstatus.h"
+#include "openssl.h"
 #include "utilpvt.h"
 
 namespace pvxs {
@@ -138,7 +139,10 @@ public:
     } state;
 
 #ifdef PVXS_ENABLE_OPENSSL
-    ConnBase(bool isClient, bool isTLS, bool sendBE, evbufferevent &&bev, const SockAddr& peerAddr);
+    std::shared_ptr<ossl::SSLContext> tls_context;
+
+    ConnBase(bool isClient, bool isTLS, bool sendBE, evbufferevent &&bev, const SockAddr& peerAddr, const std::shared_ptr<ossl::SSLContext> &tls_context);
+    bool canAcceptTlsConnectionValidated() const;
 #else
     ConnBase(bool isClient, bool sendBE, evbufferevent &&bev, const SockAddr& peerAddr);
 #endif

@@ -80,8 +80,8 @@ ServerConn::ServerConn(ServIface* iface, evutil_socket_t sock, struct sockaddr *
            iface->isTLS,
 #endif
            iface->server->effective.sendBE(),
-            evbufferevent(__FILE__, __LINE__, bufferevent_socket_new(iface->server->acceptor_loop.base, sock, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_DEFER_CALLBACKS)),
-            SockAddr(peer))
+            evbufferevent(__FILE__, __LINE__, bufferevent_socket_new(iface->server->acceptor_loop->base, sock, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_DEFER_CALLBACKS)),
+            SockAddr(peer), iface->server->tls_context)
     ,iface(iface)
     ,tcp_tx_limit(evsocket::get_buffer_size(sock, true) * tcp_tx_limit_mult)
 {
@@ -118,7 +118,7 @@ ServerConn::ServerConn(ServIface* iface, evutil_socket_t sock, struct sockaddr *
         const auto rawconn = bev.release();
         // BEV_OPT_CLOSE_ON_FREE will free on error
         evbufferevent tlsconn(__FILE__, __LINE__,
-                              bufferevent_openssl_filter_new(iface->server->acceptor_loop.base, rawconn, ssl, BUFFEREVENT_SSL_ACCEPTING,
+                              bufferevent_openssl_filter_new(iface->server->acceptor_loop->base, rawconn, ssl, BUFFEREVENT_SSL_ACCEPTING,
                                                              BEV_OPT_CLOSE_ON_FREE | BEV_OPT_DEFER_CALLBACKS));
         bev = std::move(tlsconn);
 
@@ -451,9 +451,9 @@ void ServerConn::bevEvent(short events) {
 #ifdef PVXS_ENABLE_OPENSSL
     ConnBase::bevEvent(events, [=](bool enable) {
         if (enable)
-            iface->server->acceptor_loop.dispatch([this]() mutable { iface->server->enableTlsForPeerConnection(this); });
+            iface->server->acceptor_loop->dispatch([this]() mutable { iface->server->enableTlsForPeerConnection(this); });
         else
-            iface->server->acceptor_loop.dispatch([this]() mutable { iface->server->removePeerTlsConnections(this); });
+            iface->server->acceptor_loop->dispatch([this]() mutable { iface->server->removePeerTlsConnections(this); });
     });
 #else
     ConnBase::bevEvent(events);
@@ -507,7 +507,7 @@ ServIface::ServIface(const SockAddr &addr, server::Server::Pvt *server, bool fal
 #endif
     ,bind_addr(addr)
 {
-    server->acceptor_loop.assertInLoop();
+    server->acceptor_loop->assertInLoop();
     auto orig_port = bind_addr.port();
 
     sock = evsocket(bind_addr.family(), SOCK_STREAM, 0);
@@ -548,7 +548,7 @@ ServIface::ServIface(const SockAddr &addr, server::Server::Pvt *server, bool fal
 
     const int backlog = 4;
     listener = evlisten(__FILE__, __LINE__,
-                        evconnlistener_new(server->acceptor_loop.base, onConnS, this, LEV_OPT_DISABLED|LEV_OPT_CLOSE_ON_EXEC, backlog, sock.sock));
+                        evconnlistener_new(server->acceptor_loop->base, onConnS, this, LEV_OPT_DISABLED|LEV_OPT_CLOSE_ON_EXEC, backlog, sock.sock));
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wtautological-constant-compare"
@@ -606,7 +606,7 @@ void ServerOp::cleanup()
             conn->opByIOID.erase(ioid);
 
             if(notify) {
-                conn->iface->server->acceptor_loop.dispatch([closer](){
+                conn->iface->server->acceptor_loop->dispatch([closer](){
                     closer("");
                 });
                 notify = false;

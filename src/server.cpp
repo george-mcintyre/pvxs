@@ -287,7 +287,7 @@ Report Server::report(bool zero) const
 
     Report ret;
 
-    pvt->acceptor_loop.call([this, &ret, zero](){
+    pvt->acceptor_loop->call([this, &ret, zero](){
 
         for(auto& pair : pvt->connections) {
             auto conn = pair.first;
@@ -354,7 +354,7 @@ std::ostream& operator<<(std::ostream& strm, const Server& serv)
         if(detail<2)
             return strm;
 
-        serv.pvt->acceptor_loop.call([&serv, &strm, detail](){
+        serv.pvt->acceptor_loop->call([&serv, &strm, detail](){
             strm<<indent{}<<"State: ";
             switch(serv.pvt->state) {
 #define CASE(STATE) case Server::Pvt::STATE: strm<< #STATE; break
@@ -456,20 +456,20 @@ Server::Pvt::Pvt(Server &svr, const Config& conf, CustomServerCallback custom_ce
     : server(svr),
       effective(conf),
       beaconMsg(128),
-      acceptor_loop("PVXTCP", epicsThreadPriorityCAServerLow - 2),
+      acceptor_loop(std::make_shared<evbase>("PVXTCP", epicsThreadPriorityCAServerLow - 2)),
 #ifdef PVXS_ENABLE_OPENSSL
       tls_context(nullptr),
 #endif
       beaconSender4(AF_INET, SOCK_DGRAM, 0),
       beaconSender6(AF_INET6, SOCK_DGRAM, 0),
-      beaconTimer(__FILE__, __LINE__, event_new(acceptor_loop.base, -1, EV_TIMEOUT, doBeaconsS, this)),
+      beaconTimer(__FILE__, __LINE__, event_new(acceptor_loop->base, -1, EV_TIMEOUT, doBeaconsS, this)),
       searchReply(0x10000),
       builtinsrc(StaticSource::build()),
       state(Stopped)
 #ifdef PVXS_ENABLE_OPENSSL
       ,
       custom_server_callback(custom_cert_event_callback),
-      custom_server_callback_timer(__FILE__, __LINE__, event_new(acceptor_loop.base, -1, EV_TIMEOUT, doCustomServerCallback, this))
+      custom_server_callback_timer(__FILE__, __LINE__, event_new(acceptor_loop->base, -1, EV_TIMEOUT, doCustomServerCallback, this))
 #endif
 {
     effective.expand();
@@ -590,7 +590,7 @@ Server::Pvt::Pvt(Server &svr, const Config& conf, CustomServerCallback custom_ce
     }
 
 
-    acceptor_loop.call([this, &tcpifaces](){
+    acceptor_loop->call([this, &tcpifaces](){
         // from accepter worker
 
 #ifdef PVXS_ENABLE_OPENSSL
@@ -716,7 +716,7 @@ void Server::Pvt::start()
 
     // begin accepting connections
     state_t prev_state;
-    acceptor_loop.call([this, &prev_state]()
+    acceptor_loop->call([this, &prev_state]()
     {
         prev_state = state;
         if(state!=Stopped) {
@@ -747,7 +747,7 @@ void Server::Pvt::start()
     }
 
     // begin sending beacons
-    acceptor_loop.call([this]()
+    acceptor_loop->call([this]()
     {
         timeval immediate = {0,0};
         // send first beacon immediately
@@ -759,7 +759,7 @@ void Server::Pvt::start()
 
     // begin running custom server callback if configured
    if ( custom_server_callback )
-       acceptor_loop.call([this]()
+       acceptor_loop->call([this]()
        {
             // Trigger the first custom server callback, with the initial interval period
             if(event_add(custom_server_callback_timer.get(), &kCustomCallbackIntervalInitial))
@@ -771,7 +771,7 @@ void Server::Pvt::stop()
 {
     log_debug_printf(serversetup, "Server Stopping\n%s", "");
 
-    acceptor_loop.call([this]()
+    acceptor_loop->call([this]()
     {
         if (custom_server_callback_timer) {
             if (event_del(custom_server_callback_timer.get()))
@@ -782,7 +782,7 @@ void Server::Pvt::stop()
 
     // Stop sending Beacons
     state_t prev_state;
-    acceptor_loop.call([this, &prev_state]()
+    acceptor_loop->call([this, &prev_state]()
     {
         prev_state = state;
         if(state!=Running) {
@@ -802,7 +802,7 @@ void Server::Pvt::stop()
         L->stop();
     }
 
-    acceptor_loop.call([this]()
+    acceptor_loop->call([this]()
     {
         // stop accepting new TCP connections
         for(auto& iface : interfaces) {
@@ -826,7 +826,7 @@ void Server::Pvt::stop()
      * TODO: this is partly a crutch as eg. SharedPV::attach() binds strong self references
      *       into on*() lambdas, which indirectly hold references keeping acceptor_loop alive.
      */
-    acceptor_loop.sync();
+    acceptor_loop->sync();
 }
 
 void Server::Pvt::onSearch(const UDPManager::Search& msg)
@@ -1032,7 +1032,7 @@ void Server::reconfigure(const Config& inconf) {
     // is the current server running?
 
     Pvt::state_t prev_state;
-    pvt->acceptor_loop.call([this, &prev_state]() { prev_state = pvt->state; });
+    pvt->acceptor_loop->call([this, &prev_state]() { prev_state = pvt->state; });
 
     bool was_running = prev_state == Pvt::Running || prev_state == Pvt::Starting;
 

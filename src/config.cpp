@@ -38,7 +38,7 @@
 
 DEFINE_LOGGER(serversetup, "pvxs.svr.init");
 DEFINE_LOGGER(clientsetup, "pvxs.cli.init");
-DEFINE_LOGGER(config, "pvxs.config");
+DEFINE_LOGGER(config_, "pvxs.config");
 
 namespace pvxs {
 
@@ -173,7 +173,7 @@ SockEndpoint::SockEndpoint(const char* ep, const impl::ConfigCommon* conf, uint1
     }
 
     if (!iface.empty() && !ifmap.index_of(iface)) {
-        log_warn_printf(config, "Invalid interface address or name: \"%s\"\n", iface.c_str());
+        log_warn_printf(config_, "Invalid interface address or name: \"%s\"\n", iface.c_str());
     }
 }
 
@@ -202,7 +202,7 @@ MCastMembership SockEndpoint::resolve() const {
         if (!iface.empty()) {
             req.ipv6mr_interface = ifmap.index_of(this->iface);
             if (!req.ipv6mr_interface) {
-                log_warn_printf(config, "Unable to resolve interface '%s'\n", iface.c_str());
+                log_warn_printf(config_, "Unable to resolve interface '%s'\n", iface.c_str());
             }
         }
 
@@ -295,7 +295,7 @@ void split_addr_into(const char* name, std::vector<std::string>& out, const std:
 
         } catch (std::exception& e) {
             if (required) throw std::runtime_error(SB() << "invalid endpoint \"" << temp << "\" " << e.what());
-            log_err_printf(config, "%s ignoring invalid '%s' : %s\n", name, temp.c_str(), e.what());
+            log_err_printf(config_, "%s ignoring invalid '%s' : %s\n", name, temp.c_str(), e.what());
         }
     }
 }
@@ -319,7 +319,7 @@ void parse_bool(bool& dest, const std::string& name, const std::string& val) {
     } else if (epicsStrCaseCmp(val.c_str(), "NO") == 0 || val == "0") {
         dest = false;
     } else {
-        log_err_printf(config, "%s invalid bool value (YES/NO) : '%s'\n", name.c_str(), val.c_str());
+        log_err_printf(config_, "%s invalid bool value (YES/NO) : '%s'\n", name.c_str(), val.c_str());
     }
 }
 
@@ -342,7 +342,7 @@ std::vector<SockEndpoint> parseAddresses(const std::vector<std::string>& addrs) 
         try {
             ret.emplace_back(addr);
         } catch (std::runtime_error& e) {
-            log_warn_printf(config, "Ignoring %s : %s\n", addr.c_str(), e.what());
+            log_warn_printf(config_, "Ignoring %s : %s\n", addr.c_str(), e.what());
             continue;
         }
     }
@@ -445,7 +445,7 @@ void parseTLSOptions(ConfigCommon& conf, const std::string& options) {
             } else if (val == "optional") {
                 conf.tls_client_cert_required = ConfigCommon::Optional;
             } else {
-                log_warn_printf(config, "Ignore unknown TLS option `client_cert` value %s.  expected `require` or `optional`\n", opt.c_str());
+                log_warn_printf(config_, "Ignore unknown TLS option `client_cert` value %s.  expected `require` or `optional`\n", opt.c_str());
             }
         } else if (key == "on_expiration") {
             if (val == "fallback-to-tcp") {
@@ -455,7 +455,7 @@ void parseTLSOptions(ConfigCommon& conf, const std::string& options) {
             } else if (val == "standby") {
                 conf.expiration_behaviour = ConfigCommon::Standby;
             } else {
-                log_warn_printf(config, "Ignore unknown TLS option `on_expiration` value %s.  expected `fallback-to-tcp`, `shutdown` or `standby`\n", opt.c_str());
+                log_warn_printf(config_, "Ignore unknown TLS option `on_expiration` value %s.  expected `fallback-to-tcp`, `shutdown` or `standby`\n", opt.c_str());
             }
         } else if (key == "on_no_cms") {
             if (val == "fallback-to-tcp") {
@@ -463,20 +463,20 @@ void parseTLSOptions(ConfigCommon& conf, const std::string& options) {
             } else if (val == "throw") {
                 conf.tls_throw_if_cant_verify = true;
             } else {
-                log_warn_printf(config, "Ignore unknown TLS option `on_no_cms` value %s.  expected `fallback-to-tcp` or `throw`\n", opt.c_str());
+                log_warn_printf(config_, "Ignore unknown TLS option `on_no_cms` value %s.  expected `fallback-to-tcp` or `throw`\n", opt.c_str());
             }
         } else if (key == "no_revocation_check") {
             if ( val.empty())
                 conf.tls_disable_status_check = true;
             else
-                log_warn_printf(config, "Ignore unknown TLS option `no_revocation_check` value %s.  no value expected\n", opt.c_str());
+                log_warn_printf(config_, "Ignore unknown TLS option `no_revocation_check` value %s.  no value expected\n", opt.c_str());
         } else if (key == "no_stapling") {
             if ( val.empty())
                 conf.tls_disable_stapling = true;
             else
-                log_warn_printf(config, "Ignore unknown TLS option `no_stapling` value %s.  no value expected\n", opt.c_str());
+                log_warn_printf(config_, "Ignore unknown TLS option `no_stapling` value %s.  no value expected\n", opt.c_str());
         } else {
-            log_warn_printf(config, "Ignore unknown TLS option key %s\n", opt.c_str());
+            log_warn_printf(config_, "Ignore unknown TLS option key %s\n", opt.c_str());
         }
     }
 }

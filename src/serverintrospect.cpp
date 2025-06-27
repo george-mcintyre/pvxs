@@ -92,7 +92,7 @@ struct ServerIntrospectControl : public server::ConnectOp
         if(!serv)
             return; // soft fail if already completed, canceled, disconnected, ....
 
-        serv->acceptor_loop.call([this, type, &sts](){
+        serv->acceptor_loop->call([this, type, &sts](){
             if(auto oper = op.lock())
                 oper->doReply(type, sts);
         });
@@ -103,7 +103,7 @@ struct ServerIntrospectControl : public server::ConnectOp
         auto serv = server.lock();
         if(!serv)
             return;
-        serv->acceptor_loop.call([this, &fn](){
+        serv->acceptor_loop->call([this, &fn](){
             if(auto oper = op.lock())
                 oper->onClose = std::move(fn);
         });

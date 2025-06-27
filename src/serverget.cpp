@@ -183,7 +183,7 @@ struct ServerGPRConnect : public server::ConnectOp
         auto serv = server.lock();
         if(!serv)
             return;
-        serv->acceptor_loop.call([this, &prototype](){
+        serv->acceptor_loop->call([this, &prototype](){
             if(auto oper = op.lock()) {
                 if(oper->state!=ServerOp::Creating)
                     return;
@@ -211,7 +211,7 @@ struct ServerGPRConnect : public server::ConnectOp
         if(!serv)
             return;
         auto op(this->op);
-        serv->acceptor_loop.dispatch([op, msg](){
+        serv->acceptor_loop->dispatch([op, msg](){
             if(auto oper = op.lock()) {
                 if(oper->state==ServerOp::Creating)
                     oper->doReply(Value(), msg);
@@ -224,7 +224,7 @@ struct ServerGPRConnect : public server::ConnectOp
         auto serv = server.lock();
         if(!serv)
             return;
-        serv->acceptor_loop.call([this, &fn](){
+        serv->acceptor_loop->call([this, &fn](){
             if(auto oper = op.lock())
                 oper->onGet = std::move(fn);
         });
@@ -234,7 +234,7 @@ struct ServerGPRConnect : public server::ConnectOp
         auto serv = server.lock();
         if(!serv)
             return;
-        serv->acceptor_loop.call([this, &fn](){
+        serv->acceptor_loop->call([this, &fn](){
             if(auto oper = op.lock())
                 oper->onPut = std::move(fn);
         });
@@ -244,7 +244,7 @@ struct ServerGPRConnect : public server::ConnectOp
         auto serv = server.lock();
         if(!serv)
             return;
-        serv->acceptor_loop.call([this, &fn](){
+        serv->acceptor_loop->call([this, &fn](){
             if(auto oper = op.lock())
                 oper->onClose = std::move(fn);
         });
@@ -282,7 +282,7 @@ struct ServerGPRExec : public server::ExecOp
         if(!serv)
             return;
         auto op(this->op);
-        serv->acceptor_loop.dispatch([op, val](){
+        serv->acceptor_loop->dispatch([op, val](){
             if(auto oper = op.lock()) {
                 oper->doReply(val, std::string());
             }
@@ -297,7 +297,7 @@ struct ServerGPRExec : public server::ExecOp
         if(!serv)
             return;
         auto op(this->op);
-        serv->acceptor_loop.dispatch([op, msg](){
+        serv->acceptor_loop->dispatch([op, msg](){
             if(auto oper = op.lock()) {
                 oper->doReply(Value(), msg);
             }
@@ -309,7 +309,7 @@ struct ServerGPRExec : public server::ExecOp
         auto serv = server.lock();
         if(!serv)
             return;
-        serv->acceptor_loop.call([this, &fn](){
+        serv->acceptor_loop->call([this, &fn](){
             if(auto oper = op.lock())
                 oper->onCancel = std::move(fn);
         });
@@ -321,7 +321,7 @@ struct ServerGPRExec : public server::ExecOp
         if(!serv)
             throw std::logic_error("Can't start timer on deal server");
 
-        return Timer::Pvt::buildOneShot(delay, serv->acceptor_loop.internal(), std::move(fn));
+        return Timer::Pvt::buildOneShot(delay, *serv->acceptor_loop->internal(), std::move(fn));
     }
 
     const std::weak_ptr<server::Server::Pvt> server;

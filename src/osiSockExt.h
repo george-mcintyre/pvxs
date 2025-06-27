@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include <event2/util.h>
+#include <openssl/types.h>
 
 #include <pvxs/version.h>
 
@@ -49,6 +50,7 @@ struct PVXS_API SockAddr {
         sockaddr_in6 in6;
 #endif
     };
+
 private:
     store_t  store;
 public:

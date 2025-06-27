@@ -232,7 +232,7 @@ struct Server::Pvt
 
     // handle server "background" tasks.
     // accept new connections and send beacons
-    evbase acceptor_loop;
+    std::shared_ptr<evbase>acceptor_loop;
 
 #ifdef PVXS_ENABLE_OPENSSL
     // @note order member `pvxs::client::ContextImpl::connections` after

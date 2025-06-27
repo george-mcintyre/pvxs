@@ -122,7 +122,7 @@ struct PVXS_API evbase {
     explicit evbase(const std::string& name, unsigned prio=0);
     ~evbase();
 
-    evbase internal() const;
+    std::shared_ptr<evbase> internal() const;
 
     void join() const;
 

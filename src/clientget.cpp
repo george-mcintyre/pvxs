@@ -592,7 +592,7 @@ std::shared_ptr<Operation> gpr_setup(const std::shared_ptr<ContextImpl>& context
                        }, std::move(temp)));
     });
 
-    context->tcp_loop.dispatch([context, internal, name, server]() {
+    context->tcp_loop->dispatch([context, internal, name, server]() {
         // on worker
         try {
             internal->chan = Channel::build(context, name, server);
@@ -617,7 +617,7 @@ std::shared_ptr<Operation> GetBuilder::_exec_get()
 
     auto context(ctx->impl->shared_from_this());
 
-    auto op(std::make_shared<GPROp>(Operation::Get, context->tcp_loop));
+    auto op(std::make_shared<GPROp>(Operation::Get, *context->tcp_loop));
     op->setDone(std::move(_result), std::move(_onInit));
     op->autoExec = _autoexec;
     op->pvRequest = _buildReq();
@@ -632,7 +632,7 @@ std::shared_ptr<Operation> PutBuilder::exec()
 
     auto context(ctx->impl->shared_from_this());
 
-    auto op(std::make_shared<GPROp>(Operation::Put, context->tcp_loop));
+    auto op(std::make_shared<GPROp>(Operation::Put, *context->tcp_loop));
     op->setDone(std::move(_result), std::move(_onInit));
 
     if(_builder) {
@@ -664,7 +664,7 @@ std::shared_ptr<Operation> RPCBuilder::exec()
 
     auto context(ctx->impl->shared_from_this());
 
-    auto op(std::make_shared<GPROp>(Operation::RPC, context->tcp_loop));
+    auto op(std::make_shared<GPROp>(Operation::RPC, *context->tcp_loop));
     op->setDone(std::move(_result), nullptr);
     if(_argument) {
         if(!_autoexec)

@@ -747,7 +747,7 @@ std::shared_ptr<Subscription> MonitorBuilder::exec()
 
     auto context(ctx->impl->shared_from_this());
 
-    auto op(std::make_shared<SubscriptionImpl>(context->tcp_loop));
+    auto op(std::make_shared<SubscriptionImpl>(*context->tcp_loop));
     op->self = op;
     op->channelName = std::move(_name);
     op->event = std::move(_event);
@@ -816,7 +816,7 @@ std::shared_ptr<Subscription> MonitorBuilder::exec()
     });
 
     auto server(std::move(_server));
-    context->tcp_loop.dispatch([=]() {
+    context->tcp_loop->dispatch([=]() {
         // on worker
         try {
             op->chan = Channel::build(context, op->channelName, server);
