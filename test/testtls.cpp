@@ -19,8 +19,8 @@
 #include <pvxs/source.h>
 #include <pvxs/unittest.h>
 
+#include "certcontext.h"
 #include "certstatusmanager.h"
-#include "testcerts.h"
 #include "utilpvt.h"
 
 using namespace pvxs;
