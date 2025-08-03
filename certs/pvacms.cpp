@@ -892,7 +892,7 @@ void onCreateCertificate(ConfigCms &config,
         auto reply(getCreatePrototype());
         auto now(time(nullptr));
         setValue<uint32_t>(reply, "status.value.index", VALID);
-        setValue<uint64_t>(reply, "status.timeStamp.secondsPastEpoch", now + POSIX_TIME_AT_EPICS_EPOCH);
+        setValue<uint64_t>(reply, "status.timeStamp.secondsPastEpoch", now - POSIX_TIME_AT_EPICS_EPOCH);
         setValue<std::string>(reply, "state", CERT_STATE(VALID));
         setValue<uint64_t>(reply, "serial", serial);
         setValue<std::string>(reply, "issuer", issuer_id);
@@ -1075,7 +1075,7 @@ void onCreateCertificate(ConfigCms &config,
         auto status_pv = getCertStatusURI(config.cert_pv_prefix, issuer_id, serial);
         auto reply(getCreatePrototype());
         reply["status.value.index"] = state;
-        reply["status.timeStamp.secondsPastEpoch"] = now + POSIX_TIME_AT_EPICS_EPOCH;
+        reply["status.timeStamp.secondsPastEpoch"] = now - POSIX_TIME_AT_EPICS_EPOCH;
         reply["state"] = CERT_STATE(state);
         reply["serial"] = serial;
         reply["issuer"] = issuer_id;
@@ -2060,8 +2060,6 @@ time_t getNotBeforeTimeFromCert(const X509 *cert) {
  */
 template <typename T>
 void setValue(Value &target, const std::string &field, const T &new_value) {
-    const auto current_field = target[field];
-    auto current_value = current_field.as<T>();
     target[field] = new_value;
 }
 
@@ -2095,9 +2093,9 @@ Value postCertificateStatus(server::SharedWildcardPV &status_pv,
     const auto now = time(nullptr);
     setValue<uint64_t>(status_value, "serial", serial);
     setValue<uint32_t>(status_value, "status.value.index", cert_status.status.i);
-    setValue<time_t>(status_value, "status.timeStamp.secondsPastEpoch", now + POSIX_TIME_AT_EPICS_EPOCH);
+    setValue<time_t>(status_value, "status.timeStamp.secondsPastEpoch", now - POSIX_TIME_AT_EPICS_EPOCH);
     setValue<std::string>(status_value, "state", cert_status.status.s);
-    setValue<time_t>(status_value, "ocsp_status.timeStamp.secondsPastEpoch", now + POSIX_TIME_AT_EPICS_EPOCH);
+    setValue<time_t>(status_value, "ocsp_status.timeStamp.secondsPastEpoch", now - POSIX_TIME_AT_EPICS_EPOCH);
     setValue<uint32_t>(status_value, "ocsp_status.value.index", cert_status.ocsp_status.i);
     // Get ocsp info if specified
     if (cert_status.ocsp_bytes.empty()) {

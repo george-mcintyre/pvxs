@@ -203,16 +203,12 @@ struct CertCtx {
  * @tparam Type The type of the value being set.
  * @param target The Value object containing the field to be updated.
  * @param field The name of the field within the target object to be updated.
- * @param source The new value to be set in the specified field.
+ * @param new_value The new value to be set in the specified field.
  */
-template<typename Type>
-void setValue(Value &target, const std::string &field, const Type &source) {
-    const auto current = target[field];
-    if (current.as<Type>() == source) target[field].unmark();
-        // Assuming unmark is a valid method for indicating no change needed
-    else target[field] = source;
+template <typename Type>
+void setValue(Value &target, const std::string &field, const Type &new_value) {
+    target[field] = new_value;
 }
-
 /**
  * Retrieves a test certificate from a given file and password.
  *
@@ -303,10 +299,10 @@ void makeStatusResponse(CertCtx<Tag> &cert_context,
 
         setValue(cert_context.status_val, "serial", cert_context.serial());
         setValue(cert_context.status_val, "status.value.index", cert_context.status.status.i);
-        setValue(cert_context.status_val, "status.timeStamp.secondsPastEpoch", now.t + POSIX_TIME_AT_EPICS_EPOCH);
+        setValue(cert_context.status_val, "status.timeStamp.secondsPastEpoch", now.t - POSIX_TIME_AT_EPICS_EPOCH);
         setValue(cert_context.status_val, "state", cert_context.status.status.s);
         setValue(cert_context.status_val, "ocsp_status.value.index", cert_context.status.ocsp_status.i);
-        setValue(cert_context.status_val, "ocsp_status.timeStamp.secondsPastEpoch", now.t + POSIX_TIME_AT_EPICS_EPOCH);
+        setValue(cert_context.status_val, "ocsp_status.timeStamp.secondsPastEpoch", now.t - POSIX_TIME_AT_EPICS_EPOCH);
         setValue(cert_context.status_val, "ocsp_state", (SB() << "**UNCERTIFIED**: " << cert_context.status.ocsp_status.s).str());
 
         if (!cert_context.status.ocsp_bytes.empty()) {
