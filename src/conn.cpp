@@ -139,7 +139,6 @@ void ConnBase::bevEvent(short events)
 void ConnBase::bevEvent(short events, std::function<void(bool)> fn)
 #endif
 {
-
     if (bev && isTLS) {
         if (events & (BEV_EVENT_ERROR | BEV_EVENT_EOF)) {
             while (auto err = bufferevent_get_openssl_error(bev.get())) {
@@ -148,22 +147,6 @@ void ConnBase::bevEvent(short events, std::function<void(bool)> fn)
             }
         }
 
-#ifndef PVXS_ENABLE_OPENSSL
-        // If this is a connect then subscribe to peer status is required
-        if (events & BEV_EVENT_CONNECTED) {
-            auto ctx = bufferevent_openssl_get_ssl(bev.get());
-            assert(ctx);
-            try {
-                if (!ossl::SSLContext::subscribeToPeerCertStatus(ctx, fn)) {
-                    log_warn_printf(connio, "unable to subscribe to %s %s certificate status\n", peerLabel(), peerName.c_str());
-                }
-            } catch (certs::CertStatusNoExtensionException &e) {
-                log_debug_printf(connio, "status monitoring not required for %s %s: %s\n", peerLabel(), peerName.c_str(), e.what());
-            } catch (std::exception &e) {
-                log_debug_printf(connio, "unexpected error subscribing to %s %s certificate status: %s\n", peerLabel(), peerName.c_str(), e.what());
-            }
-        }
-#endif
     }
 
     // If any socket warnings / errors then log and disconnect

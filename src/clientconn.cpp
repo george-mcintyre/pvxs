@@ -280,6 +280,23 @@ void Connection::sendDestroyRequest(uint32_t sid, uint32_t ioid)
 }
 
 void Connection::bevEvent(short events) {
+    std::cout << "Client-Peer Cert Instigation logic: "  << events << std::endl;
+    // Handle BEV_EVENT_CONNECTED specifically for client
+    if (events & BEV_EVENT_CONNECTED) {
+        auto ctx = bufferevent_openssl_get_ssl(bev.get());
+        if ( ctx) {
+            try {
+                if (!ossl::SSLContext::subscribeToPeerCertStatus(ctx, [](bool enable){})) {
+                    log_warn_printf(io, "unable to subscribe to %s %s certificate status\n", peerLabel(), peerName.c_str());
+                }
+            } catch (certs::CertStatusNoExtensionException &e) {
+                log_debug_printf(io, "status monitoring not required for %s %s: %s\n", peerLabel(), peerName.c_str(), e.what());
+            } catch (std::exception &e) {
+                log_debug_printf(io, "unexpected error subscribing to %s %s certificate status: %s\n", peerLabel(), peerName.c_str(), e.what());
+            }
+        }
+    }
+
 #ifdef PVXS_ENABLE_OPENSSL
     ConnBase::bevEvent(events, [=](bool enable) {
         if (context) {

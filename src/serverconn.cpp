@@ -449,6 +449,23 @@ void ServerConn::cleanup()
 
 void ServerConn::bevEvent(short events) {
 #ifdef PVXS_ENABLE_OPENSSL
+        std::cout << "Server-Peer Cert Instigation logic: "  << events << std::endl;
+    // Handle BEV_EVENT_CONNECTED specifically for server
+    if (events & BEV_EVENT_READING) {
+        auto ctx = bufferevent_openssl_get_ssl(bev.get());
+        if ( ctx) {
+            try {
+                if (!ossl::SSLContext::subscribeToPeerCertStatus(ctx, [](bool enable){})) {
+                    log_warn_printf(connio, "unable to subscribe to %s %s certificate status\n", peerLabel(), peerName.c_str());
+                }
+            } catch (certs::CertStatusNoExtensionException &e) {
+                log_debug_printf(connio, "status monitoring not required for %s %s: %s\n", peerLabel(), peerName.c_str(), e.what());
+            } catch (std::exception &e) {
+                log_debug_printf(connio, "unexpected error subscribing to %s %s certificate status: %s\n", peerLabel(), peerName.c_str(), e.what());
+            }
+        }
+    }
+
     ConnBase::bevEvent(events, [=](bool enable) {
         if (enable)
             iface->server->acceptor_loop.dispatch([this]() mutable { iface->server->enableTlsForPeerConnection(this); });

@@ -303,10 +303,10 @@ void makeStatusResponse(CertCtx<Tag> &cert_context,
 
         setValue(cert_context.status_val, "serial", cert_context.serial());
         setValue(cert_context.status_val, "status.value.index", cert_context.status.status.i);
-        setValue(cert_context.status_val, "status.timeStamp.secondsPastEpoch", now.t);
+        setValue(cert_context.status_val, "status.timeStamp.secondsPastEpoch", now.t + POSIX_TIME_AT_EPICS_EPOCH);
         setValue(cert_context.status_val, "state", cert_context.status.status.s);
         setValue(cert_context.status_val, "ocsp_status.value.index", cert_context.status.ocsp_status.i);
-        setValue(cert_context.status_val, "ocsp_status.timeStamp.secondsPastEpoch", now.t);
+        setValue(cert_context.status_val, "ocsp_status.timeStamp.secondsPastEpoch", now.t + POSIX_TIME_AT_EPICS_EPOCH);
         setValue(cert_context.status_val, "ocsp_state", (SB() << "**UNCERTIFIED**: " << cert_context.status.ocsp_status.s).str());
 
         if (!cert_context.status.ocsp_bytes.empty()) {
