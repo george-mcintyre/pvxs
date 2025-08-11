@@ -512,12 +512,6 @@ void Connection::handle_CONNECTION_VALIDATED()
         bev.reset();
         return;
 
-#ifdef PVXS_ENABLE_OPENSSL
-    }
-    if(sts.isWarning()) {
-        log_warn_printf(io, "Server reports: %s. Backing off\n", sts.msg.c_str());
-        enqueueTxBody(CMD_CONNECTION_VALIDATION);
-#endif
     } else if(!sts.isSuccess()) {
         log_err_printf(io, "Server %s refuses auth.  Trying to proceed w/o cred\n", peerName.c_str());
 
@@ -527,7 +521,7 @@ void Connection::handle_CONNECTION_VALIDATED()
     }
 
 #ifdef PVXS_ENABLE_OPENSSL
-    ready = !isTLS || (!sts.isWarning() && context->isTlsReady());
+    ready = !isTLS || context->isTlsReady();
 #else
     ready = true;
 #endif

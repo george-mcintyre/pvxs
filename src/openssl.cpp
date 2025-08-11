@@ -548,7 +548,7 @@ std::shared_ptr<SSLPeerStatusAndMonitor> CertStatusExData::getOrCreatePeerStatus
         std::weak_ptr<SSLPeerStatusAndMonitor> weak_peer_status = peer_status;
         Guard G(peer_status->lock);
         peer_status->cert_status_manager =
-            certs::CertStatusManager::subscribe(trusted_store_ptr, status_pv, [weak_peer_status, serial_number](const certs::PVACertificateStatus &status) {
+            certs::CertStatusManager::subscribe(trusted_store_ptr, status_pv, [weak_peer_status](const certs::PVACertificateStatus &status) {
                 const auto peer_status_update = weak_peer_status.lock();
                 if (!status.isGood())
                     log_warn_printf(watcher, "Peer certificate not valid: %s\n", CERT_STATE(status.status.i));
