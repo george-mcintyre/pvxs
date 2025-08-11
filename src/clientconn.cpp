@@ -239,12 +239,12 @@ void Connection::createChannels()
         return; // defer until CONNECTION_VALIDATED
 
 #ifdef PVXS_ENABLE_OPENSSL
-    if (peer_status && !isPeerStatusGood()) {
+    if (peer_status && peer_status->isSubscribed() && !isPeerStatusGood()) {
         // Certificate status monitoring is active, but status is not good yet
         // Schedule a retry after a short delay
         log_debug_printf(io, "Peer certificate status not ready for %s, will retry in 100ms\n", peerName.c_str());
 
-        timeval retry_delay{0, 100000}; // 100ms
+        const timeval retry_delay{0, 100000}; // 100ms
         event_add(channelRetryTimer.get(), &retry_delay);
         return;
     }

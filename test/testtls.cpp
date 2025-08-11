@@ -199,11 +199,13 @@ struct Tester {
 
         auto serv_conf(server::Config::isolated());
         serv_conf.tls_keychain_file = SERVER1_KEYCHAIN_FILE;
+        serv_conf.tls_disable_status_check = true;
 
         auto serv(serv_conf.build().addPV(TEST_PV, mbox));
 
         auto cli_conf(serv.clientConfig());
         cli_conf.tls_keychain_file = CERT_AUTH_CERT_FILE;
+        cli_conf.tls_disable_status_check = true;
 
         auto cli(cli_conf.build());
 
@@ -215,10 +217,12 @@ struct Tester {
         try {
             auto reply(cli.get(TEST_PV).exec()->wait(5.0));
             testEq(reply[TEST_PV_FIELD].as<int32_t>(), 42);
+            // Both client and server should verify the server's certificate
         } catch (std::exception& e) {
             testFail("Timeout: %s", e.what());
         }
-            conn.reset();
+
+        conn.reset();
     }
 
     /**

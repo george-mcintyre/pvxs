@@ -320,7 +320,7 @@ void ServerConn::processConnectionValidation(const std::string& selected, const 
         ossl::SSLContext::getPeerCredentials(*C, ctx);
 
         // Check peer certificate status if required
-        if (peer_status && !isPeerStatusGood()) {
+        if (peer_status && peer_status->isSubscribed() && !isPeerStatusGood()) {
             log_debug_printf(connsetup, "Client %s certificate status not ready, will retry in 100ms\n", peerName.c_str());
 
             // Schedule a retry after a short delay

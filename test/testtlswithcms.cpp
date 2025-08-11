@@ -692,6 +692,7 @@ MAIN(testtlswithcms) {
     testSetup();
     logger_config_env();
     const auto tester = new Tester();
+
     tester->createCertStatuses();
     tester->makeStatusResponses();
     tester->startMockCMS();
