@@ -591,8 +591,8 @@ struct Tester {
         testDiag("Get with uncached-status");
         auto reply(cli.get(TEST_PV).exec()->wait(5.0));
         testEq(reply[TEST_PV_FIELD].as<int32_t>(), 42);
-        testCounterEq(cert_status_request_counters, server1, 1);
-        testCounterEq(cert_status_request_counters, client1, 1);
+        testCounterEq(cert_status_request_counters, server1, 2);
+        testCounterEq(cert_status_request_counters, client1, 2);
 
         // Sleep a bit, but not long enough for the status validity to expire
         sleep(1);
@@ -601,8 +601,8 @@ struct Tester {
         auto reply_2(cli.get(TEST_PV).exec()->wait(5.0));
         testEq(reply_2[TEST_PV_FIELD].as<int32_t>(), 42);
         // Note that counters don't increment
-        testCounterEq(cert_status_request_counters, server1, 1);
-        testCounterEq(cert_status_request_counters, client1, 1);
+        testCounterEq(cert_status_request_counters, server1, 2);
+        testCounterEq(cert_status_request_counters, client1, 2);
     }
 
     /**

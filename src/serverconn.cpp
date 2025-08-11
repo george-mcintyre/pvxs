@@ -84,6 +84,9 @@ ServerConn::ServerConn(ServIface* iface, evutil_socket_t sock, struct sockaddr *
             SockAddr(peer))
     ,iface(iface)
     ,tcp_tx_limit(evsocket::get_buffer_size(sock, true) * tcp_tx_limit_mult)
+#ifdef PVXS_ENABLE_OPENSSL
+    ,authRetryTimer(event_new(iface->server->acceptor_loop.base, -1, EV_TIMEOUT, &retryConnectionValidationS, this))
+#endif
 {
     log_debug_printf(connio, "Client %s connects%s, RX readahead %zu TX limit %zu\n", peerName.c_str(),
 #ifdef PVXS_ENABLE_OPENSSL
@@ -228,6 +231,22 @@ void ServerConn::handle_ECHO()
 ossl::CertStatusExData *ServerConn::getCertStatusExData() {
     return iface->server->tls_context->getCertStatusExData();
 }
+
+void ServerConn::retryConnectionValidationS(evutil_socket_t fd, short evt, void *raw)
+{
+    auto conn = static_cast<ServerConn*>(raw);
+    conn->retryConnectionValidation();
+}
+
+void ServerConn::retryConnectionValidation()
+{
+    log_debug_printf(connsetup, "Retrying connection validation for %s\n", peerName.c_str());
+
+    if (has_pending_validation) {
+        // Process the stored validation data
+        processConnectionValidation(pending_selected, pending_auth);
+    }
+}
 #endif
 
 
@@ -253,11 +272,11 @@ void ServerConn::handle_CONNECTION_VALIDATION()
     EvInBuf M(peerBE, segBuf.get(), 16);
 
     std::string selected;
+    Value auth;
+
     {
         M.skip(4+2+2, __FILE__, __LINE__); // ignore unused buffer, introspection size, and QoS
         from_wire(M, selected);
-
-        Value auth;
         from_wire_type_value(M, rxRegistry, auth);
 
         if(!M.good()) {
@@ -265,60 +284,73 @@ void ServerConn::handle_CONNECTION_VALIDATION()
                            M.file(), M.line(), peerName.c_str());
             bev.reset();
             return;
-
-        } else {
-            log_debug_printf(connsetup, "Client %s authenticates using %s and %s\n",
-                       peerName.c_str(), selected.c_str(),
-                       std::string(SB()<<auth).c_str());
-
-            auto C(std::make_shared<server::ClientCredentials>(*cred));
-#ifdef PVXS_ENABLE_OPENSSL
-            C->isTLS = iface->isTLS;
-#endif
-
-            if(selected=="ca") {
-                auth["user"].as<std::string>([&C, &selected](const std::string& user) {
-                    C->method = selected;
-                    C->account = user;
-                });
-            }
-#ifdef PVXS_ENABLE_OPENSSL
-            else if (iface->isTLS && selected == "x509" && bev) {
-                const auto ctx = bufferevent_openssl_get_ssl(bev.get());
-                assert(ctx);
-                ossl::SSLContext::getPeerCredentials(*C, ctx);
-
-                // Check peer certificate status if required.
-                // Assumes that if it is required, it will have been subscribed to so it will not return nullptr
-                if (peer_status && !isPeerStatusGood()) {
-                    log_debug_printf(connsetup, "Client %s certificate status: UNKNOWN", peerName.c_str());
-                    auth_complete(this, Status{Status::Warn, "Client certificate status UNKNOWN"});
-                    return;
-                }
-            }
-#endif
-            if(C->method.empty()) {
-                C->account = C->method = "anonymous";
-            }
-            C->raw = auth;
-
-            cred = std::move(C);
-            log_debug_printf(connsetup, "Client credentials. account: %s, method: %s, authority: %s\n",
-                             cred->account.c_str(), cred->method.c_str(), cred->authority.c_str());
         }
     }
+
+    // Store validation data for potential retry
+    pending_selected = selected;
+    pending_auth = auth;
+    has_pending_validation = true;
+
+    // Process the validation
+    processConnectionValidation(selected, auth);
+}
+
+void ServerConn::processConnectionValidation(const std::string& selected, const Value& auth)
+{
+    log_debug_printf(connsetup, "Client %s authenticates using %s and %s\n",
+                     peerName.c_str(), selected.c_str(),
+                     std::string(SB()<<auth).c_str());
+
+    auto C(std::make_shared<server::ClientCredentials>(*cred));
+#ifdef PVXS_ENABLE_OPENSSL
+    C->isTLS = iface->isTLS;
+#endif
+
+    if(selected=="ca") {
+        auth["user"].as<std::string>([&C, &selected](const std::string& user) {
+            C->method = selected;
+            C->account = user;
+        });
+    }
+#ifdef PVXS_ENABLE_OPENSSL
+    else if (iface->isTLS && selected == "x509" && bev) {
+        const auto ctx = bufferevent_openssl_get_ssl(bev.get());
+        assert(ctx);
+        ossl::SSLContext::getPeerCredentials(*C, ctx);
+
+        // Check peer certificate status if required
+        if (peer_status && !isPeerStatusGood()) {
+            log_debug_printf(connsetup, "Client %s certificate status not ready, will retry in 100ms\n", peerName.c_str());
+
+            // Schedule a retry after a short delay
+            timeval retry_delay{0, 100000}; // 100ms
+            event_add(authRetryTimer.get(), &retry_delay);
+            return; // Backoff - don't complete authentication yet
+        }
+    }
+#endif
+
+    if(C->method.empty()) {
+        C->account = C->method = "anonymous";
+    }
+    C->raw = auth;
+
+    cred = std::move(C);
+    log_debug_printf(connsetup, "Client credentials. account: %s, method: %s, authority: %s\n",
+                     cred->account.c_str(), cred->method.c_str(), cred->authority.c_str());
 
     if(selected!="ca" && selected!="anonymous" && selected!="x509") {
         log_debug_printf(connsetup, "Client %s selects unadvertised auth \"%s\"", peerName.c_str(), selected.c_str());
         auth_complete(this, Status{Status::Error, "Client selects unadvertised auth"});
         return;
-
     } else {
         log_debug_printf(connsetup, "selected-%s: Client %s selects auth \"%s\" as \"%s\" on \"%s\" authority\n", selected.c_str(),
                          peerName.c_str(), cred->method.c_str(), cred->account.c_str(), cred->authority.c_str());
     }
 
-    // remainder of segBuf is payload w/ credentials
+    // Clear pending validation data since we're completing
+    has_pending_validation = false;
 
     // No practical way to handle auth failure.
     // So we accept all credentials but may not grant rights.
