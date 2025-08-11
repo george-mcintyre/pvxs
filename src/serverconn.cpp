@@ -140,10 +140,10 @@ ServerConn::ServerConn(ServIface* iface, evutil_socket_t sock, struct sockaddr *
     // TODO Sends the event to handle the, sets timeout, and
     bufferevent_setcb(bev.get(), &bevReadS, &bevWriteS, &bevEventS, this);
 
-    timeval tmo(totv(iface->server->effective.tcpTimeout));
+    const timeval tmo(totv(iface->server->effective.tcpTimeout));
     bufferevent_set_timeouts(bev.get(), &tmo, &tmo);
 
-    auto tx = bufferevent_get_output(bev.get());
+    const auto tx = bufferevent_get_output(bev.get());
 
     std::vector<uint8_t> buf(128);
 
@@ -152,14 +152,14 @@ ServerConn::ServerConn(ServIface* iface, evutil_socket_t sock, struct sockaddr *
         VectorOutBuf M(sendBE, buf);
         to_wire(M, Header{pva_ctrl_msg::SetEndian, pva_flags::Control|pva_flags::Server, 0});
 
-        auto save = M.save();
+        const auto save = M.save();
         M.skip(8, __FILE__, __LINE__); // placeholder for header
         auto bstart = M.save();
 
         // serverReceiveBufferSize, not used
-        to_wire(M, uint32_t(0x10000));
+        to_wire(M, static_cast<uint32_t>(0x10000));
         // serverIntrospectionRegistryMaxSize, also not used
-        to_wire(M, uint16_t(0x7fff));
+        to_wire(M, static_cast<uint16_t>(0x7fff));
 
         /* list given in reverse order of priority.
          * Old pvAccess* was missing a "break" when looping,
@@ -176,7 +176,7 @@ ServerConn::ServerConn(ServIface* iface, evutil_socket_t sock, struct sockaddr *
         if(iface->isTLS)
             to_wire(M, "x509");
 #endif
-        auto bend = M.save();
+        const auto bend = M.save();
 
         FixedBuf H(sendBE, save, 8);
         to_wire(H, Header{CMD_CONNECTION_VALIDATION, pva_flags::Server, uint32_t(bend-bstart)});
@@ -284,9 +284,17 @@ void ServerConn::handle_CONNECTION_VALIDATION()
             }
 #ifdef PVXS_ENABLE_OPENSSL
             else if (iface->isTLS && selected == "x509" && bev) {
-                auto ctx = bufferevent_openssl_get_ssl(bev.get());
+                const auto ctx = bufferevent_openssl_get_ssl(bev.get());
                 assert(ctx);
                 ossl::SSLContext::getPeerCredentials(*C, ctx);
+
+                // Check peer certificate status if required.
+                // Assumes that if it is required, it will have been subscribed to so it will not return nullptr
+                if (peer_status && !isPeerStatusGood()) {
+                    log_debug_printf(connsetup, "Client %s certificate status: UNKNOWN", peerName.c_str());
+                    auth_complete(this, Status{Status::Warn, "Client certificate status UNKNOWN"});
+                    return;
+                }
             }
 #endif
             if(C->method.empty()) {
@@ -313,7 +321,7 @@ void ServerConn::handle_CONNECTION_VALIDATION()
     // remainder of segBuf is payload w/ credentials
 
     // No practical way to handle auth failure.
-    // So we accept all credentials, but may not grant rights.
+    // So we accept all credentials but may not grant rights.
     auth_complete(this, Status{Status::Ok});
 }
 
@@ -449,14 +457,14 @@ void ServerConn::cleanup()
 
 void ServerConn::bevEvent(short events) {
 #ifdef PVXS_ENABLE_OPENSSL
-        std::cout << "Server-Peer Cert Instigation logic: "  << events << std::endl;
     // Handle BEV_EVENT_CONNECTED specifically for server
-    if (events & BEV_EVENT_READING) {
-        auto ctx = bufferevent_openssl_get_ssl(bev.get());
-        if ( ctx) {
+    if (events & BEV_EVENT_CONNECTED) {
+        const auto ctx = bufferevent_openssl_get_ssl(bev.get());
+        if (ctx) {
             try {
-                if (!ossl::SSLContext::subscribeToPeerCertStatus(ctx, [](bool enable){})) {
-                    log_warn_printf(connio, "unable to subscribe to %s %s certificate status\n", peerLabel(), peerName.c_str());
+                peer_status = ossl::SSLContext::subscribeToPeerCertStatus(ctx, [](const bool enable) {});
+                if (!peer_status) {
+                    log_debug_printf(connio, "no certificate status to subscribe to for %s %s\n", peerLabel(), peerName.c_str());
                 }
             } catch (certs::CertStatusNoExtensionException &e) {
                 log_debug_printf(connio, "status monitoring not required for %s %s: %s\n", peerLabel(), peerName.c_str(), e.what());
@@ -465,16 +473,8 @@ void ServerConn::bevEvent(short events) {
             }
         }
     }
-
-    ConnBase::bevEvent(events, [=](bool enable) {
-        if (enable)
-            iface->server->acceptor_loop.dispatch([this]() mutable { iface->server->enableTlsForPeerConnection(this); });
-        else
-            iface->server->acceptor_loop.dispatch([this]() mutable { iface->server->removePeerTlsConnections(this); });
-    });
-#else
-    ConnBase::bevEvent(events);
 #endif
+    ConnBase::bevEvent(events);
 }
 
 void ServerConn::bevRead()

@@ -309,10 +309,6 @@ struct Server::Pvt
     static void doCustomServerCallback(evutil_socket_t fd, short evt, void* raw);
 
     bool isContextReadyForTls() const { return tls_context && tls_context->state == ossl::SSLContext::TlsReady; }
-
-  public:
-    void removePeerTlsConnections(const ServerConn* server_conn = nullptr);
-    void enableTlsForPeerConnection(const ServerConn* server_conn = nullptr);
 #endif
 };
 
