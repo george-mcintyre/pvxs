@@ -304,7 +304,7 @@ struct ContextImpl : public std::enable_shared_from_this<ContextImpl>
                 // Set up the callback to point to this context
                 event_assign(cert_expiration_timer.get(), tcp_loop.base, -1, EV_TIMEOUT | EV_PERSIST, &certExpirationHandlerS, context);
 
-                // Add the event for 2 second after expiration while ignoring errors
+                // Add the event 2 seconds after expiration while ignoring errors
                 const auto expires_in = (expiry_date.t - now) + 2;
                 const timeval expirationInterval{expires_in, 0};
                 event_add(cert_expiration_timer.get(), &expirationInterval);
@@ -452,7 +452,7 @@ struct ContextImpl : public std::enable_shared_from_this<ContextImpl>
     bool isTlsServerOnly() const {
         if (!isTlsConfigured()) return false;
         const auto cert = tls_context->getEntityCertificate();
-        return (!cert);
+        return !cert;
     }
 
     /**
@@ -470,7 +470,7 @@ struct ContextImpl : public std::enable_shared_from_this<ContextImpl>
      * @param tls_context_to_check the context to check
      * @return true if the context has loaded a certificate whose status is not known to be REVOKED or EXPIRED
      */
-    bool isTlsConfigured(const std::shared_ptr<ossl::SSLContext> &tls_context_to_check) const {
+    static bool isTlsConfigured(const std::shared_ptr<ossl::SSLContext> &tls_context_to_check) {
         return tls_context_to_check && tls_context_to_check->state > ossl::SSLContext::DegradedMode && !static_cast<certs::CertificateStatus>(tls_context_to_check->get_cert_status()).isRevokedOrExpired() ;
     }
 

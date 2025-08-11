@@ -156,7 +156,7 @@ void ConnBase::bevEvent(short events) {
         if (events & BEV_EVENT_ERROR) {
             const int err = EVUTIL_SOCKET_ERROR();
             const char *msg = evutil_socket_error_to_string(err);
-            if ( err) {
+            if (err) {
                 log_err_printf(connio, "connection to %s %s closed with socket error %d : %s\n", peerLabel(), peerName.c_str(), err, msg);
             } else {
                 log_debug_printf(connio, "connection to %s %s closed\n", peerLabel(), peerName.c_str());

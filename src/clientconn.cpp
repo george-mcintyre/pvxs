@@ -240,7 +240,7 @@ void Connection::createChannels()
         // Schedule a retry after a short delay
         log_debug_printf(io, "Peer certificate status not ready for %s, will retry in 100ms\n", peerName.c_str());
 
-        const timeval retry_delay{0, 100000}; // 100ms
+        constexpr timeval retry_delay{0, 1000}; // 1ms
         event_add(channelRetryTimer.get(), &retry_delay);
         return;
     }

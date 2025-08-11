@@ -369,7 +369,7 @@ struct SSLContext {
     /**
      * @brief Monitors the entity certificate status and sets the state of the TLS context when the status changes
      * @param cert the entity certificate
-     * @param trusted_root_ca the trusted root to verify OCSP status with
+     * @param trusted_store_ptr the trusted root to verify OCSP status with
      */
     void monitorStatusAndSetState(const ossl_ptr<X509>& cert, X509_STORE* trusted_store_ptr);
     void setDegradedMode(bool clear = false);
