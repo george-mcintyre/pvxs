@@ -688,7 +688,7 @@ MAIN(testtlswithcms) {
     // Initialize SSL
     ossl::sslInit();
 
-    testPlan(129);
+    testPlan(134);
     testSetup();
     logger_config_env();
     const auto tester = new Tester();

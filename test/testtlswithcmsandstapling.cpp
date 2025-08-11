@@ -313,7 +313,7 @@ struct Tester {
         try {
             auto reply(cli.get(TEST_PV).exec()->wait(5.0));
             testEq(reply[TEST_PV_FIELD].as<int32_t>(), 42);
-            testCounterEq(cert_status_request_counters, server1, 1);
+            testCounterEq(cert_status_request_counters, server1, 2);
         } catch (std::exception& e) {
             testFail("Timeout: %s", e.what());
         }
@@ -364,8 +364,8 @@ struct Tester {
         auto reply(cli.get(TEST_PV).exec()->wait(5.0));
         testEq(reply[TEST_PV_FIELD].as<int32_t>(), 42);
 
-        testCounterEq(cert_status_request_counters, server1, 1);
-        testCounterEq(cert_status_request_counters, client1, 1);
+        testCounterEq(cert_status_request_counters, server1, 2);
+        testCounterEq(cert_status_request_counters, client1, 2);
         conn.reset();
     }
 
@@ -418,16 +418,16 @@ struct Tester {
             testTrue(e.cred->isTLS);
             testEq(e.cred->method, TLS_METHOD_STRING);
             testEq(e.cred->account, CERT_CN_IOC1);
-            testCounterEq(cert_status_request_counters, ioc, 1);
-            testCounterEq(cert_status_request_counters, client1, 1);
+            testCounterEq(cert_status_request_counters, ioc, 2);
+            testCounterEq(cert_status_request_counters, client1, 2);
             testCounterEq(cert_status_request_counters, client2, 0);
         }
         testDiag("Connect");
 
         Value update = pop(sub, evt);
         testEq(update[TEST_PV_FIELD].as<std::string>(), TLS_METHOD_STRING "/" CERT_CN_CLIENT1);
-        testCounterEq(cert_status_request_counters, ioc, 1);
-        testCounterEq(cert_status_request_counters, client1, 1);
+        testCounterEq(cert_status_request_counters, ioc, 2);
+        testCounterEq(cert_status_request_counters, client1, 2);
         testCounterEq(cert_status_request_counters, client2, 0);
 
         cli_conf = cli.config();
@@ -444,9 +444,9 @@ struct Tester {
             testFail("Missing expected Connected");
         } catch (client::Connected& e) {
             testOk1(e.cred && e.cred->isTLS);
-            testCounterEq(cert_status_request_counters, ioc, 1);
-            testCounterEq(cert_status_request_counters, client1, 1);
-            testCounterEq(cert_status_request_counters, client2, 1);
+            testCounterEq(cert_status_request_counters, ioc, 3);
+            testCounterEq(cert_status_request_counters, client1, 2);
+            testCounterEq(cert_status_request_counters, client2, 2);
         } catch (...) {
             testFail("Unexpected exception instead of Connected");
         }
@@ -455,9 +455,9 @@ struct Tester {
         update = pop(sub, evt);
         testEq(update[TEST_PV_FIELD].as<std::string>(), TLS_METHOD_STRING "/" CERT_CN_CLIENT2);
         // Cached responses so no checks
-        testCounterEq(cert_status_request_counters, ioc, 1);
-        testCounterEq(cert_status_request_counters, client1, 1);
-        testCounterEq(cert_status_request_counters, client2, 1);
+        testCounterEq(cert_status_request_counters, ioc, 3);
+        testCounterEq(cert_status_request_counters, client1, 2);
+        testCounterEq(cert_status_request_counters, client2, 2);
     }
 
     /**
@@ -500,16 +500,16 @@ struct Tester {
             testTrue(e.cred->isTLS);
             testEq(e.cred->method, TLS_METHOD_STRING);
             testEq(e.cred->account, CERT_CN_SERVER1);
-            testCounterEq(cert_status_request_counters, server1, 1);
-            testCounterEq(cert_status_request_counters, client1, 1);
+            testCounterEq(cert_status_request_counters, server1, 2);
+            testCounterEq(cert_status_request_counters, client1, 2);
             testCounterEq(cert_status_request_counters, ioc, 0);
         }
         testDiag("Connect");
 
         Value update = pop(sub, evt);
         testEq(update[TEST_PV_FIELD].as<std::string>(), TLS_METHOD_STRING "/" CERT_CN_CLIENT1);
-        testCounterEq(cert_status_request_counters, server1, 1);
-        testCounterEq(cert_status_request_counters, client1, 1);
+        testCounterEq(cert_status_request_counters, server1, 2);
+        testCounterEq(cert_status_request_counters, client1, 2);
         testCounterEq(cert_status_request_counters, ioc, 0);
 
         serv_conf = serv.config();
@@ -528,17 +528,17 @@ struct Tester {
             testTrue(e.cred->isTLS);
             testEq(e.cred->method, TLS_METHOD_STRING);
             testEq(e.cred->account, CERT_CN_IOC1);
-            testCounterEq(cert_status_request_counters, server1, 1);
-            testCounterEq(cert_status_request_counters, client1, 1);
-            testCounterEq(cert_status_request_counters, ioc, 1);
+            testCounterEq(cert_status_request_counters, server1, 2);
+            testCounterEq(cert_status_request_counters, client1, 3);
+            testCounterEq(cert_status_request_counters, ioc, 2);
         }
         testDiag("Reconnect");
 
         update = pop(sub, evt);
         testEq(update[TEST_PV_FIELD].as<std::string>(), TLS_METHOD_STRING "/" CERT_CN_CLIENT1);
-        testCounterEq(cert_status_request_counters, server1, 1);
-        testCounterEq(cert_status_request_counters, client1, 1);
-        testCounterEq(cert_status_request_counters, ioc, 1);
+        testCounterEq(cert_status_request_counters, server1, 2);
+        testCounterEq(cert_status_request_counters, client1, 3);
+        testCounterEq(cert_status_request_counters, ioc, 2);
     }
 
     /**
@@ -651,8 +651,8 @@ struct Tester {
 
         auto reply(cli.get(TEST_PV).exec()->wait(5.0));
         testEq(reply["value"].as<int32_t>(), 42);
-        testCounterEq(cert_status_request_counters, server1, 1);
-        testCounterEq(cert_status_request_counters, client1, 1);
+        testCounterEq(cert_status_request_counters, server1, 2);
+        testCounterEq(cert_status_request_counters, client1, 2);
 
         conn.reset();
     }
@@ -691,8 +691,8 @@ struct Tester {
 
         auto reply(cli.get(TEST_PV).exec()->wait(5.0));
         testEq(reply["value"].as<int32_t>(), 42);
-        testCounterEq(cert_status_request_counters, server1, 1);
-        testCounterEq(cert_status_request_counters, client1, 1);
+        testCounterEq(cert_status_request_counters, server1, 2);
+        testCounterEq(cert_status_request_counters, client1, 2);
 
         conn.reset();
     }
