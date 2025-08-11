@@ -140,9 +140,6 @@ struct Connection final : public ConnBase, public std::enable_shared_from_this<C
 #endif
                                       );
 
-#ifdef PVXS_ENABLE_OPENSSL
-    ossl::CertStatusExData *getCertStatusExData() override;
-#endif
 private:
     void startConnecting();
     virtual void bevEvent(short events) override final;

@@ -140,6 +140,7 @@ void ConnBase::handle_DESTROY_REQUEST() {};
 void ConnBase::handle_MESSAGE() {};
 
 void ConnBase::bevEvent(short events) {
+#ifdef PVXS_ENABLE_OPENSSL
     if (bev && isTLS) {
         if (events & (BEV_EVENT_ERROR | BEV_EVENT_EOF)) {
             while (const auto err = bufferevent_get_openssl_error(bev.get())) {
@@ -147,8 +148,8 @@ void ConnBase::bevEvent(short events) {
                 if (error_reason) log_debug_printf(connio, "%s: TLS Error (0x%lx) %s\n", peerLabel(), err, error_reason);
             }
         }
-
     }
+#endif
 
     // If any socket warnings / errors, then log and disconnect
     if (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR | BEV_EVENT_TIMEOUT)) {

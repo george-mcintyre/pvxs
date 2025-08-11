@@ -511,7 +511,7 @@ void configureServerOCSPCallback(void *server_ptr, SSL *) {
  */
 SSLPeerStatusAndMonitor::~SSLPeerStatusAndMonitor() {
     Guard G(lock);
-    // Remove self from global list of peer statuses
+    // Remove self from the global list of peer statuses
     ex_data_ptr->removePeerStatusAndMonitor(serial_number);
     subscribed = false;
 }
@@ -560,22 +560,6 @@ std::shared_ptr<SSLPeerStatusAndMonitor> CertStatusExData::getOrCreatePeerStatus
     return peer_status;
 }
 
-std::shared_ptr<SSLPeerStatusAndMonitor> CertStatusExData::getPeerStatusAndMonitor(SSL* ssl) {
-    const auto cert = SSL_get0_peer_certificate(ssl);
-    const auto cert_ex_data = fromSSL(ssl);
-
-    if (!cert || !cert_ex_data) return nullptr;
-
-    const auto serial_number = getSerialNumber(cert);
-    const auto psam_entry = cert_ex_data->peer_statuses.find(serial_number);
-    if (psam_entry != cert_ex_data->peer_statuses.end()) {
-        auto peer_status_and_monitor (psam_entry->second.lock());
-        if (peer_status_and_monitor) return peer_status_and_monitor;
-    }
-    return nullptr;
-}
-
-
 /**
  * @brief Create a peer status in the list of statuses or return existing one
  * @param serial_number the serial number to index into the list
@@ -593,11 +577,8 @@ std::shared_ptr<SSLPeerStatusAndMonitor> CertStatusExData::createPeerStatus(seri
     }
 
     std::shared_ptr<SSLPeerStatusAndMonitor> new_peer_status;
-    if (fn) {
-        new_peer_status = std::make_shared<SSLPeerStatusAndMonitor>(serial_number, this, fn);
-    } else {
-        new_peer_status = std::make_shared<SSLPeerStatusAndMonitor>(serial_number, this, nullptr);
-    }
+    if (fn) new_peer_status = std::make_shared<SSLPeerStatusAndMonitor>(serial_number, this, fn);
+    else new_peer_status = std::make_shared<SSLPeerStatusAndMonitor>(serial_number, this, nullptr);
     peer_statuses.emplace(serial_number, new_peer_status);
     return new_peer_status;
 };
@@ -614,9 +595,7 @@ void SSLPeerStatusAndMonitor::updateStatus(const certs::CertificateStatus &new_s
 
     // Call the callback if there has been any state change
     const bool is_good = status.isGood();
-    if (fn && is_good != was_good) {
-        fn(is_good);
-    }
+    if (fn && is_good != was_good) fn(is_good);
 }
 
 std::shared_ptr<SSLPeerStatusAndMonitor> CertStatusExData::subscribeToPeerCertStatus(X509 *cert_ptr, std::function<void(bool)> fn) noexcept {
@@ -819,7 +798,7 @@ SSLError::SSLError(const std::string &msg)
           int line = 0;
           const char *data = nullptr;
           int flags = 0;
-          while (auto err = ERR_get_error_all(&file, &line, nullptr, &data, &flags)) {
+          while (const auto err = ERR_get_error_all(&file, &line, nullptr, &data, &flags)) {
               strm << file << ':' << line << ':' << ERR_reason_error_string(err);
               if (data && (flags & ERR_TXT_STRING)) strm << ':' << data;
               strm << ", ";

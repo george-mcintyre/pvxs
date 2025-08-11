@@ -102,7 +102,6 @@ protected:
     // `SSLPeerStatusAndMonitor()` will remove itself from this table using the internally stored key.
     std::shared_ptr<ossl::SSLPeerStatusAndMonitor> peer_status;
     bool isPeerStatusGood() const ;
-    inline virtual ossl::CertStatusExData* getCertStatusExData() = 0;
 
   public:
     const bool isTLS;

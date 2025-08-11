@@ -131,10 +131,6 @@ Connection::~Connection()
 
 #ifdef PVXS_ENABLE_OPENSSL
 
-ossl::CertStatusExData *Connection::getCertStatusExData() {
-    return context->tls_context->getCertStatusExData();
-}
-
 std::shared_ptr<Connection> Connection::build(const std::shared_ptr<ContextImpl>& context,
                                               const SockAddr& serv, bool reconn, bool tls)
 #else
@@ -295,26 +291,10 @@ void Connection::sendDestroyRequest(uint32_t sid, uint32_t ioid)
 }
 
 void Connection::bevEvent(short events) {
-    // Handle BEV_EVENT_CONNECTED specifically for a client
-    if (events & BEV_EVENT_CONNECTED) {
-        const auto ctx = bufferevent_openssl_get_ssl(bev.get());
-        if (ctx && !peer_status) {
-            try {
-                peer_status = ossl::SSLContext::subscribeToPeerCertStatus(ctx, [](const bool enable) {});
-                if (!peer_status) {
-                    log_debug_printf(io, "no certificate status to subscribe to for %s %s\n", peerLabel(), peerName.c_str());
-                }
-            } catch (certs::CertStatusNoExtensionException &e) {
-                log_debug_printf(io, "status monitoring not required for %s %s: %s\n", peerLabel(), peerName.c_str(), e.what());
-            } catch (std::exception &e) {
-                log_debug_printf(io, "unexpected error subscribing to %s %s certificate status: %s\n", peerLabel(), peerName.c_str(), e.what());
-            }
-        }
-    }
-
     ConnBase::bevEvent(events);
 
-    if(bev && (events&BEV_EVENT_CONNECTED)) {
+    // Handle BEV_EVENT_CONNECTED specifically for a client
+    if(bev && events & BEV_EVENT_CONNECTED) {
         log_debug_printf(io, "Connected to %s\n", peerName.c_str());
         connTime = epicsTime::getCurrent();
 
@@ -326,10 +306,24 @@ void Connection::bevEvent(short events) {
 
         if (isTLS) {
             const auto ctx = bufferevent_openssl_get_ssl(bev.get());
-            assert(ctx);
-            ossl::SSLContext::getPeerCredentials(*peerCred, ctx);
+            if (ctx) {
+                ossl::SSLContext::getPeerCredentials(*peerCred, ctx);
+
+                if (!peer_status) {
+                    try {
+                        peer_status = ossl::SSLContext::subscribeToPeerCertStatus(ctx, [](const bool enable) {});
+                        if (!peer_status)
+                            log_debug_printf(io, "no certificate status to subscribe to for %s %s\n", peerLabel(), peerName.c_str());
+                    } catch (certs::CertStatusNoExtensionException &e) {
+                        log_debug_printf(io, "status monitoring not required for %s %s: %s\n", peerLabel(), peerName.c_str(), e.what());
+                    } catch (std::exception &e) {
+                        log_debug_printf(io, "unexpected error subscribing to %s %s certificate status: %s\n", peerLabel(), peerName.c_str(), e.what());
+                    }
+                }
+            }
         }
-#endif
+
+        #endif
         cred = std::move(peerCred);
 
         {

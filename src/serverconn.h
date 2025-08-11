@@ -141,9 +141,6 @@ struct ServerConn final : public ConnBase, public std::enable_shared_from_this<S
 
     const std::shared_ptr<ServerChan>& lookupSID(uint32_t sid);
 
-#ifdef PVXS_ENABLE_OPENSSL
-    ossl::CertStatusExData *getCertStatusExData() override;
-#endif
 private:
 #ifdef PVXS_ENABLE_OPENSSL
     void retryConnectionValidation();

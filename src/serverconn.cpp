@@ -228,10 +228,6 @@ void ServerConn::handle_ECHO()
 }
 
 #ifdef PVXS_ENABLE_OPENSSL
-ossl::CertStatusExData *ServerConn::getCertStatusExData() {
-    return iface->server->tls_context->getCertStatusExData();
-}
-
 void ServerConn::retryConnectionValidationS(evutil_socket_t fd, short evt, void *raw)
 {
     auto conn = static_cast<ServerConn*>(raw);
@@ -487,26 +483,28 @@ void ServerConn::cleanup()
     }
 }
 
-void ServerConn::bevEvent(short events) {
+void ServerConn::bevEvent(const short events) {
+    ConnBase::bevEvent(events);
+
 #ifdef PVXS_ENABLE_OPENSSL
-    // Handle BEV_EVENT_CONNECTED specifically for server
-    if (events & BEV_EVENT_CONNECTED) {
+    // Handle BEV_EVENT_CONNECTED specifically for a server
+    if (bev && events & BEV_EVENT_CONNECTED) {
         const auto ctx = bufferevent_openssl_get_ssl(bev.get());
         if (ctx) {
-            try {
-                peer_status = ossl::SSLContext::subscribeToPeerCertStatus(ctx, [](const bool enable) {});
-                if (!peer_status) {
-                    log_debug_printf(connio, "no certificate status to subscribe to for %s %s\n", peerLabel(), peerName.c_str());
+            if (!peer_status) {
+                try {
+                    peer_status = ossl::SSLContext::subscribeToPeerCertStatus(ctx, [](const bool enable) {});
+                    if (!peer_status)
+                        log_debug_printf(connio, "no certificate status to subscribe to for %s %s\n", peerLabel(), peerName.c_str());
+                } catch (certs::CertStatusNoExtensionException &e) {
+                    log_debug_printf(connio, "status monitoring not required for %s %s: %s\n", peerLabel(), peerName.c_str(), e.what());
+                } catch (std::exception &e) {
+                    log_debug_printf(connio, "unexpected error subscribing to %s %s certificate status: %s\n", peerLabel(), peerName.c_str(), e.what());
                 }
-            } catch (certs::CertStatusNoExtensionException &e) {
-                log_debug_printf(connio, "status monitoring not required for %s %s: %s\n", peerLabel(), peerName.c_str(), e.what());
-            } catch (std::exception &e) {
-                log_debug_printf(connio, "unexpected error subscribing to %s %s certificate status: %s\n", peerLabel(), peerName.c_str(), e.what());
             }
         }
     }
 #endif
-    ConnBase::bevEvent(events);
 }
 
 void ServerConn::bevRead()

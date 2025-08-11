@@ -237,8 +237,6 @@ struct CertStatusExData {
         return (serial_number_t)BN_get_word(bn.get());
     }
 
-    static std::shared_ptr<SSLPeerStatusAndMonitor> getPeerStatusAndMonitor(SSL* ssl);
-
     std::shared_ptr<SSLPeerStatusAndMonitor> createPeerStatus(serial_number_t serial_number, const std::function<void(bool)> &fn);
 
     /**
