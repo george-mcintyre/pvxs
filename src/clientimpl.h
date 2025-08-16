@@ -149,6 +149,7 @@ private:
     public:
 
     void createChannels();
+    void proceedWithCreatingChannels();
 
     void sendDestroyRequest(uint32_t sid, uint32_t ioid);
 

@@ -234,14 +234,15 @@ void Connection::createChannels()
     if(!ready)
         return; // defer until CONNECTION_VALIDATED
 
+    proceedWithCreatingChannels();
+}
+
+void Connection::proceedWithCreatingChannels()
+{
 #ifdef PVXS_ENABLE_OPENSSL
     if (peer_status && peer_status->isSubscribed() && !isPeerStatusGood()) {
         // Certificate status monitoring is active, but status is not good yet
-        // Schedule a retry after a short delay
-        log_debug_printf(io, "Peer certificate status not ready for %s, will retry in 100ms\n", peerName.c_str());
-
-        constexpr timeval retry_delay{0, 1000}; // 1ms
-        event_add(channelRetryTimer.get(), &retry_delay);
+        state = AwaitingPeerCertValidity;
         return;
     }
 #endif
@@ -339,7 +340,11 @@ void Connection::bevEvent(short events) {
 }
 
 #ifdef PVXS_ENABLE_OPENSSL
-void Connection::peerStatusCallback(bool enable) { }
+void Connection::peerStatusCallback(bool enable) {
+    if (enable &&  state == AwaitingPeerCertValidity ) {
+        proceedWithCreatingChannels();
+    }
+}
 #endif
 
 std::shared_ptr<ConnBase> Connection::self_from_this()
