@@ -305,8 +305,13 @@ void ServerConn::processConnectionValidation(const std::string& selected, const 
 
     if(selected=="ca") {
         auth["user"].as<std::string>([&C, &selected](const std::string& user) {
+            const auto pos = user.find_last_of('/');
+            if ( pos  == std::string::npos) {
+                C->account = user;
+            } else {
+                C->account = user.substr(pos + 1);
+            }
             C->method = selected;
-            C->account = user;
         });
     }
 #ifdef PVXS_ENABLE_OPENSSL
