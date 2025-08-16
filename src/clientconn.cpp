@@ -308,22 +308,10 @@ void Connection::bevEvent(short events) {
             const auto ctx = bufferevent_openssl_get_ssl(bev.get());
             if (ctx) {
                 ossl::SSLContext::getPeerCredentials(*peerCred, ctx);
-
-                if (!peer_status) {
-                    try {
-                        peer_status = ossl::SSLContext::subscribeToPeerCertStatus(ctx, [](const bool enable) {});
-                        if (!peer_status)
-                            log_debug_printf(io, "no certificate status to subscribe to for %s %s\n", peerLabel(), peerName.c_str());
-                    } catch (certs::CertStatusNoExtensionException &e) {
-                        log_debug_printf(io, "status monitoring not required for %s %s: %s\n", peerLabel(), peerName.c_str(), e.what());
-                    } catch (std::exception &e) {
-                        log_debug_printf(io, "unexpected error subscribing to %s %s certificate status: %s\n", peerLabel(), peerName.c_str(), e.what());
-                    }
-                }
             }
         }
 
-        #endif
+#endif
         cred = std::move(peerCred);
 
         {
@@ -349,6 +337,10 @@ void Connection::bevEvent(short events) {
         state = Connected;
     }
 }
+
+#ifdef PVXS_ENABLE_OPENSSL
+void Connection::peerStatusCallback(bool enable) { }
+#endif
 
 std::shared_ptr<ConnBase> Connection::self_from_this()
 {

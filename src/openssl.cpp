@@ -81,8 +81,9 @@ void SSLContext::monitorStatusAndSetState(const ossl_ptr<X509> &cert, X509_STORE
                     // Start a new timer based on the status validity period
                     const time_t now = time(nullptr);
                     const time_t valid_until = pva_status.status_valid_until_date.t;
+                    const time_t valid_from = pva_status.status_date.t;
 
-                    if (valid_until > now) {
+                    if (valid_until > now && valid_from <= now) {
                         timeval delay;
                         delay.tv_sec = valid_until - now;
                         delay.tv_usec = 0;
@@ -862,7 +863,7 @@ std::shared_ptr<SSLPeerStatusAndMonitor> SSLContext::subscribeToPeerCertStatus(c
             return ex_data->subscribeToPeerCertStatus(cert, [=](const bool is_good) { fn(is_good); });
         }
     }
-    return nullptr;
+    throw certs::CertStatusNoExtensionException("No Certificate");
 }
 
 std::shared_ptr<SSLContext> SSLContext::for_client(const ConfigCommon &conf, const evbase &loop) {
