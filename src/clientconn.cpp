@@ -229,6 +229,12 @@ void Connection::configureClientOCSPCallback(SSL* ssl) const {
 }
 #endif
 
+/**
+ * @brief Create channels for the connection
+ *
+ * This function is called when a create channel message is received from the server
+ * It verifies that the connection is ready to create channels and then proceeds with creating channels
+ */
 void Connection::createChannels()
 {
     if(!ready)
@@ -237,6 +243,14 @@ void Connection::createChannels()
     proceedWithCreatingChannels();
 }
 
+/**
+ * @brief Proceed with creating channels
+ *
+ * This function is called when a create channel message is received from the server and the connection is ready to create channels
+ * It will create the channels and remove them from the pending list
+ * If the peer certificate status is being monitored but has not yet been validated, it will set the state to AwaitingPeerCertValidity
+ * and return, waiting for the certificate status to be validated before proceeding with creating channels
+ */
 void Connection::proceedWithCreatingChannels()
 {
 #ifdef PVXS_ENABLE_OPENSSL
@@ -339,10 +353,26 @@ void Connection::bevEvent(short events) {
     }
 }
 
+/**
+ * @brief Peer status callback
+ *
+ * This function is called when the peer status changes.
+ *
+ * It will be given a boolean value indicating whether the peer certificate status is good or not.
+ *
+ * - If the peer certificate status is GOOD, and we're waiting for certificate validity before creating channels,
+ *   it will set the state to Connected and proceed with creating channels.
+ * - If the peer certificate status is not GOOD, it will disconnect from the server
+ */
 #ifdef PVXS_ENABLE_OPENSSL
 void Connection::peerStatusCallback(bool enable) {
-    if (enable &&  state == AwaitingPeerCertValidity ) {
-        proceedWithCreatingChannels();
+    if (enable) {
+        if (state == AwaitingPeerCertValidity ) {
+            state = Connected;
+            proceedWithCreatingChannels();
+        }
+    } else {
+        disconnect();
     }
 }
 #endif

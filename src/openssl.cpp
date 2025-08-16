@@ -135,7 +135,7 @@ void SSLContext::statusValidityTimerCallback(evutil_socket_t fd, short evt, void
 void SSLContext::setDegradedMode(const bool clear) {
     Guard G(lock);
     if (clear) {
-        cert_monitor.reset();  // Unsubscribe from the certificate status monitor if any
+        cert_monitor.reset();   // Unsubscribe from the certificate status monitor if any
         cert_status = {};    // Set the certificate status to be UNKNOWN
     }
     state = DegradedMode;

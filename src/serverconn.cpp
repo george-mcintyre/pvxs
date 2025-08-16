@@ -340,14 +340,43 @@ void ServerConn::handle_CONNECTION_VALIDATION()
 }
 
 #ifdef PVXS_ENABLE_OPENSSL
+/**
+ * @brief Peer status callback
+ *
+ * This function is called when the peer status changes.
+ *
+ * It will be given a boolean value indicating whether the peer certificate status is good or not.
+ *
+ * - If the peer certificate status is GOOD, and we're waiting for certificate validity
+ *   before proceeding with connection validation, it will proceed with connection validation.
+ * - If the peer certificate status is not GOOD, it will disconnect this client connection.
+ */
 void ServerConn::peerStatusCallback(bool enable) {
-    if ( enable && state == AwaitingPeerCertValidity ) {
-        proceedWithConnectionValidation();
+    if ( enable ) {
+        if ( state == AwaitingPeerCertValidity ) {
+            proceedWithConnectionValidation();
+        }
+    } else {
+        disconnect();
     }
 }
 #endif
 
 
+/**
+ * @brief Proceed with connection validation
+ *
+ * This function is called to proceed with connection validation.
+ *
+ * - If the peer does not have a certificate, or has a certificate that does not require us to wait for certificate validity,
+ *   then we will proceed with connection validation.
+ *
+ * - If the peer has a certificate that requires us to wait for certificate validity before proceeding with connection validation,
+ *   and the peer certificate status is GOOD, then we will proceed with connection validation.
+ *
+ * - If the peer has a certificate that requires us to wait for certificate validity before proceeding with connection validation,
+ *   and the peer certificate status is not GOOD, then we will set the state to AwaitingPeerCertValidity and return.
+ */
 void ServerConn::proceedWithConnectionValidation()
 {
 #ifdef PVXS_ENABLE_OPENSSL
