@@ -324,7 +324,7 @@ void usage(const char* argv0) {
 int main(int argc, char *argv[])
 {
     try {
-        pvxs::impl::threadOnce<&pvxs::ossl::osslInit>();;
+        pvxs::ossl::osslInit();;
         std::string outdir(".");
         {
             int opt;

@@ -318,7 +318,7 @@ struct Tester {
 
 MAIN(testtlsstatus) {
     // Initialize SSL
-    pvxs::impl::threadOnce<&ossl::osslInit>();
+    ossl::osslInit();
 
     testPlan(89);
     testSetup();

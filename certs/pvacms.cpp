@@ -2814,7 +2814,7 @@ int main(int argc, char *argv[]) {
 
     try {
         // Initialize SSL
-        pvxs::impl::threadOnce<&pvxs::ossl::osslInit>();
+        pvxs::ossl::osslInit();
 
         std::map<serial_number_t, time_t> active_status_validity;
         // Get config

@@ -706,7 +706,7 @@ struct Tester {
  */
 MAIN(testtlswithcmsandstapling) {
     // Initialize SSL
-    pvxs::impl::threadOnce<&ossl::osslInit>();
+    ossl::osslInit();
 
     testPlan(128);
     testSetup();
