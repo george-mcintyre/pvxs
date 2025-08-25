@@ -317,9 +317,6 @@ struct Tester {
 }  // namespace
 
 MAIN(testtlsstatus) {
-    // Initialize SSL
-    ossl::osslInit();
-
     testPlan(89);
     testSetup();
     logger_config_env();
