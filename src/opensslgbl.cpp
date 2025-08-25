@@ -18,9 +18,9 @@
 
 #include <pvxs/log.h>
 
-#include "certstatusexdata.h"
 #include "certstatusmanager.h"
 #include "evhelper.h"
+#include "openssl.h"
 
 #ifndef TLS1_3_VERSION
 #error TLS 1.3 support required.  Upgrade to openssl >= 1.1.0
@@ -78,7 +78,7 @@ void sslkeylogfile_log(const SSL *, const char *line) noexcept {
 #endif  // PVXS_ENABLE_SSLKEYLOGFILE
 
 void free_SSL_CTX_sidecar(void *, void *ptr, CRYPTO_EX_DATA *, int, long, void *) noexcept {
-    delete static_cast<CertStatusExDataBase*>(ptr);
+    delete static_cast<CertStatusExData*>(ptr);
 }
 
 epicsMutex ssl_init_lock;
