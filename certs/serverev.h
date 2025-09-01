@@ -38,19 +38,20 @@ class ServerEv : public server::Server {
     PVXS_API ServerEv(const certs::Config &config, const CustomServerCallback &custom_event_callback);
     ServerEv fromEnv(CustomServerCallback &custom_event_callback);
     ServerEv& addWildcardPV(const std::string& name, const SharedWildcardPV& pv);
-    struct Pvt;
+    struct Impl;
 
     private:
-        std::shared_ptr<Pvt> pvt;
+        std::shared_ptr<Impl> impl;
+        void startCb() const;
+        void stopCb() const;
 };
 
-struct ServerEv::Pvt : Server::Pvt {
+struct ServerEv::Impl {
+    std::weak_ptr<Impl> self;
     CustomServerCallback custom_server_callback;
     evevent custom_server_callback_timer;
-    Pvt(ServerEv &svr, const certs::Config& conf, const CustomServerCallback &custom_cert_event_callback = nullptr );
+    Impl(ServerEv &svr, const certs::Config& conf, const CustomServerCallback &custom_cert_event_callback = nullptr );
     static void doCustomServerCallback(evutil_socket_t fd, short evt, void* raw);
-    void start();
-    void stop();
 };
 
 } // serverev

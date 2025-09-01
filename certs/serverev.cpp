@@ -37,14 +37,13 @@ ServerEv ServerEv::fromEnv(CustomServerCallback &custom_event_callback)
     return certs::Config::fromEnv().build(custom_event_callback);
 }
 
-ServerEv::ServerEv(const certs::Config &config, const CustomServerCallback &custom_event_callback) : Server(config) {
-    auto internal(std::make_shared<Pvt>(*this, config, custom_event_callback));
-    internal->internal_self = internal;
+ServerEv::ServerEv(const certs::Config &config, const CustomServerCallback &custom_cert_event_callback) : Server(config) {
+    auto internal(std::make_shared<Impl>(*this, config, custom_cert_event_callback));
+    internal->self = internal;
 
     // external
-    pvt.reset(internal.get(), [internal](Pvt*) mutable {
+    impl.reset(internal.get(), [internal](Impl*) mutable {
         const auto trash(std::move(internal));
-        trash->stop();
     });
 }
 
@@ -57,13 +56,12 @@ ServerEv& ServerEv::addWildcardPV(const std::string& name, const SharedWildcardP
     return *this;
 }
 
-ServerEv::Pvt::Pvt(ServerEv &svr, const certs::Config& conf, const CustomServerCallback &custom_cert_event_callback)
-    : Server::Pvt(svr, conf)
-    , custom_server_callback(custom_cert_event_callback)
-    , custom_server_callback_timer(__FILE__, __LINE__, event_new(acceptor_loop.base, -1, EV_TIMEOUT, doCustomServerCallback, this)) {
+ServerEv::Impl::Impl(ServerEv &svr, const certs::Config& conf, const CustomServerCallback &custom_cert_event_callback)
+    : custom_server_callback(custom_cert_event_callback)
+    , custom_server_callback_timer(__FILE__, __LINE__, event_new(svr.pvt->acceptor_loop.base, -1, EV_TIMEOUT, doCustomServerCallback, this)) {
     {
         // Clean out guid created by base
-        Server::Pvt::effective.guid.fill(0);
+        svr.pvt->effective.guid.fill(0);
 
         // simplified GUID.
         // treat as 3x 32-bit unsigned.
@@ -90,14 +88,14 @@ ServerEv::Pvt::Pvt(ServerEv &svr, const certs::Config& conf, const CustomServerC
         pun.b[0] |= 0x80; // Set high bit to mark as deterministic
         pun.b[11] = 0x42; // Magic number for PVACMS
 
-        std::copy(pun.b.begin(), pun.b.end(), effective.guid.begin());
+        std::copy(pun.b.begin(), pun.b.end(), svr.pvt->effective.guid.begin());
     }
 }
 
 
-void ServerEv::Pvt::doCustomServerCallback(evutil_socket_t fd, short evt, void* raw) {
+void ServerEv::Impl::doCustomServerCallback(evutil_socket_t fd, short evt, void* raw) {
     try {
-        const auto pvt = static_cast<Pvt*>(raw);
+        const auto pvt = static_cast<Impl*>(raw);
         if (pvt && pvt->custom_server_callback) {
             auto next_timeval = pvt->custom_server_callback(evt);
             if (next_timeval.tv_sec == 0 && next_timeval.tv_usec == 0) {
@@ -113,31 +111,26 @@ void ServerEv::Pvt::doCustomServerCallback(evutil_socket_t fd, short evt, void* 
     }
 }
 
-void ServerEv::Pvt::start() {
-    Server::Pvt::start();
-
+void ServerEv::startCb() const {
     // begin running custom server callback if configured
-    if ( custom_server_callback )
-        acceptor_loop.call([this]()
+    if ( impl->custom_server_callback )
+        pvt->acceptor_loop.call([this]()
         {
              // Trigger the first custom server callback, with the initial interval period
-             if(event_add(custom_server_callback_timer.get(), &kCustomCallbackIntervalInitial))
+             if(event_add(impl->custom_server_callback_timer.get(), &kCustomCallbackIntervalInitial))
                  log_err_printf(serversetup, "Error enabling file monitor\n%s", "");
         });
 }
 
-void ServerEv::Pvt::stop() {
-    acceptor_loop.call([this]()
+void ServerEv::stopCb() const {
+    pvt->acceptor_loop.call([this]()
     {
-        if (custom_server_callback_timer) {
-            if (event_del(custom_server_callback_timer.get()))
+        if (impl->custom_server_callback_timer) {
+            if (event_del(impl->custom_server_callback_timer.get()))
                 log_warn_printf(serversetup, "Error disabling custom server callback timer\n%s", "");
         }
     });
-
-    Server::Pvt::stop();
 }
-
 
 } // server
 } // pvxs

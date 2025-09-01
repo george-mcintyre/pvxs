@@ -14,7 +14,7 @@ namespace certs {
 
 //! Create a new Server using the current configuration with a custom file event callback
 serverev::ServerEv Config::build(const serverev::CustomServerCallback &cert_file_event_callback) const {
-    return serverev::ServerEv(*this, cert_file_event_callback);
+    return {*this, cert_file_event_callback};
 }
 
 }  // namespace certs

@@ -167,7 +167,7 @@ public:
     std::ostream& operator<<(std::ostream& strm, const Server& serv);
 
     struct Pvt;
-private:
+protected:
     std::shared_ptr<Pvt> pvt;
 };
 
