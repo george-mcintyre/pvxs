@@ -22,7 +22,7 @@
 #include <openssl/x509.h>
 
 #include <pvxs/sharedpv.h>
-#include <pvxs/sharedwildcardpv.h>
+#include <sharedwildcardpv.h>
 
 #include "certfactory.h"
 #include "certfilefactory.h"
@@ -242,13 +242,13 @@ class StatusMonitor {
     ConfigCms &config_;
     sql_ptr &certs_db_;
     std::string &issuer_id_;
-    server::SharedWildcardPV &status_pv_;
+    serverev::SharedWildcardPV &status_pv_;
     ossl_ptr<X509> &cert_auth_cert_;
     ossl_ptr<EVP_PKEY> &cert_auth_pkey_;
     pvxs::ossl_shared_ptr<STACK_OF(X509)> &cert_auth_cert_chain_;
     std::map<serial_number_t, time_t> &active_status_validity_;
 
-    StatusMonitor(ConfigCms &config, sql_ptr &certs_db, std::string &issuer_id, server::SharedWildcardPV &status_pv, ossl_ptr<X509> &cert_auth_cert,
+    StatusMonitor(ConfigCms &config, sql_ptr &certs_db, std::string &issuer_id, serverev::SharedWildcardPV &status_pv, ossl_ptr<X509> &cert_auth_cert,
                   ossl_ptr<EVP_PKEY> &cert_auth_pkey, ossl_shared_ptr<STACK_OF(X509)> &cert_auth_chain,
                   std::map<serial_number_t, time_t> &active_status_validity)
         : config_(config),
@@ -339,19 +339,19 @@ void onCreateCertificate(ConfigCms &config, sql_ptr &certs_db, const server::Sha
 bool getPriorApprovalStatus(const sql_ptr &certs_db, const std::string &name, const std::string &country, const std::string &organization,
                             const std::string &organization_unit);
 
-void onGetStatus(const ConfigCms &config, const sql_ptr &certs_db, const std::string &our_issuer_id, server::SharedWildcardPV &status_pv,
+void onGetStatus(const ConfigCms &config, const sql_ptr &certs_db, const std::string &our_issuer_id, serverev::SharedWildcardPV &status_pv,
                  const std::string &pv_name, serial_number_t serial, const std::string &issuer_id, const ossl_ptr<EVP_PKEY> &cert_auth_pkey,
                  const ossl_ptr<X509> &cert_auth_cert, const ossl_shared_ptr<STACK_OF(X509)> &cert_auth_chain);
 
-void onRevoke(const ConfigCms &config, const sql_ptr &certs_db, const std::string &our_issuer_id, server::SharedWildcardPV &status_pv,
+void onRevoke(const ConfigCms &config, const sql_ptr &certs_db, const std::string &our_issuer_id, serverev::SharedWildcardPV &status_pv,
               std::unique_ptr<server::ExecOp> &&op, const std::string &pv_name, const std::list<std::string> &parameters,
               const ossl_ptr<EVP_PKEY> &cert_auth_pkey, const ossl_ptr<X509> &cert_auth_cert, const ossl_shared_ptr<STACK_OF(X509)> &cert_auth_chain);
 
-void onApprove(const ConfigCms &config, const sql_ptr &certs_db, const std::string &our_issuer_id, server::SharedWildcardPV &status_pv,
+void onApprove(const ConfigCms &config, const sql_ptr &certs_db, const std::string &our_issuer_id, serverev::SharedWildcardPV &status_pv,
                std::unique_ptr<server::ExecOp> &&op, const std::string &pv_name, const std::list<std::string> &parameters,
                const ossl_ptr<EVP_PKEY> &cert_auth_pkey, const ossl_ptr<X509> &cert_auth_cert, const ossl_shared_ptr<STACK_OF(X509)> &cert_auth_chain);
 
-void onDeny(const ConfigCms &config, const sql_ptr &certs_db, const std::string &our_issuer_id, server::SharedWildcardPV &status_pv,
+void onDeny(const ConfigCms &config, const sql_ptr &certs_db, const std::string &our_issuer_id, serverev::SharedWildcardPV &status_pv,
             std::unique_ptr<server::ExecOp> &&op, const std::string &pv_name, const std::list<std::string> &parameters,
             const ossl_ptr<EVP_PKEY> &cert_auth_pkey, const ossl_ptr<X509> &cert_auth_cert, const ossl_shared_ptr<STACK_OF(X509)> &cert_auth_chain);
 
@@ -366,7 +366,7 @@ certstatus_t storeCertificate(const sql_ptr &certs_db, CertFactory &cert_factory
 
 timeval statusMonitor(const StatusMonitor &status_monitor_params);
 
-Value postCertificateStatus(server::SharedWildcardPV &status_pv, const std::string &pv_name, uint64_t serial, const PVACertificateStatus &cert_status = {});
+Value postCertificateStatus(serverev::SharedWildcardPV &status_pv, const std::string &pv_name, uint64_t serial, const PVACertificateStatus &cert_status = {});
 
 std::string getValidStatusesClause(const std::vector<certstatus_t> &valid_status);
 void bindValidStatusClauses(sqlite3_stmt *sql_statement, const std::vector<certstatus_t> &valid_status);

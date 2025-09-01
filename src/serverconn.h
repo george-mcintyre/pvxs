@@ -287,8 +287,6 @@ struct Server::Pvt
     } state;
 
 #ifdef PVXS_ENABLE_OPENSSL
-    CustomServerCallback custom_server_callback;
-    evevent custom_server_callback_timer;
     ossl_ptr<uint8_t> cached_ocsp_response;
     time_t cached_ocsp_status_date;
 #endif
@@ -298,16 +296,18 @@ struct Server::Pvt
 #ifndef PVXS_ENABLE_OPENSSL
     Pvt(const Config& conf);
 #else
-    Pvt(Server &server, const Config& conf, CustomServerCallback custom_cert_event_callback = nullptr);
+    Pvt(Server &server, const Config& conf);
 #endif
     ~Pvt();
 
     void start();
     void stop();
 
+#ifdef PVXS_ENABLE_OPENSSL
     bool canRespondToTcpSearch() const { return !tls_context || tls_context->state >= ossl::SSLContext::DegradedMode; }
     bool canRespondToTlsSearch() const { return tls_context && tls_context->state >= ossl::SSLContext::TcpReady && effective.tls_port; }
     bool isInDegradedMode() const { return !tls_context || tls_context->state <= ossl::SSLContext::DegradedMode; }
+#endif
 
    private:
     void onSearch(const UDPManager::Search& msg);
@@ -315,8 +315,6 @@ struct Server::Pvt
     static void doBeaconsS(evutil_socket_t fd, short evt, void *raw);
 
 #ifdef PVXS_ENABLE_OPENSSL
-    static void doCustomServerCallback(evutil_socket_t fd, short evt, void* raw);
-
     bool isContextReadyForTls() const { return tls_context && tls_context->state == ossl::SSLContext::TlsReady; }
 #endif
 };

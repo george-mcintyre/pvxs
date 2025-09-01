@@ -24,7 +24,6 @@
 #include <pvxs/log.h>
 #include <pvxs/server.h>
 #include <pvxs/sharedpv.h>
-#include <pvxs/sharedwildcardpv.h>
 
 #include "certstatusmanager.h"
 #include "evhelper.h"
@@ -55,25 +54,9 @@ Server Server::fromEnv()
     return Config::fromEnv().build();
 }
 #else
-Server Server::fromEnv(const bool tls_disabled, const ConfigCommon::ConfigTarget target)
+Server Server::fromEnv(const bool tls_disabled)
 {
-    return Config::fromEnv(tls_disabled, target).build();
-}
-
-Server Server::fromEnv(CustomServerCallback &custom_event_callback, const bool tls_disabled, const ConfigCommon::ConfigTarget target)
-{
-    return Config::fromEnv(tls_disabled, target).build(custom_event_callback);
-}
-
-Server::Server(const Config &conf, CustomServerCallback custom_event_callback) {
-    auto internal(std::make_shared<Pvt>(*this, conf, custom_event_callback));
-    internal->internal_self = internal;
-
-    // external
-    pvt.reset(internal.get(), [internal](Pvt*) mutable {
-        auto trash(std::move(internal));
-        trash->stop();
-    });
+    return Config::fromEnv().build();
 }
 #endif
 
@@ -203,21 +186,11 @@ client::Config Server::clientConfig() const
     ret.tls_disable_status_check = pvt->effective.tls_disable_status_check;
     ret.tls_disable_stapling = pvt->effective.tls_disable_stapling;
 #endif
-    ret.is_initialized = true;
 
     return ret;
 }
 
 Server& Server::addPV(const std::string& name, const SharedPV& pv)
-{
-    if(!pvt)
-        throw std::logic_error("NULL Server");
-    pvt->builtinsrc.add(name, pv);
-    pvt->beaconChange++;
-    return *this;
-}
-
-Server& Server::addPV(const std::string& name, const SharedWildcardPV& pv)
 {
     if(!pvt)
         throw std::logic_error("NULL Server");
@@ -447,11 +420,7 @@ std::ostream& operator<<(std::ostream& strm, const Server& serv)
     return strm;
 }
 
-#ifndef PVXS_ENABLE_OPENSSL
-Server::Pvt::Pvt(Server& server, const Config& conf)
-#else
-Server::Pvt::Pvt(Server &svr, const Config& conf, CustomServerCallback custom_cert_event_callback)
-#endif
+Server::Pvt::Pvt(Server& svr, const Config& conf)
     : server(svr),
       effective(conf),
       beaconMsg(128),
@@ -465,11 +434,6 @@ Server::Pvt::Pvt(Server &svr, const Config& conf, CustomServerCallback custom_ce
       searchReply(0x10000),
       builtinsrc(StaticSource::build()),
       state(Stopped)
-#ifdef PVXS_ENABLE_OPENSSL
-      ,
-      custom_server_callback(custom_cert_event_callback),
-      custom_server_callback_timer(__FILE__, __LINE__, event_new(acceptor_loop.base, -1, EV_TIMEOUT, doCustomServerCallback, this))
-#endif
 {
     effective.expand();
 
@@ -638,60 +602,37 @@ Server::Pvt::Pvt(Server &svr, const Config& conf, CustomServerCallback custom_ce
         } pun{};
         static_assert (sizeof(pun)==12, "");
 
-        #ifdef PVXS_ENABLE_OPENSSL
-        if (effective.config_target == ConfigCommon::CMS) {
-            // For PVACMS, generate a deterministic GUID based on "pvacms/cluster"
-            const std::string input = "pvacms/cluster";
+        // seed with some randomness to avoid making UUID a vector
+        // for information disclosure
+        evutil_secure_rng_get_bytes((char*)pun.b.data(), sizeof(pun.b));
 
-            // Simple deterministic hash function
-            for (size_t idx = 0; idx < input.size(); idx++) {
-                pun.b[idx % pun.b.size()] ^= input[idx];
-                // Rotate bits to spread the entropy
-                if ((idx + 1) % 4 == 0) {
-                    uint32_t& val = pun.i[idx / 4];
-                    val = (val << 13) | (val >> 19);
-                }
-            }
+        // i[0] (start) time
+        epicsTimeStamp now;
+        epicsTimeGetCurrent(&now);
+        pun.i[0] ^= now.secPastEpoch ^ now.nsec;
 
-            // Add some fixed bits to ensure uniqueness from random GUIDs
-            pun.b[0] |= 0x80; // Set high bit to mark as deterministic
-            pun.b[11] = 0x42; // Magic number for PVACMS
-        } else
-            // Original random GUID generation for non-PVACMS servers
-        #endif
-        {
-            // seed with some randomness to avoid making UUID a vector
-            // for information disclosure
-            evutil_secure_rng_get_bytes((char*)pun.b.data(), sizeof(pun.b));
-
-            // i[0] (start) time
-            epicsTimeStamp now;
-            epicsTimeGetCurrent(&now);
-            pun.i[0] ^= now.secPastEpoch ^ now.nsec;
-
-            // i[1] host
-            // mix together first interface and all local bcast addresses
-            pun.i[1] ^= ntohl(osiLocalAddr(dummy.sock).ia.sin_addr.s_addr);
-            for(auto& addr : dummy.broadcasts()) {
-                if(addr.family()==AF_INET)
-                    pun.i[1] ^= ntohl(addr->in.sin_addr.s_addr);
-            }
-
-            // i[2] process on host
-#if defined(_WIN32)
-            pun.i[2] ^= GetCurrentProcessId();
-#elif !defined(__rtems__) && !defined(vxWorks)
-            pun.i[2] ^= getpid();
-#else
-            pun.i[2] ^= 0xdeadbeef;
-#endif
-            // and a bit of server instance within this process
-            pun.i[2] ^= uint32_t(effective.tcp_port)<<16u;
-            // maybe a little bit of randomness (eg. ASLR on Linux)
-            pun.i[2] ^= size_t(this);
-            if(sizeof(size_t)>4)
-                pun.i[2] ^= size_t(this)>>32u;
+        // i[1] host
+        // mix together first interface and all local bcast addresses
+        pun.i[1] ^= ntohl(osiLocalAddr(dummy.sock).ia.sin_addr.s_addr);
+        for(auto& addr : dummy.broadcasts()) {
+            if(addr.family()==AF_INET)
+                pun.i[1] ^= ntohl(addr->in.sin_addr.s_addr);
         }
+
+        // i[2] process on host
+#if defined(_WIN32)
+        pun.i[2] ^= GetCurrentProcessId();
+#elif !defined(__rtems__) && !defined(vxWorks)
+        pun.i[2] ^= getpid();
+#else
+        pun.i[2] ^= 0xdeadbeef;
+#endif
+        // and a bit of server instance within this process
+        pun.i[2] ^= uint32_t(effective.tcp_port)<<16u;
+        // maybe a little bit of randomness (eg. ASLR on Linux)
+        pun.i[2] ^= size_t(this);
+        if(sizeof(size_t)>4)
+            pun.i[2] ^= size_t(this)>>32u;
 
         std::copy(pun.b.begin(), pun.b.end(), effective.guid.begin());
     }
@@ -755,29 +696,11 @@ void Server::Pvt::start()
 
         state = Running;
     });
-
-    // begin running custom server callback if configured
-   if ( custom_server_callback )
-       acceptor_loop.call([this]()
-       {
-            // Trigger the first custom server callback, with the initial interval period
-            if(event_add(custom_server_callback_timer.get(), &kCustomCallbackIntervalInitial))
-                log_err_printf(serversetup, "Error enabling file monitor\n%s", "");
-       });
 }
 
 void Server::Pvt::stop()
 {
     log_debug_printf(serversetup, "Server Stopping\n%s", "");
-
-    acceptor_loop.call([this]()
-    {
-        if (custom_server_callback_timer) {
-            if (event_del(custom_server_callback_timer.get()))
-                log_warn_printf(serversetup, "Error disabling custom server callback timer\n%s", "");
-        }
-
-    });
 
     // Stop sending Beacons
     state_t prev_state;
@@ -1002,24 +925,6 @@ void Server::Pvt::doBeaconsS(evutil_socket_t fd, short evt, void *raw)
 }
 
 #ifdef PVXS_ENABLE_OPENSSL
-void Server::Pvt::doCustomServerCallback(evutil_socket_t fd, short evt, void* raw) {
-    try {
-        const auto pvt = static_cast<Pvt*>(raw);
-        if (pvt && pvt->custom_server_callback) {
-            auto next_timeval = pvt->custom_server_callback(evt);
-            if (next_timeval.tv_sec == 0 && next_timeval.tv_usec == 0) {
-                next_timeval = kCustomCallbackInterval;
-            }
-            if (next_timeval.tv_sec > 0 || next_timeval.tv_usec > 0) {
-                if (event_add(pvt->custom_server_callback_timer.get(), &next_timeval))
-                    log_err_printf(serverio, "Error re-enabling custom server callback%s\n", "");
-            }
-        }
-    } catch (std::exception& e) {
-        log_err_printf(serverio, "Unhandled error in custom server callback: %s\n", e.what());
-    }
-}
-
 void Server::reconfigure(const Config& inconf) {
     if (!pvt) throw std::logic_error("NULL Server");
 

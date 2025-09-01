@@ -15,7 +15,7 @@
 #include <openssl/x509.h>
 
 #include <pvxs/log.h>
-#include <pvxs/sharedwildcardpv.h>
+#include <sharedwildcardpv.h>
 #include <pvxs/unittest.h>
 
 #include "certfactory.h"
@@ -26,6 +26,7 @@
 #include "opensslgbl.h"
 #include "ownedptr.h"
 #include "certcontext.h"
+#include "configcms.h"
 
 namespace {
 using namespace pvxs;
@@ -44,7 +45,7 @@ struct Tester {
 
     const std::string issuer_id{CertStatus::getSkId(cert_auth.cert.cert)};
 
-    server::SharedWildcardPV status_pv{server::SharedWildcardPV::buildMailbox()};
+    serverev::SharedWildcardPV status_pv{serverev::SharedWildcardPV::buildMailbox()};
     server::Server pvacms;
     client::Context client;
     CounterMap cert_status_request_counters;
@@ -70,7 +71,7 @@ struct Tester {
 
         });
 
-        pvacms = server::Config::forCms().build().addSource(getCertStatusPv("CERT", issuer_id), pvacms_mock);
+        pvacms = ConfigCms::forCms().build().addSource(getCertStatusPv("CERT", issuer_id), pvacms_mock);
         client = pvacms.clientConfig().build();
 
         testShow() << "Testing TLS Status Functions:\n";
@@ -277,7 +278,7 @@ struct Tester {
         try {
             testDiag("Setting up: %s", "Mock PVACMS Server");
 
-            status_pv.onFirstConnect([this](server::SharedWildcardPV &pv, const std::string &pv_name, const std::list<std::string> &parameters) {
+            status_pv.onFirstConnect([this](serverev::SharedWildcardPV &pv, const std::string &pv_name, const std::list<std::string> &parameters) {
                 auto it = parameters.begin();
                 const std::string &serial_string = *it;
                 const serial_number_t serial = std::stoull(serial_string);
@@ -293,7 +294,7 @@ struct Tester {
 
                 testDiag("Posted Value for request: %s", pv_name.c_str());
             });
-            status_pv.onLastDisconnect([](server::SharedWildcardPV &pv, const std::string &pv_name, const std::list<std::string> &parameters) {
+            status_pv.onLastDisconnect([](serverev::SharedWildcardPV &pv, const std::string &pv_name, const std::list<std::string> &parameters) {
                 testOk(1, "Closing Status Request Connection: %s", pv_name.c_str());
                 pv.close(pv_name);
             });

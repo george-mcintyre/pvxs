@@ -13,18 +13,18 @@
 #include <memory>
 #include <string>
 
+#include <pvxs/srvcommon.h>
 #include <pvxs/sharedpv.h>
 #include <pvxs/version.h>
 
-#include "srvcommon.h"
-
 namespace pvxs {
 class Value;
-
 namespace server {
-
 struct ChannelControl;
 struct Source;
+}
+
+namespace serverev {
 
 /** A SharedWildcardPV is multiple data values which may be accessed by multiple clients through a Server.
  *
@@ -48,7 +48,7 @@ struct Source;
  *
  * monitoring and get are handled automatically by the framework
  */
-struct PVXS_API SharedWildcardPV : public SharedPV {
+struct PVXS_API SharedWildcardPV : public server::SharedPV {
     //! Create a new SharedPV with a Put handler which post() s any client provided Value.
     static SharedWildcardPV buildMailbox();
 
@@ -60,17 +60,17 @@ struct PVXS_API SharedWildcardPV : public SharedPV {
     //! Attach this SharedPV with a new client channel.
     //! Not necessary when using StaticSource.
     //! eg. could call from Source::onCreate()
-    void attach(std::unique_ptr<ChannelControl> &&op, const std::list<std::string> parameters);
+    void attach(std::unique_ptr<server::ChannelControl> &&op, const std::list<std::string> parameters);
 
     //! Callback when the number of attach()d clients becomes non-zero for a particular pv_name
     void onFirstConnect(std::function<void(SharedWildcardPV &, const std::string &, const std::list<std::string> &)> &&fn);
     //! Callback when the number of attach()d clients becomes zero for a particular pv_name
     void onLastDisconnect(std::function<void(SharedWildcardPV &, const std::string &, const std::list<std::string> &)> &&fn);
     //! Callback when a client executes a new Put operation for a given pv_name
-    void onPut(std::function<void(SharedWildcardPV &, std::unique_ptr<ExecOp> &&, const std::string &, const std::list<std::string> &, Value &&)> &&fn);
+    void onPut(std::function<void(SharedWildcardPV &, std::unique_ptr<server::ExecOp> &&, const std::string &, const std::list<std::string> &, Value &&)> &&fn);
     //! Callback when a client executes an RPC operation for a given pc_name
     //! @note RPC operations are allowed even when the SharedPV is not opened (isOpen()==false)
-    void onRPC(std::function<void(SharedWildcardPV &, std::unique_ptr<ExecOp> &&, const std::string &, const std::list<std::string> &, Value &&)> &&fn);
+    void onRPC(std::function<void(SharedWildcardPV &, std::unique_ptr<server::ExecOp> &&, const std::string &, const std::list<std::string> &, Value &&)> &&fn);
 
     /** Provide data type and initial value.  Allows clients to begin connecting.
      * @pre !isOpen()

@@ -353,7 +353,7 @@ Subscription::~Subscription() {}
 #ifndef PVXS_ENABLE_OPENSSL
 Context Context::fromEnv() { return Config::fromEnv().build(); }
 #else
-Context Context::fromEnv(const bool tls_disabled) { return Config::fromEnv(tls_disabled).build(); }
+Context Context::fromEnv() { return Config::fromEnv().build(); }
 Context::Context(const Config& conf, const std::function<int(int)>& fn) : pvt(std::make_shared<Pvt>(conf)) { pvt->impl->startNS(); pvt->impl->configureExpirationHandler(this); }
 
 #endif  // PVXS_ENABLE_OPENSSL
@@ -1274,6 +1274,13 @@ void Context::certExpirationHandler() {
 
 #ifdef PVXS_ENABLE_OPENSSL
 /**
+ * @brief Enable TLS by reloading the same effective config
+ */
+void ContextImpl::reloadTls() {
+    reloadTlsFromConfig(effective);
+}
+
+/**
  * @brief Enable TLS with the optional config if provided
  * @param new_config optional config (check the is_initialized flag to see if it's blank or not)
  */
@@ -1281,8 +1288,7 @@ void ContextImpl::reloadTlsFromConfig(const Config& new_config) {
     // If the context is already in the TlsReady state, then don't do anything
     if (isTlsReady()) return;
     try {
-        const auto& config_to_use = new_config.is_initialized ? new_config : effective;
-        const auto new_context = ossl::SSLContext::for_client(config_to_use, tcp_loop);
+        const auto new_context = ossl::SSLContext::for_client(new_config, tcp_loop);
 
         // If unsuccessful in getting a certificate, or it has EXPIRED, then don't enable TLS
         if (!isTlsConfigured(new_context) || new_context->hasExpired()) return;
@@ -1292,7 +1298,7 @@ void ContextImpl::reloadTlsFromConfig(const Config& new_config) {
         removePeer();
 
         tls_context = new_context;
-        effective = config_to_use;
+        effective = new_config;
     } catch (std::exception& e) {
         if (tls_context && tls_context->state != ossl::SSLContext::DegradedMode) tls_context->setDegradedMode(true);
     }

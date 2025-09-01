@@ -19,6 +19,9 @@
 namespace pvxs {
 class Value;
 
+namespace serverev {
+struct SharedWildcardPV;
+}
 namespace server {
 
 struct ChannelControl;
@@ -85,8 +88,6 @@ struct PVXS_API SharedPV {
     std::shared_ptr<Impl> impl;
 };
 
-struct SharedWildcardPV;
-
 /** Allow clients to find (through a Server) SharedPV instances by name.
  *
  * A single PV name may only be added once to a StaticSource.
@@ -108,8 +109,7 @@ struct PVXS_API StaticSource
 
     //! Add a new name through which a SharedPV may be addressed.
     StaticSource& add(const std::string& name, const SharedPV& pv);
-    StaticSource& add(const std::string& name, const SharedWildcardPV& pv);
-
+    StaticSource& add(const std::string& name, const serverev::SharedWildcardPV& pv);
     //! Remove a single name
     StaticSource& remove(const std::string& name);
 

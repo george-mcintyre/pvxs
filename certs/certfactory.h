@@ -38,9 +38,9 @@ namespace certs {
  * @brief Enum to control whether certificates require status subscription
  */
 enum CertStatusSubscription {
-    DEFAULT,  // Use the no_status flag from the client request
-    YES,      // Always require status subscription
-    NO        // Never require status subscription
+    DEFAULT=-1,  // Use the no_status flag from the client request
+    YES=1,       // Always require status subscription
+    NO=0         // Never require status subscription
 };
 
 /**

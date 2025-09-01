@@ -13,12 +13,12 @@
 
 #include <pvxs/log.h>
 #include <pvxs/sharedpv.h>
-#include <pvxs/sharedwildcardpv.h>
 #include <pvxs/source.h>
 #include <pvxs/server.h>
 
 #include "utilpvt.h"
 #include "dataimpl.h"
+#include "sharedwildcardpv.h"
 
 typedef epicsGuard<epicsMutex> Guard;
 typedef epicsGuardRelease<epicsMutex> UnGuard;
@@ -523,7 +523,7 @@ struct StaticSource::Impl final : public Source
 
             // Try a direct match of the `searched_name` in `pvs` map or a wildcard match if that fails
             SharedPV pv;
-            SharedWildcardPV wildcard_pv;
+            serverev::SharedWildcardPV wildcard_pv;
             if(simpleMatch(searched_name, pv) ) {
                 name.claim();
                 log_debug_printf(logsource, "%p claim '%s'\n", this, searched_name.c_str());
@@ -537,7 +537,7 @@ struct StaticSource::Impl final : public Source
     virtual void onCreate(std::unique_ptr<ChannelControl> &&op) override
     {
         SharedPV pv;
-        SharedWildcardPV wildcard_pv;
+        serverev::SharedWildcardPV wildcard_pv;
         {
             auto G(lock.lockReader());
             const auto searched_name = op->name();
@@ -609,7 +609,7 @@ struct StaticSource::Impl final : public Source
  * @param pv that wildcard pv that matched the wildcard_pv_name
  * @return true if a match is found
  */
-    bool wildcardMatch(const std::string &searched_name, SharedWildcardPV &pv) {
+    bool wildcardMatch(const std::string &searched_name, serverev::SharedWildcardPV &pv) {
         static const std::regex kRegexSpecialChars{R"([-[\]{}()+.,\^$|#\s])"};
         static const std::regex kWildcardStarPattern("\\*");
         static const char kWildcardQueryCharacter = '?';
@@ -634,7 +634,7 @@ struct StaticSource::Impl final : public Source
             if (std::regex_match(searched_name, pv_regex_pattern)) {
                 try {
                     std::shared_ptr<SharedPV> base_pv = wildcard_shared_pv_pair.second;
-                    std::shared_ptr<SharedWildcardPV> derived_pv = std::dynamic_pointer_cast<SharedWildcardPV>(base_pv);
+                    std::shared_ptr<serverev::SharedWildcardPV> derived_pv = std::dynamic_pointer_cast<serverev::SharedWildcardPV>(base_pv);
                     if (!derived_pv) {
                         throw std::bad_cast();
                     }
@@ -710,7 +710,7 @@ StaticSource& StaticSource::add(const std::string& name, const SharedPV &pv)
     return *this;
 }
 
-StaticSource& StaticSource::add(const std::string& name, const SharedWildcardPV& pv)
+StaticSource& StaticSource::add(const std::string& name, const serverev::SharedWildcardPV& pv)
 {
     if (!impl)
         throw std::logic_error("Empty StaticSource");
@@ -721,7 +721,7 @@ StaticSource& StaticSource::add(const std::string& name, const SharedWildcardPV&
         throw std::logic_error("add() will not create duplicate PV");
 
     // Store as shared_ptr<SharedWildcardPV>
-    impl->pvs[name] = std::make_shared<SharedWildcardPV>(pv);
+    impl->pvs[name] = std::make_shared<serverev::SharedWildcardPV>(pv);
     impl->list.reset();
 
     return *this;

@@ -13,7 +13,7 @@
 
 #include <pvxs/log.h>
 #include <pvxs/server.h>
-#include <pvxs/sharedwildcardpv.h>
+#include <sharedwildcardpv.h>
 #include <pvxs/source.h>
 
 #include "dataimpl.h"
@@ -26,7 +26,7 @@ DEFINE_LOGGER(logshared, "pvxs.svr.pvwild");
 DEFINE_LOGGER(logmailbox, "pvxs.mailbox");
 
 namespace pvxs {
-namespace server {
+namespace serverev {
 
 template <typename T>
 using ptr_set = std::set<T, std::owner_less<T>>;
@@ -34,20 +34,20 @@ using ptr_set = std::set<T, std::owner_less<T>>;
 struct SharedWildcardPV::Impl : public std::enable_shared_from_this<Impl> {
     mutable epicsMutex lock;
 
-    std::function<void(SharedWildcardPV&, std::unique_ptr<ExecOp>&&, const std::string& pv_name, const std::list<std::string>& parameters, Value&&)> onPut;
-    std::function<void(SharedWildcardPV&, std::unique_ptr<ExecOp>&&, const std::string& pv_name, const std::list<std::string>& parameters, Value&&)> onRPC;
+    std::function<void(SharedWildcardPV&, std::unique_ptr<server::ExecOp>&&, const std::string& pv_name, const std::list<std::string>& parameters, Value&&)> onPut;
+    std::function<void(SharedWildcardPV&, std::unique_ptr<server::ExecOp>&&, const std::string& pv_name, const std::list<std::string>& parameters, Value&&)> onRPC;
     std::function<void(SharedWildcardPV&, const std::string& pv_name, const std::list<std::string>& parameters)> onFirstConnect;
     std::function<void(SharedWildcardPV&, const std::string& pv_name, const std::list<std::string>& parameters)> onLastDisconnect;
 
-    std::map<std::string, ptr_set<std::weak_ptr<ChannelControl>>> channels;
+    std::map<std::string, ptr_set<std::weak_ptr<server::ChannelControl>>> channels;
 
-    std::map<std::string, std::set<std::shared_ptr<ConnectOp>>> pending;
-    std::map<std::string, std::set<std::shared_ptr<MonitorSetupOp>>> mpending;
-    std::map<std::string, std::set<std::shared_ptr<MonitorControlOp>>> subscribers;
+    std::map<std::string, std::set<std::shared_ptr<server::ConnectOp>>> pending;
+    std::map<std::string, std::set<std::shared_ptr<server::MonitorSetupOp>>> mpending;
+    std::map<std::string, std::set<std::shared_ptr<server::MonitorControlOp>>> subscribers;
 
     std::map<std::string, Value> current_vals;
 
-    static void connectOp(const std::shared_ptr<Impl>& self, const std::shared_ptr<ConnectOp>& conn, const Value& current) {
+    static void connectOp(const std::shared_ptr<Impl>& self, const std::shared_ptr<server::ConnectOp>& conn, const Value& current) {
         try {
             // unlocked as connect() will sync. with the client worker
             conn->connect(current);
@@ -59,10 +59,10 @@ struct SharedWildcardPV::Impl : public std::enable_shared_from_this<Impl> {
         }
     }
 
-    static void connectSub(Guard& G, const std::shared_ptr<Impl>& self, const std::shared_ptr<MonitorSetupOp>& conn, const Value& current) {
+    static void connectSub(Guard& G, const std::shared_ptr<Impl>& self, const std::shared_ptr<server::MonitorSetupOp>& conn, const Value& current) {
         G.assertIdenticalMutex(self->lock);
         try {
-            std::shared_ptr<MonitorControlOp> sub;
+            std::shared_ptr<server::MonitorControlOp> sub;
             {
                 UnGuard U(G);
 
@@ -93,7 +93,7 @@ SharedWildcardPV SharedWildcardPV::buildMailbox() {
     SharedWildcardPV ret;
     ret.impl = std::make_shared<Impl>();
 
-    ret.onPut([](SharedWildcardPV& pv, std::unique_ptr<ExecOp>&& op, const std::string& pv_name, const std::list<std::string>& parameters, Value&& val) {
+    ret.onPut([](SharedWildcardPV& pv, std::unique_ptr<server::ExecOp>&& op, const std::string& pv_name, const std::list<std::string>& parameters, Value&& val) {
         auto ts(val["timeStamp"]);
         if (ts && !ts.isMarked(true, true)) {
             // use current time
@@ -118,7 +118,7 @@ SharedWildcardPV SharedWildcardPV::buildReadonly() {
     SharedWildcardPV ret;
     ret.impl = std::make_shared<Impl>();
 
-    ret.onPut([](SharedWildcardPV& pv, std::unique_ptr<ExecOp>&& op, const std::string& pv_name, const std::list<std::string>& parameters, Value&& val) {
+    ret.onPut([](SharedWildcardPV& pv, std::unique_ptr<server::ExecOp>&& op, const std::string& pv_name, const std::list<std::string>& parameters, Value&& val) {
         op->error(SB() << "Read-only PV: " << pv_name);
     });
 
@@ -127,18 +127,18 @@ SharedWildcardPV SharedWildcardPV::buildReadonly() {
 
 SharedWildcardPV::~SharedWildcardPV() {}
 
-void SharedWildcardPV::attach(std::unique_ptr<ChannelControl>&& ctrlop, const std::list<std::string> parameters) {
+void SharedWildcardPV::attach(std::unique_ptr<server::ChannelControl>&& ctrlop, const std::list<std::string> parameters) {
     // in, or after, some Source::onCreate()
 
     if (!impl) throw std::logic_error("Empty SharedWildcardPV");
 
     auto self(impl);  // to be captured
 
-    std::shared_ptr<ChannelControl> ctrl(std::move(ctrlop));
+    std::shared_ptr<server::ChannelControl> ctrl(std::move(ctrlop));
 
     log_debug_printf(logshared, "%s on %s Chan setup\n", ctrl->peerName().c_str(), ctrl->name().c_str());
 
-    ctrl->onRPC([self, parameters](std::unique_ptr<ExecOp>&& op, Value&& arg) {
+    ctrl->onRPC([self, parameters](std::unique_ptr<server::ExecOp>&& op, Value&& arg) {
         // on server worker
 
         log_debug_printf(logshared, "%s on %s RPC\n", op->peerName().c_str(), op->name().c_str());
@@ -159,14 +159,14 @@ void SharedWildcardPV::attach(std::unique_ptr<ChannelControl>&& ctrlop, const st
         }
     });
 
-    ctrl->onOp([this, self, parameters](std::unique_ptr<ConnectOp>&& op) {
+    ctrl->onOp([this, self, parameters](std::unique_ptr<server::ConnectOp>&& op) {
         // on server worker
 
-        std::shared_ptr<ConnectOp> conn(std::move(op));
+        std::shared_ptr<server::ConnectOp> conn(std::move(op));
 
         log_debug_printf(logshared, "%s on %s Op connecting\n", conn->peerName().c_str(), conn->name().c_str());
 
-        conn->onGet([self](std::unique_ptr<ExecOp>&& op) {
+        conn->onGet([self](std::unique_ptr<server::ExecOp>&& op) {
             // on server worker
 
             log_debug_printf(logshared, "%s on %s Get\n", op->peerName().c_str(), op->name().c_str());
@@ -183,7 +183,7 @@ void SharedWildcardPV::attach(std::unique_ptr<ChannelControl>&& ctrlop, const st
             }
         });
 
-        conn->onPut([self, parameters](std::unique_ptr<ExecOp>&& op, Value&& val) {
+        conn->onPut([self, parameters](std::unique_ptr<server::ExecOp>&& op, Value&& val) {
             // on server worker
 
             log_debug_printf(logshared, "%s on %s RPC\n", op->peerName().c_str(), op->name().c_str());
@@ -224,12 +224,12 @@ void SharedWildcardPV::attach(std::unique_ptr<ChannelControl>&& ctrlop, const st
         }
     });
 
-    ctrl->onSubscribe([self](std::unique_ptr<MonitorSetupOp>&& op) {
+    ctrl->onSubscribe([self](std::unique_ptr<server::MonitorSetupOp>&& op) {
         // on server worker
 
         log_debug_printf(logshared, "%s on %s Monitor setup\n", op->peerName().c_str(), op->name().c_str());
 
-        std::shared_ptr<MonitorSetupOp> conn(std::move(op));
+        std::shared_ptr<server::MonitorSetupOp> conn(std::move(op));
 
         Guard G(self->lock);
 
@@ -300,14 +300,14 @@ void SharedWildcardPV::onLastDisconnect(std::function<void(SharedWildcardPV&, co
 }
 
 void SharedWildcardPV::onPut(
-    std::function<void(SharedWildcardPV&, std::unique_ptr<ExecOp>&&, const std::string&, const std::list<std::string>&, Value&&)>&& fn) {
+    std::function<void(SharedWildcardPV&, std::unique_ptr<server::ExecOp>&&, const std::string&, const std::list<std::string>&, Value&&)>&& fn) {
     if (!impl) throw std::logic_error("Empty SharedWildcardPV");
     Guard G(impl->lock);
     impl->onPut = std::move(fn);
 }
 
 void SharedWildcardPV::onRPC(
-    std::function<void(SharedWildcardPV&, std::unique_ptr<ExecOp>&&, const std::string&, const std::list<std::string>&, Value&&)>&& fn) {
+    std::function<void(SharedWildcardPV&, std::unique_ptr<server::ExecOp>&&, const std::string&, const std::list<std::string>&, Value&&)>&& fn) {
     if (!impl) throw std::logic_error("Empty SharedWildcardPV");
     Guard G(impl->lock);
     impl->onRPC = std::move(fn);

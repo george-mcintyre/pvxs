@@ -329,7 +329,7 @@ public:
     static Context fromEnv();
 #else
     Context(const Config&, const std::function<int(int)>&);
-    static Context fromEnv(const bool tls_disabled = false);
+    static Context fromEnv();
 
     /** Apply (in part) updated configuration
      *
@@ -1081,18 +1081,12 @@ private:
     bool UDP = true;
 public:
 
-#ifndef PVXS_ENABLE_OPENSSL
     // compat
     static inline Config from_env() { return Config{}.applyEnv(); }
     //! Default configuration using process environment
     static inline Config fromEnv() { return Config{}.applyEnv(); }
     //! update using defined EPICS_PVA* environment variables
-    Config &applyEnv();
-#else
-    static Config from_env(const bool tls_disabled = false, const ConfigTarget target = CLIENT) { return Config{}.applyEnv(tls_disabled, target); }
-    static Config fromEnv(const bool tls_disabled = false, const ConfigTarget target = CLIENT) { return Config{}.applyEnv(tls_disabled, target); }
-    Config &applyEnv(bool tls_disabled = false, const ConfigTarget target = CLIENT);
-#endif // PVXS_ENABLE_OPENSSL
+    virtual Config &applyEnv(); // TODO sort out virtual problem
 
     typedef std::map<std::string, std::string> defs_t;
     //! update with definitions as with EPICS_PVA* environment variables

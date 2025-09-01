@@ -476,7 +476,8 @@ struct ContextImpl : std::enable_shared_from_this<ContextImpl>
     void removePeer(const Connection* client_conn = nullptr);
     void enterDegradedMode() const;
     void removeTlsPeer(const Connection* client_conn = nullptr) const;
-    void reloadTlsFromConfig(const Config& new_config = {});
+    void reloadTls();
+    void reloadTlsFromConfig(const Config& new_config);
 #endif
 };
 
