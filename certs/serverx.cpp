@@ -4,7 +4,7 @@
  * in file LICENSE that is included with this distribution.
  */
 
-#include "serverev.h"
+#include "serverx.h"
 
 #include <atomic>
 #include <cstdlib>
@@ -26,18 +26,18 @@
 #include "serverconn.h"
 
 namespace pvxs {
-namespace serverev {
+namespace serverx {
 
 DEFINE_LOGGER(serverio, "pvxs.svr.io");
 DEFINE_LOGGER(serversetup, "pvxs.svr.init");
 
 
-ServerEv ServerEv::fromEnv(CustomServerCallback &custom_event_callback)
+Server Server::fromEnv(CustomServerCallback &custom_event_callback)
 {
     return certs::Config::fromEnv().build(custom_event_callback);
 }
 
-ServerEv::ServerEv(const certs::Config &config, const CustomServerCallback &custom_cert_event_callback) : Server(config) {
+Server::Server(const certs::Config &config, const CustomServerCallback &custom_cert_event_callback) : server::Server(config) {
     auto internal(std::make_shared<Impl>(*this, config, custom_cert_event_callback));
     internal->self = internal;
 
@@ -47,7 +47,7 @@ ServerEv::ServerEv(const certs::Config &config, const CustomServerCallback &cust
     });
 }
 
-ServerEv& ServerEv::addWildcardPV(const std::string& name, const SharedWildcardPV& pv)
+Server& Server::addWildcardPV(const std::string& name, const SharedWildcardPV& pv)
 {
     if(!pvt)
         throw std::logic_error("NULL Server");
@@ -56,7 +56,7 @@ ServerEv& ServerEv::addWildcardPV(const std::string& name, const SharedWildcardP
     return *this;
 }
 
-ServerEv::Impl::Impl(ServerEv &svr, const certs::Config& conf, const CustomServerCallback &custom_cert_event_callback)
+Server::Impl::Impl(Server &svr, const certs::Config& conf, const CustomServerCallback &custom_cert_event_callback)
     : custom_server_callback(custom_cert_event_callback)
     , custom_server_callback_timer(__FILE__, __LINE__, event_new(svr.pvt->acceptor_loop.base, -1, EV_TIMEOUT, doCustomServerCallback, this)) {
     {
@@ -93,7 +93,7 @@ ServerEv::Impl::Impl(ServerEv &svr, const certs::Config& conf, const CustomServe
 }
 
 
-void ServerEv::Impl::doCustomServerCallback(evutil_socket_t fd, short evt, void* raw) {
+void Server::Impl::doCustomServerCallback(evutil_socket_t fd, short evt, void* raw) {
     try {
         const auto pvt = static_cast<Impl*>(raw);
         if (pvt && pvt->custom_server_callback) {
@@ -111,7 +111,7 @@ void ServerEv::Impl::doCustomServerCallback(evutil_socket_t fd, short evt, void*
     }
 }
 
-void ServerEv::startCb() const {
+void Server::startCb() const {
     // begin running custom server callback if configured
     if ( impl->custom_server_callback )
         pvt->acceptor_loop.call([this]()
@@ -122,7 +122,7 @@ void ServerEv::startCb() const {
         });
 }
 
-void ServerEv::stopCb() const {
+void Server::stopCb() const {
     pvt->acceptor_loop.call([this]()
     {
         if (impl->custom_server_callback_timer) {

@@ -124,7 +124,7 @@ SRC_DIRS += $(TOP)/certs/authn/std
 SRC_DIRS += $(TOP)/src
 SRC_DIRS += $(TOP)/src/pvxs
 SRCS += configcms.cpp
-#SRCS += serverev.cpp
+#SRCS += serverx.cpp
 
 USR_CPPFLAGS += -DPVXS_ENABLE_OPENSSL
 TESTPROD_HOST += gen_test_certs

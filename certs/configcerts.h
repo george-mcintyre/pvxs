@@ -9,7 +9,7 @@
 
 #include <pvxs/server.h>
 
-#include "serverev.h"
+#include "serverx.h"
 
 namespace pvxs {
 namespace certs {
@@ -35,7 +35,7 @@ class Config : public server::Config {
         return config;
     }
 
-    serverev::ServerEv build(const serverev::CustomServerCallback &cert_file_event_callback = {}) const;
+    serverx::Server build(const serverx::CustomServerCallback &cert_file_event_callback = {}) const;
 };
 
 }  // namespace certs

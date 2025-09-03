@@ -4,8 +4,8 @@
  * in file LICENSE that is included with this distribution.
  */
 
-#ifndef PVXS_SERVEREV_H
-#define PVXS_SERVEREV_H
+#ifndef PVXS_SERVERX_H
+#define PVXS_SERVERX_H
 
 #include <functional>
 #include <memory>
@@ -23,7 +23,7 @@ namespace certs {
 class Config;
 }
 
-namespace serverev {
+namespace serverx {
 
 using CustomServerCallback = std::function<timeval(short)>;
 static constexpr timeval kCustomCallbackIntervalInitial{0, 0};
@@ -31,13 +31,13 @@ static constexpr timeval kCustomCallbackInterval{15, 0};
 
 struct EnhancedConfig;
 
-class ServerEv : public server::Server {
+class Server : public server::Server {
 
   public:
-    constexpr ServerEv() = default;
-    PVXS_API ServerEv(const certs::Config &config, const CustomServerCallback &custom_event_callback);
-    ServerEv fromEnv(CustomServerCallback &custom_event_callback);
-    ServerEv& addWildcardPV(const std::string& name, const SharedWildcardPV& pv);
+    constexpr Server() = default;
+    PVXS_API Server(const certs::Config &config, const CustomServerCallback &custom_event_callback);
+    Server fromEnv(CustomServerCallback &custom_event_callback);
+    Server& addWildcardPV(const std::string& name, const SharedWildcardPV& pv);
     struct Impl;
 
     private:
@@ -46,15 +46,15 @@ class ServerEv : public server::Server {
         void stopCb() const;
 };
 
-struct ServerEv::Impl {
+struct Server::Impl {
     std::weak_ptr<Impl> self;
     CustomServerCallback custom_server_callback;
     evevent custom_server_callback_timer;
-    Impl(ServerEv &svr, const certs::Config& conf, const CustomServerCallback &custom_cert_event_callback = nullptr );
+    Impl(Server &svr, const certs::Config& conf, const CustomServerCallback &custom_cert_event_callback = nullptr );
     static void doCustomServerCallback(evutil_socket_t fd, short evt, void* raw);
 };
 
-} // serverev
+} // serverx
 } // pvxs
 
-#endif //PVXS_SERVEREV_H
+#endif //PVXS_SERVERX_H

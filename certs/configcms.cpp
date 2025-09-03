@@ -12,7 +12,7 @@
 #include <pvxs/log.h>
 
 #include "configcerts.h"
-#include "serverev.h"
+#include "serverx.h"
 
 DEFINE_LOGGER(cert_cfg, "pvxs.certs.cfg");
 

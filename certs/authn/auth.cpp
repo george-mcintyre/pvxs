@@ -14,7 +14,7 @@
 
 #include "authregistry.h"
 #include "ccrmanager.h"
-#include "serverev.h"
+#include "serverx.h"
 #include "configcerts.h"
 #include "ownedptr.h"
 #include "p12filefactory.h"
@@ -142,7 +142,7 @@ void Auth::runAuthNDaemon(const ConfigAuthN &authn_config, bool for_client, Cert
     config_pv.open(config_monitor_params->config_pv_value);
 
     // Create a server with a custom timer event that runs our configuration monitor
-    config_server_ = serverev::ServerEv(config, [config_monitor_params, &config_pv](short) { return configurationMonitor(config_monitor_params, config_pv); });
+    config_server_ = serverx::Server(config, [config_monitor_params, &config_pv](short) { return configurationMonitor(config_monitor_params, config_pv); });
 
     config_pv.onFirstConnect([&config_monitor_params, &for_client, &authn_config, &issuer_id](server::SharedPV &pv) {
         const auto serial = CertStatusFactory::getSerialNumber(config_monitor_params->cert_);

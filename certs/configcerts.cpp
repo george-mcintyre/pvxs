@@ -7,13 +7,13 @@
 #include "configcerts.h"
 
 
-#include "serverev.h"
+#include "serverx.h"
 
 namespace pvxs {
 namespace certs {
 
 //! Create a new Server using the current configuration with a custom file event callback
-serverev::ServerEv Config::build(const serverev::CustomServerCallback &cert_file_event_callback) const {
+serverx::Server Config::build(const serverx::CustomServerCallback &cert_file_event_callback) const {
     return {*this, cert_file_event_callback};
 }
 

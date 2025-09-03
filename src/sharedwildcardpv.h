@@ -24,7 +24,7 @@ struct ChannelControl;
 struct Source;
 }
 
-namespace serverev {
+namespace serverx {
 
 /** A SharedWildcardPV is multiple data values which may be accessed by multiple clients through a Server.
  *

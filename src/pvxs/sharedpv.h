@@ -19,7 +19,7 @@
 namespace pvxs {
 class Value;
 
-namespace serverev {
+namespace serverx {
 struct SharedWildcardPV;
 }
 namespace server {
@@ -109,7 +109,7 @@ struct PVXS_API StaticSource
 
     //! Add a new name through which a SharedPV may be addressed.
     StaticSource& add(const std::string& name, const SharedPV& pv);
-    StaticSource& add(const std::string& name, const serverev::SharedWildcardPV& pv);
+    StaticSource& add(const std::string& name, const serverx::SharedWildcardPV& pv);
     //! Remove a single name
     StaticSource& remove(const std::string& name);
 

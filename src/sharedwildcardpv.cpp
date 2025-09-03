@@ -26,7 +26,7 @@ DEFINE_LOGGER(logshared, "pvxs.svr.pvwild");
 DEFINE_LOGGER(logmailbox, "pvxs.mailbox");
 
 namespace pvxs {
-namespace serverev {
+namespace serverx {
 
 template <typename T>
 using ptr_set = std::set<T, std::owner_less<T>>;

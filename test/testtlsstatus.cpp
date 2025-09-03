@@ -45,7 +45,7 @@ struct Tester {
 
     const std::string issuer_id{CertStatus::getSkId(cert_auth.cert.cert)};
 
-    serverev::SharedWildcardPV status_pv{serverev::SharedWildcardPV::buildMailbox()};
+    serverx::SharedWildcardPV status_pv{serverx::SharedWildcardPV::buildMailbox()};
     server::Server pvacms;
     client::Context client;
     CounterMap cert_status_request_counters;
@@ -278,7 +278,7 @@ struct Tester {
         try {
             testDiag("Setting up: %s", "Mock PVACMS Server");
 
-            status_pv.onFirstConnect([this](serverev::SharedWildcardPV &pv, const std::string &pv_name, const std::list<std::string> &parameters) {
+            status_pv.onFirstConnect([this](serverx::SharedWildcardPV &pv, const std::string &pv_name, const std::list<std::string> &parameters) {
                 auto it = parameters.begin();
                 const std::string &serial_string = *it;
                 const serial_number_t serial = std::stoull(serial_string);
@@ -294,7 +294,7 @@ struct Tester {
 
                 testDiag("Posted Value for request: %s", pv_name.c_str());
             });
-            status_pv.onLastDisconnect([](serverev::SharedWildcardPV &pv, const std::string &pv_name, const std::list<std::string> &parameters) {
+            status_pv.onLastDisconnect([](serverx::SharedWildcardPV &pv, const std::string &pv_name, const std::list<std::string> &parameters) {
                 testOk(1, "Closing Status Request Connection: %s", pv_name.c_str());
                 pv.close(pv_name);
             });
