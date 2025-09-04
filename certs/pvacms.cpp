@@ -3054,8 +3054,8 @@ int main(int argc, char *argv[]) {
 
         // Add a Wildcard Source for the status PV
         auto wildcard_source = WildcardSource::build();
-        wildcard_source.add(getCertStatusPv(config.cert_pv_prefix, our_issuer_id), status_pv);
-        pva_server.addSource("__wildcard", wildcard_source.source());
+        wildcard_source->add(getCertStatusPv(config.cert_pv_prefix, our_issuer_id), status_pv);
+        pva_server.addSource("__wildcard", wildcard_source);
 
         // Add ordinary PVs to regular Sources
         pva_server.addPV(getCertCreatePv(config.cert_pv_prefix), create_pv)

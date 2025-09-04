@@ -128,8 +128,6 @@ WildcardPV WildcardPV::buildReadonly() {
     return ret;
 }
 
-WildcardPV::~WildcardPV() {}
-
 void WildcardPV::attach(std::unique_ptr<ChannelControl>&& ctrlop, const std::list<std::string> parameters) {
     // in, or after, some Source::onCreate()
 
@@ -486,267 +484,192 @@ std::list<std::string> WildcardPV::getParameters(const std::string &pv_name) noe
     return parameters;
 }
 
-// Checks existence without creating entry in map
+// Checks existence without creating an entry in the map
 template <typename T>
 bool WildcardPV::exists(const std::map<std::string, T>& m, const std::string& ref) const {
     auto it = m.find(ref);
     return (it != m.end() && !!(it->second));
 }
 
-struct WildcardSource::Impl final: public Source
-{
-    mutable RWLock lock;
+/**
+ * @brief Claims all the searched names specified in a search operation for
+ * this static source.
+ *
+ * This method will iterate over the list of searched names contained in the
+ * search operation.
+ *
+ * In each iteration it will first ignore all names that contain wild card
+ * characters '*' and '?'
+ *
+ * Then it will try to directly match the searched name with one of the
+ * names associated with this static source.
+ *
+ * If it finds a match it will claim the searched name so that processing,
+ * and optionally a response, can take place.
+ *
+ * If no direct match is found then it will try an enhanced match
+ * implementing the wildcard matches in epics-base. e.g. `pattern`
+ * "pv:name:*" will match with `searched_name` "pv:name:123Abc" and
+ * `pattern` "pv:name:????" will match with `searched_name` "pv:name:12Ab".
+ *
+ * Again, if a match is found the searched
+ * name will be claimed .
+ *
+ * @param op The 'Search' object that contains the searched names to
+ * be matched.
+ *
+ * @return void, but claims all searched names that match either directly or
+ * against patterns
+ */
+void WildcardSource::onSearch(Search& op) {
+    auto G(lock.lockReader());
 
-    pv_list_t pvs;
-    decltype (List::names) list;
+    for(auto& name : op) {
+        const auto searched_name = std::string(name.name());
 
-    /**
-     * @brief Claims all the searched names specified in a search operation for
-     * this static source.
-     *
-     * This method will iterate over the list of searched names contained in the
-     * search operation.
-     *
-     * In each iteration it will first ignore all names that contain wild card
-     * characters '*' and '?'
-     *
-     * Then it will try to directly match the searched name with one of the
-     * names associated with this static source.
-     *
-     * If it finds a match it will claim the searched name so that processing,
-     * and optionally a response, can take place.
-     *
-     * If no direct match is found then it will try an enhanced match
-     * implementing the wildcard matches in epics-base. e.g. `pattern`
-     * "pv:name:*" will match with `searched_name` "pv:name:123Abc" and
-     * `pattern` "pv:name:????" will match with `searched_name` "pv:name:12Ab".
-     *
-     * Again, if a match is found the searched
-     * name will be claimed .
-     *
-     * @param op The 'Search' object that contains the searched names to
-     * be matched.
-     *
-     * @return void, but claims all searched names that match either directly or
-     * against patterns
-     */
-    virtual void onSearch(Search &op) override
-    {
-        auto G(lock.lockReader());
+        // Don't allow `searched_name`s containing EPICS wildcard characters
+        if (std::find_first_of(
+                    searched_name.begin(), searched_name.end(),
+                    kEpicsWildcardChars.begin(), kEpicsWildcardChars.end()
+                ) != searched_name.end()) {
+            continue;
+                }
 
-        for(auto& name : op) {
-            const auto searched_name = std::string(name.name());
-
-            // Don't allow `searched_name`s containing EPICS wildcard characters
-            if (std::find_first_of(
-                        searched_name.begin(), searched_name.end(),
-                        kEpicsWildcardChars.begin(), kEpicsWildcardChars.end()
-                    ) != searched_name.end()) {
-                continue;
-            }
-
-            // Try a wildcard match
-            WildcardPV pv;
-            if(wildcardMatch(searched_name, pv)) {
-                name.claim();
-                log_debug_printf(logsource, "%p claim '%s'\n", this, searched_name.c_str());
-            }
-        }
-    }
-
-    virtual void onCreate(std::unique_ptr<ChannelControl> &&op) override
-    {
+        // Try a wildcard match
         WildcardPV pv;
-        {
-            auto G(lock.lockReader());
-            const auto searched_name = op->name();
-
-            if(wildcardMatch(searched_name, pv)) {
-                log_debug_printf(logsource, "%p create '%s'\n", this, searched_name.c_str());
-                pv.attach(std::move(op), pv.getParameters(searched_name));
-            } else {
-                // not mine
-                log_debug_printf(logsource, "%p can't create '%s'\n", this, searched_name.c_str());
-            }
+        if(wildcardMatch(searched_name, pv)) {
+            name.claim();
+            log_debug_printf(logsource, "%p claim '%s'\n", this, searched_name.c_str());
         }
     }
+}
 
-    virtual List onList() override
+void WildcardSource::onCreate(std::unique_ptr<ChannelControl>&& op)
+{
+    WildcardPV pv;
     {
-        List ret;
         auto G(lock.lockReader());
+        const auto searched_name = op->name();
 
-        if(!list || list.use_count()!=1u) {
-            auto temp = std::make_shared<std::set<std::string>>();
-            for(auto& pair : pvs) {
-                temp->emplace(pair.first);
+        if(wildcardMatch(searched_name, pv)) {
+            log_debug_printf(logsource, "%p create '%s'\n", this, searched_name.c_str());
+            pv.attach(std::move(op), pv.getParameters(searched_name));
+        } else {
+            // not mine
+            log_debug_printf(logsource, "%p can't create '%s'\n", this, searched_name.c_str());
+        }
+    }
+}
+
+Source::List WildcardSource::onList()
+{
+    auto G(lock.lockReader());
+    const auto names = std::make_shared<std::set<std::string>>();
+    for(auto& pair : pvs) names->insert(pair.first);
+    return List{names, true};
+}
+
+void WildcardSource::show(std::ostream& strm)
+{
+    strm<<"StaticProvider";
+    auto G(lock.lockReader());
+    for(auto& pair : pvs) {
+        strm<<"\n"<<indent{}<<pair.first;
+    }
+}
+
+/**
+ * @brief Enhanced wildcard search
+ *
+ * Enhanced search will try to match `searched_name` based on
+ * EPICS wildcard matches (as in epics-base)
+ * `pattern` "pv:name:*" => `searched_name` "pv:name:123Abc"
+ * `pattern` "pv:name:????" => `searched_name" "pv:name:12Ab"
+ *
+ * @param searched_name the name presented to the server in the search message
+ * @param pv that wildcard pv that matched the wildcard_pv_name
+ * @return true if a match is found
+ */
+bool WildcardSource::wildcardMatch(const std::string& searched_name, WildcardPV& pv) {
+    static const std::regex kRegexSpecialChars{R"([-[\]{}()+.,\^$|#\s])"};
+    static const std::regex kWildcardStarPattern("\\*");
+    static const char kWildcardQueryCharacter = '?';
+
+    for (const auto &wildcard_shared_pv_pair : pvs) {
+        // 1. Prepare PV regex pattern converting from the EPICS wildcard-style patterns to regex syntax
+        std::string wildcard_pv = wildcard_shared_pv_pair.first;
+
+        // 1.1 Escape all regex special characters in the original PV pattern
+        wildcard_pv = std::regex_replace(wildcard_pv, kRegexSpecialChars, R"(\\$&)");
+
+        // 1.2 Replace Query and Star EPICS wildcard characters with their regex equivalents
+        std::replace(wildcard_pv.begin(), wildcard_pv.end(), kWildcardQueryCharacter, '.');
+        wildcard_pv = std::regex_replace(wildcard_pv, kWildcardStarPattern, ".*");
+
+        // 2. Compare the PV regex pattern with the `searched_name`
+        std::regex pv_regex_pattern(wildcard_pv);
+        if (std::regex_match(searched_name, pv_regex_pattern)) {
+            try {
+                std::shared_ptr<WildcardPV> base_pv = wildcard_shared_pv_pair.second;
+                if (!base_pv) {
+                    throw std::bad_cast();
+                }
+                pv = *base_pv; // Assign or use as needed
+                pv.wildcard_pv = wildcard_shared_pv_pair.first;
+            } catch (const std::bad_cast& e) {
+                throw std::runtime_error(std::string("Programming error: use WildcardPVs for wildcard PVs: ") + wildcard_shared_pv_pair.first);
             }
-            list = std::move(temp);
-        }
-
-        ret.names = list;
-        ret.dynamic = false;
-
-        return ret;
-    }
-
-    virtual void show(std::ostream& strm) override final
-    {
-        strm<<"StaticProvider";
-
-        auto G(lock.lockReader());
-        for(auto& pair : pvs) {
-            strm<<"\n"<<indent{}<<pair.first;
-            // TODO: details for SharedPV
-        }
-    }
-
-  protected:
-    bool simpleMatch(const std::string &searched_name, WildcardPV &pv) {
-        auto it(pvs.find(searched_name));
-        if((it)!=pvs.end()) {
-            pv = *it->second;
             return true;
         }
-        return false;
-    };
-
-    static const std::string kEpicsWildcardChars;
-
-    /**
-     * @brief Enhanced wildcard search
-     *
-     * Enhanced search will try to match `searched_name` based on
-     * EPICS wildcard matches (as in epics-base)
-     * `pattern` "pv:name:*" => `searched_name` "pv:name:123Abc"
-     * `pattern` "pv:name:????" => `searched_name" "pv:name:12Ab"
-     *
-     * @param searched_name the name presented to the server in the search message
-     * @param pv that wildcard pv that matched the wildcard_pv_name
-     * @return true if a match is found
-     */
-    bool wildcardMatch(const std::string &searched_name, WildcardPV &pv) {
-        static const std::regex kRegexSpecialChars{R"([-[\]{}()+.,\^$|#\s])"};
-        static const std::regex kWildcardStarPattern("\\*");
-        static const char kWildcardQueryCharacter = '?';
-
-        for (const auto &wildcard_shared_pv_pair : pvs) {
-            // 1. Prepare PV regex pattern converting from the EPICS wildcard-style patterns to regex syntax
-            std::string wildcard_pv = wildcard_shared_pv_pair.first;
-
-            // 1.1 Escape all regex special characters in the original PV pattern
-            wildcard_pv = std::regex_replace(wildcard_pv, kRegexSpecialChars, R"(\\$&)");
-
-            // 1.2 Replace Query and Star EPICS wildcard characters with their regex equivalents
-            std::replace(wildcard_pv.begin(), wildcard_pv.end(), kWildcardQueryCharacter, '.');
-            wildcard_pv = std::regex_replace(wildcard_pv, kWildcardStarPattern, ".*");
-
-            // 2. Compare the PV regex pattern with the `searched_name`
-            std::regex pv_regex_pattern(wildcard_pv);
-            if (std::regex_match(searched_name, pv_regex_pattern)) {
-                try {
-                    std::shared_ptr<WildcardPV> base_pv = wildcard_shared_pv_pair.second;
-                    if (!base_pv) {
-                        throw std::bad_cast();
-                    }
-                    pv = *base_pv; // Assign or use as needed
-                    pv.wildcard_pv = wildcard_shared_pv_pair.first;
-                } catch (const std::bad_cast& e) {
-                    throw std::runtime_error(std::string("Programming error: use WildcardPVs for wildcard PVs: ") + wildcard_shared_pv_pair.first);
-                }
-                return true;
-            }
-        }
-        return false;
     }
-};
+    return false;
+}
 
-WildcardSource WildcardSource::build()
-{
-    WildcardSource ret;
-    ret.impl = std::make_shared<Impl>();
+std::shared_ptr<WildcardSource> WildcardSource::build() {
+    return std::make_shared<WildcardSource>();
+}
+
+WildcardPV::~WildcardPV() {}
+
+void WildcardSource::close() {
+    auto G(lock.lockReader());
+
+    for (const auto& pair : pvs) {
+        pair.second->close();
+    }
+}
+
+WildcardSource& WildcardSource::add(const std::string& name, const WildcardPV& pv) {
+    auto G(lock.lockWriter());
+    if (pvs.find(name)!=pvs.end())
+        throw std::logic_error("add() will not create duplicate PV");
+    pvs[name] = std::make_shared<WildcardPV>(pv);
+    return *this;
+}
+
+WildcardSource& WildcardSource::remove(const std::string& name) {
+    auto G(lock.lockWriter());
+    WildcardPV pv;
+    {
+        const auto it = pvs.find(name);
+        if (it==pvs.end()) return *this;
+        pvs.erase(it);
+        pv = *it->second;
+    }
+    pv.close(name);
+    return *this;
+}
+
+WildcardSource::list_t WildcardSource::list() const {
+    list_t ret;
+    auto G(lock.lockReader());
+    for (const auto& pair : pvs) {
+        ret[pair.first] = *(pair.second);
+    }
     return ret;
 }
 
-WildcardSource::~WildcardSource() {}
-
-std::shared_ptr<Source> WildcardSource::source() const
-{
-    if(!impl)
-        throw std::logic_error("Empty WildcardSource");
-    return impl;
-}
-
-void WildcardSource::close()
-{
-    if(!impl)
-        throw std::logic_error("Empty WildcardSource");
-
-    {
-        auto G(impl->lock.lockReader());
-
-        for(auto& pair : impl->pvs) {
-            pair.second->close();
-        }
-    }
-}
-
-WildcardSource& WildcardSource::add(const std::string& name, const WildcardPV &pv)
-{
-    if(!impl)
-        throw std::logic_error("Empty WildcardSource");
-
-    auto G(impl->lock.lockWriter());
-
-    if(impl->pvs.find(name)!=impl->pvs.end())
-        throw std::logic_error("add() will not create duplicate PV");
-
-    impl->pvs[name] = std::make_shared<WildcardPV>(pv);
-    impl->list.reset();
-
-    return *this;
-}
-
-WildcardSource& WildcardSource::remove(const std::string& name)
-{
-    if(!impl)
-        throw std::logic_error("Empty WildcardSource");
-
-    WildcardPV pv;
-    {
-        auto G(impl->lock.lockWriter());
-
-        auto it(impl->pvs.find(name));
-        if(it==impl->pvs.end())
-            return *this;
-        pv = *it->second;
-        impl->pvs.erase(it);
-        impl->list.reset();
-    }
-
-    pv.close(name);
-
-    return *this;
-}
-
-WildcardSource::list_t WildcardSource::list() const
-{
-    list_t ret;
-
-    if(!impl)
-        throw std::logic_error("Empty WildcardSource");
-
-    {
-        auto G(impl->lock.lockReader());
-        // Create list_t from impl->pvs
-        for (const auto& pair : impl->pvs) {
-            ret[pair.first] = *(pair.second);
-        }
-        return ret;
-    }
-}
-
-const std::string WildcardSource::Impl::kEpicsWildcardChars;
+const std::string WildcardSource::kEpicsWildcardChars;
 
 }  // namespace server
 }  // namespace pvxs

@@ -71,7 +71,7 @@ struct Tester {
 
     const std::string issuer_id{CertStatus::getSkId(cert_auth.cert.cert)};
 
-    server::WildcardSource source{server::WildcardSource::build()};
+    std::shared_ptr<server::WildcardSource> source;
     server::WildcardPV status_pv{server::WildcardPV::buildMailbox()};
     server::ServerEv pvacms;
     client::Context client;
@@ -80,14 +80,13 @@ struct Tester {
     Tester()
         : now(time(nullptr)),
           status_valid_until_time(now.t + STATUS_VALID_FOR_SECS),
-          revocation_date(now.t - REVOKED_SINCE_SECS)
-
+          revocation_date(now.t - REVOKED_SINCE_SECS),
+          source(server::WildcardSource::build())
     {
         // Set up the Mock PVACMS server certificate (does not contain custom status extension)
-        source.add(getCertStatusPv("CERT", issuer_id), status_pv);
-        auto pvacms_inner_mock = source.source();
+        source->add(getCertStatusPv("CERT", issuer_id), status_pv);
         // Set up mock source that counts requests
-        const auto pvacms_mock   = std::make_shared<server::MockSource>(pvacms_inner_mock, [this] (std::string const& pv_name) {
+        const auto pvacms_mock   = std::make_shared<server::MockSource>(source, [this] (std::string const& pv_name) {
             if (cert_status_request_counters.find(pv_name) == cert_status_request_counters.end()) {
                 cert_status_request_counters[pv_name] = std::make_shared<std::atomic<uint32_t>>(0);
             }

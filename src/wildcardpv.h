@@ -15,7 +15,10 @@
 
 #include <pvxs/srvcommon.h>
 #include <pvxs/sharedpv.h>
+#include <pvxs/source.h>
 #include <pvxs/version.h>
+
+#include "utilpvt.h"
 
 namespace pvxs {
 class Value;
@@ -115,37 +118,42 @@ struct PVXS_API WildcardPV {
 
 /** Allow clients to find (through a Server) WildcardPV instances by name.
  *
- * A single PV name may only be added once to a WildcardSource.
+ * A single wildcard PV name may only be added once to a WildcardSource.
  * However, a single SharedPV may be added multiple times with different PV names.
  */
-struct PVXS_API WildcardSource
+struct PVXS_API WildcardSource final : Source, std::enable_shared_from_this<WildcardSource>
 {
-    static WildcardSource build();
+    // Factory: return a shared_ptr so callers can pass it directly to addSource()
+    static std::shared_ptr<WildcardSource> build();
 
-    ~WildcardSource();
+    ~WildcardSource() override = default;
 
-    inline explicit operator bool() const { return !!impl; }
-
-    //! Fetch the Source interface, which may be used with Server::addSource()
-    std::shared_ptr<Source> source() const;
-
-    //! call SharedPV::close() on all PVs
+    // Management API
     void close();
-
-    //! Add a new name through which a WildcardPV may be addressed.
     WildcardSource& add(const std::string& name, const WildcardPV& pv);
-
-    //! Remove a single name
     WildcardSource& remove(const std::string& name);
 
     typedef std::map<std::string, std::shared_ptr<WildcardPV>> pv_list_t;
     typedef std::map<std::string, WildcardPV> list_t;
     list_t list() const;
 
-    struct Impl;
-    private:
-        std::shared_ptr<Impl> impl;
+    // server::Source overrides
+    void onSearch(Search& op) override;
+    void onCreate(std::unique_ptr<ChannelControl>&& op) override;
+    List onList() override;
+    void show(std::ostream& strm) override;
+
+  private:
+    mutable RWLock lock;
+    pv_list_t pvs;
+    decltype(List::names) list_names;
+
+    bool wildcardMatch(const std::string& searched_name, WildcardPV& pv);
+    bool simpleMatch(const std::string& searched_name, WildcardPV& pv);
+
+    static const std::string kEpicsWildcardChars;
 };
+
 
 }  // namespace serverx
 }  // namespace pvxs

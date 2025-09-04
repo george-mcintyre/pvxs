@@ -250,8 +250,8 @@ Example of support for pattern-matched PV names:
 
     // Add wildcard PV to server
     auto wildcard_source = WildcardSource::build();
-    wildcard_source.add("WILDCARD:PV:????:*", wildcard_pv);
-    serv.addSource("__wildcard", wildcard_source.source());
+    wildcard_source->add("WILDCARD:PV:????:*", wildcard_pv);
+    serv.addSource("__wildcard", wildcard_source);
 
 .. _protocol_operation:
 
