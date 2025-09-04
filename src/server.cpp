@@ -48,17 +48,10 @@ DEFINE_LOGGER(serversearch, "pvxs.svr.search");
 static constexpr timeval beaconIntervalShort{15, 0};
 static constexpr timeval beaconIntervalLong{180, 0};
 
-#ifndef PVXS_ENABLE_OPENSSL
 Server Server::fromEnv()
 {
     return Config::fromEnv().build();
 }
-#else
-Server Server::fromEnv(const bool tls_disabled)
-{
-    return Config::fromEnv().build();
-}
-#endif
 
 Server::Server(const Config& conf)
 {
@@ -671,11 +664,11 @@ void Server::Pvt::start()
             if(evconnlistener_enable(iface.listener.get())) {
                 log_err_printf(serversetup, "Error enabling listener on %s\n", iface.name.c_str());
             }
-            log_debug_printf(serversetup, "Server enabled%s listener on %s\n",
 #ifdef PVXS_ENABLE_OPENSSL
-                               iface.isTLS ? " TLS" :
+            log_debug_printf(serversetup, "Server enabled%s listener on %s\n", iface.isTLS ? " TLS" : "", iface.name.c_str());
+#else
+            log_debug_printf(serversetup, "Server enabled%s listener on %s\n", "", iface.name.c_str());
 #endif
-                              "", iface.name.c_str());
         }
     });
     if(prev_state!=Stopped)

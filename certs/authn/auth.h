@@ -25,7 +25,7 @@
 #include "opensslgbl.h"
 #include "security.h"
 #include "server.h"
-#include "serverx.h"
+#include "serverev.h"
 
 #pragma once
 
@@ -258,7 +258,7 @@ class Auth {
     }
 
  private:
-    serverx::Server config_server_{};
+    server::ServerEv config_server_{};
     class ConfigMonitorParams {
      public:
         const ConfigAuthN &config_;

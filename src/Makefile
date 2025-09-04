@@ -125,8 +125,8 @@ LIB_SRCS += certstatusmanager.cpp
 LIB_SRCS += openssl.cpp
 LIB_SRCS += opensslgbl.cpp
 LIB_SRCS += p12filefactory.cpp
-LIB_SRCS += serverx.cpp
-LIB_SRCS += sharedwildcardpv.cpp
+LIB_SRCS += serverev.cpp
+LIB_SRCS += wildcardpv.cpp
 endif # EVENT2_HAS_OPENSSL
 
 LIB_LIBS += Com

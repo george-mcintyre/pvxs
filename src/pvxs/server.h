@@ -27,15 +27,8 @@
 
 namespace pvxs {
 namespace client {
-struct Subscription;
 struct Config;
 }
-
-#ifdef PVXS_ENABLE_OPENSSL
-namespace ossl {
-struct SSLContext;
-}
-#endif
 
 namespace server {
 
@@ -80,11 +73,7 @@ public:
      * @since 0.2.1
      */
     static
-#ifndef PVXS_ENABLE_OPENSSL
     Server fromEnv();
-#else
-    Server fromEnv(bool tls_disabled = false);
-#endif // PVXS_ENABLE_OPENSSL
 
     //! Begin serving.  Does not block.
     Server& start();
@@ -167,7 +156,7 @@ public:
     std::ostream& operator<<(std::ostream& strm, const Server& serv);
 
     struct Pvt;
-protected:
+private:
     std::shared_ptr<Pvt> pvt;
 };
 

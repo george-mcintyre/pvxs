@@ -16,11 +16,6 @@ USR_CPPFLAGS += -I$(TOP)/src/pvxs
 AUTHN = $(TOP)/certs/authn
 SRC_DIRS += $(TOP)/src
 SRC_DIRS += $(TOP)/ioc
-SRCS += p12filefactory.cpp
-SRCS += certfilefactory.cpp
-SRCS += certfactory.cpp
-SRCS += configcerts.cpp
-SRCS += serverx.cpp
 
 PROD_LIBS = pvxs Com
 

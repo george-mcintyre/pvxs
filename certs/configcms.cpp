@@ -6,13 +6,13 @@
 
 #include "configcms.h"
 
-#include <authregistry.h>
 #include <osiFileName.h>
 
 #include <pvxs/log.h>
 
+#include "authregistry.h"
 #include "configcerts.h"
-#include "serverx.h"
+#include "serverev.h"
 
 DEFINE_LOGGER(cert_cfg, "pvxs.certs.cfg");
 
