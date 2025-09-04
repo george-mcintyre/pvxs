@@ -331,15 +331,6 @@ public:
     Context(const Config&, const std::function<int(int)>&);
     static Context fromEnv();
 
-    /** Apply (in part) updated configuration
-     *
-     * Currently, only updates TLS configuration.  Causes all in-progress
-     * Operations to be disconnected.
-     *
-     * @since UNRELEASED
-     */
-    void reconfigure(const Config&);
-
     /**
      * @brief Handle certificate expiration
      *
@@ -348,6 +339,15 @@ public:
     void certExpirationHandler();
 
 #endif // PVXS_ENABLE_OPENSSL
+
+    /** Apply (in part) updated configuration
+     *
+     * Currently, only updates TLS configuration.  Causes all in-progress
+     * Operations to be disconnected.
+     *
+     * @since UNRELEASED
+     */
+    void reconfigure(const Config&);
 
     //! effective config of running client
     //! @since UNRELEASED Reference invalidated by a call to reconfigure()

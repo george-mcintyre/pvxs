@@ -9,11 +9,8 @@
 #include <functional>
 #include <list>
 #include <map>
-#include <system_error>
 
 #include <dbDefs.h>
-#include <envDefs.h>
-#include <epicsGuard.h>
 #include <epicsString.h>
 #include <epicsThread.h>
 #include <epicsTime.h>
@@ -25,11 +22,14 @@
 #include <pvxs/server.h>
 #include <pvxs/sharedpv.h>
 
-#include "certstatusmanager.h"
 #include "evhelper.h"
 #include "serverconn.h"
 #include "udp_collector.h"
 #include "utilpvt.h"
+
+#ifdef PVXS_ENABLE_OPENSSL
+#include "certstatusmanager.h"
+#endif
 
 namespace pvxs {
 namespace impl {
@@ -39,9 +39,12 @@ namespace server {
 using namespace impl;
 
 DEFINE_LOGGER(serversetup, "pvxs.svr.init");
-DEFINE_LOGGER(osslsetup, "pvxs.ossl.init");
 DEFINE_LOGGER(serverio, "pvxs.svr.io");
 DEFINE_LOGGER(serversearch, "pvxs.svr.search");
+
+#ifdef PVXS_ENABLE_OPENSSL
+DEFINE_LOGGER(osslsetup, "pvxs.ossl.init");
+#endif
 
 // mimic pvAccessCPP server (almost)
 // send a "burst" of beacons, then fallback to a longer interval
@@ -66,7 +69,11 @@ Server::Server(const Config& conf)
      * Which need to safely access server storage, but should not
      * prevent a server from stopping.
      */
+#ifdef PVXS_ENABLE_OPENSSL
     auto internal(std::make_shared<Pvt>(*this, conf));
+#else
+    auto internal(std::make_shared<Pvt>(conf));
+#endif
     internal->internal_self = internal;
 
     // external
@@ -413,8 +420,13 @@ std::ostream& operator<<(std::ostream& strm, const Server& serv)
     return strm;
 }
 
+#ifndef PVXS_ENABLE_OPENSSL
+Server::Pvt::Pvt(const Config& conf)
+    :
+#else
 Server::Pvt::Pvt(Server& svr, const Config& conf)
     : server(svr),
+#endif
       effective(conf),
       beaconMsg(128),
       acceptor_loop("PVXTCP", epicsThreadPriorityCAServerLow - 2),

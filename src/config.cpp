@@ -588,9 +588,12 @@ Config Config::isolated(int family) {
         default:
             throw std::logic_error(SB() << "Unsupported address family " << family);
     }
+
+#ifdef PVXS_ENABLE_OPENSSL
     // For testing purposes disable status checking and stapling when using isolated config
     ret.tls_disable_status_check = true;
     ret.tls_disable_stapling = true;
+#endif
 
     return ret;
 }

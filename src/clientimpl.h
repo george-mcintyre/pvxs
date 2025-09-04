@@ -14,17 +14,16 @@
 
 #include <pvxs/client.h>
 
-#include "certstatus.h"
-#include "certstatusmanager.h"
 #include "conn.h"
-#include "dataimpl.h"
 #include "evhelper.h"
-#include "openssl.h"
 #include "ownedptr.h"
 #include "udp_collector.h"
 #include "utilpvt.h"
 
 #ifdef PVXS_ENABLE_OPENSSL
+#include "certstatus.h"
+#include "certstatusmanager.h"
+#include "openssl.h"
 #define PVXS_OCSP_STAPLING_OK 1
 #define PVXS_OCSP_STAPLING_ERR -1
 #define PVXS_OCSP_STAPLING_NAK 0

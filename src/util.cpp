@@ -53,11 +53,13 @@
 #include <pvxs/version.h>
 
 #include "osiFileName.h"
-#include "certfactory.h"
 #include "utilpvt.h"
 #include "udp_collector.h"
-
 #include "pvxsVCS.h"
+
+#ifdef PVXS_ENABLE_OPENSSL
+#include "certfactory.h"
+#endif
 
 extern "C" {
 // unofficial helpers for dynamic loading

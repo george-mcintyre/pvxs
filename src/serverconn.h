@@ -18,14 +18,16 @@
 #include <pvxs/sharedpv.h>
 #include <pvxs/source.h>
 
-#include "certstatus.h"
-#include "certstatusmanager.h"
 #include "conn.h"
-#include "dataimpl.h"
 #include "evhelper.h"
 #include "udp_collector.h"
 #include "utilpvt.h"
+
+#ifdef PVXS_ENABLE_OPENSSL
+#include "certstatus.h"
+#include "certstatusmanager.h"
 #include "openssl.h"
+#endif
 
 namespace pvxs {namespace impl {
 
@@ -137,10 +139,10 @@ struct ServerConn final : public ConnBase, public std::enable_shared_from_this<S
     const std::shared_ptr<ServerChan>& lookupSID(uint32_t sid);
 
 private:
+    void proceedWithConnectionValidation();
 #ifdef PVXS_ENABLE_OPENSSL
     void retryConnectionValidation();
     static void retryConnectionValidationS(evutil_socket_t fd, short evt, void *raw);
-    void proceedWithConnectionValidation();
 
     std::string pending_selected;
     Value pending_auth;
@@ -226,8 +228,10 @@ struct Server::Pvt
 {
     SockAttach attach;
 
-    std::weak_ptr<Server::Pvt> internal_self;
+    std::weak_ptr<Pvt> internal_self;
+#ifdef PVXS_ENABLE_OPENSSL
     Server &server;
+#endif
 
     // "const" after ctor
     Config effective;

@@ -17,10 +17,13 @@
 #include <pvxs/log.h>
 
 DEFINE_LOGGER(setup, "pvxs.cli.init");
-DEFINE_LOGGER(watcher, "pvxs.certs.mon");
 DEFINE_LOGGER(io, "pvxs.cli.io");
 DEFINE_LOGGER(beacon, "pvxs.cli.beacon");
 DEFINE_LOGGER(duppv, "pvxs.cli.dup");
+
+#ifdef PVXS_ENABLE_OPENSSL
+DEFINE_LOGGER(watcher, "pvxs.certs.mon");
+#endif
 
 typedef epicsGuard<epicsMutex> Guard;
 typedef epicsGuardRelease<epicsMutex> UnGuard;
@@ -354,11 +357,21 @@ Subscription::~Subscription() {}
 Context Context::fromEnv() { return Config::fromEnv().build(); }
 #else
 Context Context::fromEnv() { return Config::fromEnv().build(); }
-Context::Context(const Config& conf, const std::function<int(int)>& fn) : pvt(std::make_shared<Pvt>(conf)) { pvt->impl->startNS(); pvt->impl->configureExpirationHandler(this); }
+Context::Context(const Config& conf, const std::function<int(int)>& fn) : pvt(std::make_shared<Pvt>(conf)) {
+    pvt->impl->startNS();
+#ifdef PVXS_ENABLE_OPENSSL
+    pvt->impl->configureExpirationHandler(this);
+#endif
+}
 
 #endif  // PVXS_ENABLE_OPENSSL
 
-Context::Context(const Config& conf) : pvt(std::make_shared<Pvt>(conf)) { pvt->impl->startNS(); pvt->impl->configureExpirationHandler(this);}
+Context::Context(const Config& conf) : pvt(std::make_shared<Pvt>(conf)) {
+    pvt->impl->startNS();
+#ifdef PVXS_ENABLE_OPENSSL
+    pvt->impl->configureExpirationHandler(this);
+#endif
+}
 
 Context::~Context() = default;
 
@@ -469,8 +482,10 @@ ContextImpl::ContextImpl(const Config& conf, const evbase tcp_loop)
       manager(UDPManager::instance(effective.shareUDP())),
       beaconCleaner(__FILE__, __LINE__, event_new(manager.loop().base, -1, EV_TIMEOUT | EV_PERSIST, &ContextImpl::tickBeaconCleanS, this)),
       cacheCleaner(__FILE__, __LINE__, event_new(tcp_loop.base, -1, EV_TIMEOUT | EV_PERSIST, &ContextImpl::cacheCleanS, this)),
-      nsChecker(__FILE__, __LINE__, event_new(tcp_loop.base, -1, EV_TIMEOUT | EV_PERSIST, &ContextImpl::onNSCheckS, this)),
-      cert_expiration_timer(__FILE__, __LINE__, event_new(tcp_loop.base, -1, EV_TIMEOUT | EV_PERSIST, &ContextImpl::certExpirationHandlerS, nullptr))
+      nsChecker(__FILE__, __LINE__, event_new(tcp_loop.base, -1, EV_TIMEOUT | EV_PERSIST, &ContextImpl::onNSCheckS, this))
+#ifdef PVXS_ENABLE_OPENSSL
+    , cert_expiration_timer(__FILE__, __LINE__, event_new(tcp_loop.base, -1, EV_TIMEOUT | EV_PERSIST, &ContextImpl::certExpirationHandlerS, nullptr))
+#endif
 {
 #ifdef PVXS_ENABLE_OPENSSL
     if (effective.isTlsConfigured()) {
@@ -1242,12 +1257,10 @@ void ContextImpl::cacheCleanS(evutil_socket_t fd, short evt, void* raw) {
 #ifdef PVXS_ENABLE_OPENSSL
 Context::Pvt::Pvt(const Config& conf)
     : loop("PVXCTCP", epicsThreadPriorityCAServerLow),
-      impl(std::make_shared<ContextImpl>(conf, loop.internal()))
+      impl(std::make_shared<ContextImpl>(conf, loop.internal())) {}
 #else
 Context::Pvt::Pvt(const Config& conf) : loop("PVXCTCP", epicsThreadPriorityCAServerLow), impl(std::make_shared<ContextImpl>(conf, loop.internal())) {}
 #endif
-{
-}
 
 Context::Pvt::~Pvt() { impl->close(); }
 
