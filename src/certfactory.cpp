@@ -120,10 +120,6 @@ ossl_ptr<X509> CertFactory::create() {
         if (!cert_config_uri_base_.empty()) {
             addCustomExtensionByNid(certificate, ossl::NID_SPvaCertConfigURI, getConfigURI(cert_pv_prefix_, issuer_id, skid));
         }
-
-        if (renew_by_ > 0 &&  renew_by_ != not_after_) {
-            addCustomTimeExtensionByNid(certificate, ossl::NID_SPvaRenewByDate, renew_by_);
-        }
     }
 
     // 12. Create cert chain from issuer's chain and issuer's cert

@@ -924,14 +924,6 @@ std::ostream &operator<<(std::ostream &strm, const ShowX509 &cert) {
             (void)BIO_printf(io.get(), "\nValid From     : ");
             (void)BIO_printf(io.get(), the_date.s.c_str());
         }
-        {
-            try {
-                const auto atm = certs::CertStatusManager::getRenewByFromCert(cert.cert);
-                const certs::CertDate the_date(atm);
-                (void)BIO_printf(io.get(), "\nRenew By       : ");
-                (void)BIO_printf(io.get(), the_date.s.c_str());
-            } catch (certs::CertStatusNoExtensionException &e) {}
-        }
         if (const auto atm = X509_get0_notAfter(cert.cert)) {
             const certs::CertDate the_date(atm);
             (void)BIO_printf(io.get(), "\nExpires On     : ");
