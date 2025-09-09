@@ -500,23 +500,19 @@ int runAuthenticator(int argc, char *argv[], std::function<void(ConfigT &, AuthT
         if (parse_result)
             return parse_result == -1 ? 0 : parse_result;
 
-        if (verbose)
+        if (verbose) {
             logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Info);
-        if (verbose)
             logger_level_set(std::string("pvxs.auth.ccr").c_str(), pvxs::Level::Info);
+        }
         if (debug)
             logger_level_set(std::string("pvxs.auth." + authenticator.type_ + "*").c_str(), pvxs::Level::Debug);
 
         // Execute a special case hook if provided
-        if (pre_configure_hook) {
-            pre_configure_hook(config, authenticator);
-        }
+        if (pre_configure_hook) pre_configure_hook(config, authenticator);
 
         authenticator.configure(config);
 
-        if (verbose) {
-            std::cout << "Effective config\n" << config << std::endl;
-        }
+        if (verbose) std::cout << "Effective config\n" << config << std::endl;
 
         const std::string tls_keychain_file =
             IS_FOR_A_SERVER_(cert_usage) ? config.tls_srv_keychain_file : config.tls_keychain_file;

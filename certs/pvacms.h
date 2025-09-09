@@ -127,6 +127,11 @@
     "  AND renewal_due != 0 "         \
     "LIMIT 1 "                        \
 
+#define SQL_TOUCH_CERT_STATUS         \
+    "UPDATE certs "                   \
+    "SET status_date = :status_date " \
+    "WHERE serial = :serial "
+
 #define SQL_RENEW_CERTS               \
     "UPDATE certs "                   \
     "SET status = :status "           \
@@ -192,6 +197,21 @@
     "WHERE not_after <= :now "             \
     "  AND skid = :skid "
 
+#define SQL_CERT_TO_PENDING_RENEWAL \
+    "SELECT serial "                \
+    "FROM certs "                   \
+    "WHERE not_before <= :now "     \
+    "  AND not_after > :now "       \
+    "  AND renew_by != 0 "          \
+    "  AND renew_by <= :now "
+
+#define SQL_CERT_STATUS_NEARLY_INVALID \
+    "SELECT serial, status "        \
+    "FROM certs "                   \
+    "WHERE not_before <= :now "     \
+    "  AND not_after > :now "       \
+    "  AND 2 * (:now - status_date) >= :status_validity "
+
 #define SQL_CERT_NEARING_RENEWAL   \
     "SELECT serial "               \
     "FROM certs "                  \
@@ -200,14 +220,6 @@
     "  AND not_after > :now "      \
     "  AND renew_by != 0 "         \
     "  AND 2 * :now >= status_date + renew_by "
-
-#define SQL_CERT_TO_PENDING_RENEWAL \
-    "SELECT serial "                \
-    "FROM certs "                   \
-    "WHERE not_before <= :now "     \
-    "  AND not_after > :now "       \
-    "  AND renew_by != 0 "          \
-    "  AND renew_by <= :now "
 
 #define SQL_PRIOR_APPROVAL_STATUS \
     "SELECT approved "            \
@@ -361,6 +373,8 @@ void updateCertificateStatus(const sql_ptr &certs_db, uint64_t serial, certstatu
 
 void updateCertificateRenewalStatus(const sql_ptr &certs_db, serial_number_t serial, certstatus_t cert_status, time_t renew_by);
 
+void touchCertificateStatus(const sql_ptr &certs_db, serial_number_t serial);
+
 certstatus_t storeCertificate(const sql_ptr &certs_db, CertFactory &cert_factory);
 
 timeval statusMonitor(const StatusMonitor &status_monitor_params);
@@ -368,7 +382,7 @@ timeval statusMonitor(const StatusMonitor &status_monitor_params);
 Value postCertificateStatus(server::WildcardPV &status_pv, const std::string &pv_name, uint64_t serial, const PVACertificateStatus &cert_status = {});
 
 std::string getValidStatusesClause(const std::vector<certstatus_t> &valid_status);
-void bindValidStatusClauses(sqlite3_stmt *sql_statement, const std::vector<certstatus_t> &valid_status);
+void bindValidStatusClauses(sqlite3_stmt *sql_statement, const std::vector<certstatus_t> &valid_status = {});
 uint64_t getParameters(const std::list<std::string> &parameters);
 
 template <typename T>

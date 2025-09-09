@@ -144,7 +144,7 @@ struct RenewalManager {
      * This function starts the monitor for the certificate status.
      * It will subscribe to the status PV and call the on_status_update function when the status is updated.
      */
-    void start_monitor() {
+    void startMonitor() {
         sub.reset();
 
         try {
@@ -154,7 +154,7 @@ struct RenewalManager {
 
             sub = client.monitor(status_pv_name)
                 .event([this, status_pv_name](client::Subscription& s) {
-                    this->on_status_update(s, status_pv_name);
+                    this->onStatusUpdate(s, status_pv_name);
                 })
                 .exec();
         } catch (const CertStatusNoExtensionException& e) {
@@ -170,7 +170,7 @@ struct RenewalManager {
      * This function is called when the status of the certificate is updated.
      * It will check if the certificate needs to be renewed and if so, it will renew it.
      */
-    void on_status_update(client::Subscription& s, const std::string& pv_name) {
+    void onStatusUpdate(client::Subscription& s, const std::string& pv_name) {
         try {
             while(auto update = s.pop()) {
                 auto renewal_due_value = update["renewal_due"];
@@ -215,7 +215,7 @@ void Auth::runAuthNDaemon(const ConfigAuthN &authn_config, bool for_client, Cert
     auto renewal_manager = std::make_shared<RenewalManager>(std::move(cert_data), std::move(fn));
 
     // Start monitoring in the background on client worker threads.
-    renewal_manager->start_monitor();
+    renewal_manager->startMonitor();
 
     // Set up and run the config server
     auto config = server::Config::fromEnv();

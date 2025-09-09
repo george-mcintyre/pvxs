@@ -47,6 +47,8 @@ PVACertificateStatus CertStatusFactory::createPVACertificateStatus(const ossl_pt
  * @param status The status of the certificate (PENDING_VALIDATION, VALID, EXPIRED, or `REVOKED`).
  * @param status_date The status date of this status certification, normally ``now``.
  * @param predicated_revocation_time The time of revocation for the certificate if `REVOKED`.
+ * @param renew_by
+ * @param renewal_due
  *
  * @see createOCSPCertId
  * @see ocspResponseToBytes

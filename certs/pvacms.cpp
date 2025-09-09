@@ -535,6 +535,33 @@ void updateCertificateRenewalStatus(const sql_ptr &certs_db, serial_number_t ser
     }
 }
 
+
+void touchCertificateStatus(const sql_ptr &certs_db, serial_number_t serial) {
+    Guard G(status_update_lock);
+    const int64_t db_serial = *reinterpret_cast<int64_t *>(&serial);
+    sqlite3_stmt *sql_statement;
+    int sql_status;
+    const std::string sql = SQL_TOUCH_CERT_STATUS;
+    const auto current_time = std::time(nullptr);
+    if ((sql_status = sqlite3_prepare_v2(certs_db.get(), sql.c_str(), -1, &sql_statement, nullptr)) == SQLITE_OK) {
+        sqlite3_bind_int64(sql_statement, sqlite3_bind_parameter_index(sql_statement, ":status_date"), current_time);
+        sqlite3_bind_int64(sql_statement, sqlite3_bind_parameter_index(sql_statement, ":serial"), db_serial);
+        sql_status = sqlite3_step(sql_statement);
+    }
+    sqlite3_finalize(sql_statement);
+
+    // Check the number of rows affected
+    if (sql_status == SQLITE_DONE) {
+        const int rows_affected = sqlite3_changes(certs_db.get());
+        if (rows_affected == 0) {
+            throw std::runtime_error("Invalid serial number");
+        }
+    } else {
+        throw std::runtime_error(SB() << "Failed to set cert status: " << sqlite3_errmsg(certs_db.get()));
+    }
+}
+
+
 /**
  * @brief Generates a random serial number.
  *
@@ -714,7 +741,7 @@ void checkForDuplicates(const sql_ptr &certs_db, const CertFactory &cert_factory
  * @param certs_db the database to write the certificate to
  * @param cert_factory the certificate factory to use to build the certificate
  *
- * @return the PEM string that contains the Cert, its chain and the root cert
+ * @return the PEM string that contains the Cert, its chain, and the root cert
  */
 ossl_ptr<X509> createCertificate(sql_ptr &certs_db, CertFactory &cert_factory) {
     // Check validity falls within acceptable range
@@ -807,7 +834,7 @@ T getStructureValue(const Value &src, const std::string &field) {
  * @brief Get the prior approval status of a certificate
  *
  * Determines if the certificate has been previously approved by checking the database for one that
- * matches the name, country, organization and organization unit
+ * matches the name, country, organization, and organization unit
  *
  * @param certs_db The database to get the certificate status from
  * @param name The name of the certificate
@@ -2067,8 +2094,8 @@ time_t getNotBeforeTimeFromCert(const X509 *cert) {
 }
 
 /**
- * @brief Set a value in a Value object marking any changes to the field if the values changed and if not then
- * the field is unmarked.  Doesn't work for arrays or enums so you need to do that manually.
+ * @brief Set a value in a Value object marking any changes to the field if the values changed, and if not then
+ * the field is unmarked.  Doesn't work for arrays or enums, so you need to do that manually.
  *
  * @param target The Value object to set the value in
  * @param field The field to set the value in
@@ -2076,7 +2103,12 @@ time_t getNotBeforeTimeFromCert(const X509 *cert) {
  */
 template <typename T>
 void setValue(Value &target, const std::string &field, const T &new_value) {
-    target[field] = new_value;
+    auto old_value = target[field].as<T>();
+    if (old_value != new_value) {
+        target[field] = new_value;
+    } else {
+        target[field].unmark(false, true);
+    }
 }
 
 /**
@@ -2191,8 +2223,8 @@ void postUpdateToNextCertBecomingValid(const CertStatusFactory &cert_status_crea
  * @brief Post an update to the next certificate that is becoming expired
  *
  * This function will post an update to the next certificate that is becoming expired.
- * Certificates that are becoming expired are those that are in the VALID, PENDING_APPROVAL or PENDING state
- * and the not after time is now in the past.
+ * Certificates that are becoming expired are those that are in the VALID, PENDING_APPROVAL, or PENDING state,
+ * and the not-after time is now in the past.
  *
  * We can change the status of the certificate to EXPIRED and post the status to the shared wildcard PV.
  *
@@ -2262,8 +2294,8 @@ DbCert getOriginalCert(CertFactory &cert_factory, const sql_ptr &certs_db, const
     certstatus_t status{UNKNOWN};
     {
         sqlite3_stmt *stmt;
-        const std::string renewed_cert_sql(SQL_GET_RENEWED_CERT);
-        if (sqlite3_prepare_v2(certs_db.get(), renewed_cert_sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+        const std::string renewable_cert_sql(SQL_GET_RENEWED_CERT);
+        if (sqlite3_prepare_v2(certs_db.get(), renewable_cert_sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
             sqlite3_bind_int64(stmt, sqlite3_bind_parameter_index(stmt, ":serial"), db_serial);
             sqlite3_bind_text(stmt, sqlite3_bind_parameter_index(stmt, ":CN"), cert_factory.name_.c_str(), -1, SQLITE_STATIC);
             sqlite3_bind_text(stmt, sqlite3_bind_parameter_index(stmt, ":O"),  cert_factory.org_.c_str(), -1, SQLITE_STATIC);
@@ -2289,11 +2321,11 @@ DbCert getOriginalCert(CertFactory &cert_factory, const sql_ptr &certs_db, const
  * @brief Post an update to the next certificate that is nearing renewal
  *
  * This function will post an update to the next certificate that is nearing renewal.
- * Certificates that are nearing renewal are those that are in the VALID, PENDING_APPROVAL or PENDING state
+ * Certificates that are nearing renewal are those that are in the VALID, PENDING_APPROVAL, or PENDING state
  * and the current time is more than halfway between the last status update and the renew by date
  *
- * We can set the `renewal_due` field to true and post the status to the shared wildcard PV, so that any ]
- * Authenticator that is listening can send a renewal request to renew the certificate in time.
+ * We can set the `renewal_due` field to true and post the status to the shared wildcard PV, so that any
+ * listening authenticator can send a renewal request to renew the certificate in time.
  *
  * Return true if we updated anything
  *
@@ -2311,10 +2343,10 @@ bool postUpdateToNextCertNearingRenewal(const CertStatusFactory &cert_status_cre
     Guard G(status_update_lock);
     bool updated{false};
     sqlite3_stmt *stmt;
-    std::string pending_renewal_sql(SQL_CERT_NEARING_RENEWAL);
+    std::string nearing_renewal_sql(SQL_CERT_NEARING_RENEWAL);
     const std::vector<certstatus_t> pending_renewal_status{VALID};
-    pending_renewal_sql += getValidStatusesClause(pending_renewal_status);
-    if (sqlite3_prepare_v2(certs_db.get(), pending_renewal_sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+    nearing_renewal_sql += getValidStatusesClause(pending_renewal_status);
+    if (sqlite3_prepare_v2(certs_db.get(), nearing_renewal_sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
         bindValidStatusClauses(stmt, pending_renewal_status);
 
         if (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -2349,7 +2381,7 @@ bool postUpdateToNextCertNearingRenewal(const CertStatusFactory &cert_status_cre
  * @brief Post an update to the next certificate that is needs renewal
  *
  * This function will post an update to the next certificate that is needs renewal.
- * Certificates that need renewal are those that are in the VALID, PENDING_APPROVAL or PENDING state
+ * Certificates that need renewal are those that are in the VALID, PENDING_APPROVAL, or PENDING state,
  * and the renew_by time is now in the past.
  *
  * We can change the status of the certificate to PENDING_RENEWAL and post the status to the shared wildcard PV.
@@ -2399,15 +2431,62 @@ bool postUpdateToNextCertToNeedRenewal(const CertStatusFactory &cert_status_crea
 }
 
 /**
- * @brief Post an update to the next certificate that is becoming expired
+ * @brief Post an update to the next certificate status that is about to become invalid
  *
- * This function will post an update to the next certificate that is becoming expired.
- * Certificates that are becoming expired are those that are in the VALID, PENDING_APPROVAL or PENDING state
- * and the not after time is now in the past.
+ * This function will post an update to the next certificate status that is becoming invalid.
+ *
+ * Return true if we updated anything
+ *
+ * @param cert_status_creator The certificate status creator
+ * @param status_pv the status pv
+ * @param certs_db the database
+ * @param cert_pv_prefix Specifies the prefix for all PVs published by this PVACMS.  Default `CERT`
+ * @param issuer_id The issuer ID of this PVACMS.
+ */
+bool postUpdatesToNextCertStatusToBecomeInvalid(const CertStatusFactory &cert_status_creator,
+                                  server::WildcardPV &status_pv,
+                                  const sql_ptr &certs_db,
+                                  const std::string &cert_pv_prefix,
+                                  const std::string &issuer_id) {
+    Guard G(status_update_lock);
+    bool updated{false};
+    sqlite3_stmt *stmt;
+    std::string cert_status_nearly_invalid_sql(SQL_CERT_STATUS_NEARLY_INVALID);
+    if (sqlite3_prepare_v2(certs_db.get(), cert_status_nearly_invalid_sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int64(stmt, sqlite3_bind_parameter_index(stmt, ":status_validity"), (cert_status_creator.cert_status_validity_mins_*60) + cert_status_creator.cert_status_validity_secs_);
+        bindValidStatusClauses(stmt);
+
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            updated = true;
+            int64_t db_serial = sqlite3_column_int64(stmt, 0);
+            auto status = static_cast<certstatus_t>(sqlite3_column_int(stmt, 1));
+            const uint64_t serial = *reinterpret_cast<uint64_t *>(&db_serial);
+            try {
+                const std::string pv_name(getCertStatusURI(cert_pv_prefix, issuer_id, serial));
+                touchCertificateStatus(certs_db, serial);
+                const auto status_date = std::time(nullptr);
+                const auto cert_status = cert_status_creator.createPVACertificateStatus(serial, status, status_date);
+                postCertificateStatus(status_pv, pv_name, serial, cert_status);
+                log_info_printf(pvacmsmonitor, "%s *\n", getCertId(issuer_id, serial).c_str());
+            } catch (const std::runtime_error &e) {
+                log_err_printf(pvacmsmonitor, "PVACMS Certificate Monitor Error: %s\n", e.what());
+            }
+        }
+        sqlite3_finalize(stmt);
+    } else {
+        log_err_printf(pvacmsmonitor, "PVACMS Certificate Monitor Error: %s\n", sqlite3_errmsg(certs_db.get()));
+    }
+    return updated;
+}
+
+/**
+ * @brief Post an update to the next certificates that are expiring
+ *
+ * This function will post an update to the next certificates that are expiring.
+ * Certificates that are expiring are those that are in the VALID, PENDING_APPROVAL, or PENDING state,
+ * and the not-after time is now in the past.
  *
  * We can change the status of the certificate to EXPIRED and post the status to the shared wildcard PV.
- *
- * We only do one at a time so we can reschedule the rest for the next loop
  *
  * @param cert_status_creator The certificate status creator
  * @param status_monitor_params The status monitor parameters
@@ -2422,15 +2501,13 @@ void postUpdateToNextCertToExpire(const CertStatusFactory &cert_status_creator,
 }
 
 /**
- * @brief Post an update to the next certificate that needs renewal
+ * @brief Post an update to the next certificates that need renewal
  *
- * This function will post an update to the next certificate that needs renewal.
- * Certificates that need renewal are those that are in the VALID, PENDING_APPROVAL or PENDING state
- * and the not after time is now in the past.
+ * This function will post an update to the next certificates that need renewal.
+ * Certificates that need renewal are those that are in the VALID, PENDING_APPROVAL, or PENDING state,
+ * and the not-after time is now in the past.
  *
- * We can change the status of the certificate to PENDING_RENEWAL and post the status to the shared wildcard PV.
- *
- * We only do one at a time so we can reschedule the rest for the next loop
+ * We can change the status of the certificates to PENDING_RENEWAL and post the status to the shared wildcard PV.
  *
  * @param cert_status_creator The certificate status creator
  * @param status_monitor_params The status monitor parameters
@@ -2450,10 +2527,31 @@ void postUpdateToNextCertToNeedRenewal(const CertStatusFactory &cert_status_crea
 }
 
 /**
+ * @brief Post an update to the next certificate statuses that are becoming invalid
+ *
+ * This function will post an update to the next certificate statuses that are becoming invalid.
+ * Certificate statuses that are becoming invalid are those that are in the VALID, PENDING_APPROVAL, or PENDING state,
+ * we are now more than halfway between the last status update and the status lifetime.
+ *
+ * We update the status date and post it to the shared wildcard PV.
+ *
+ * @param cert_status_creator The certificate status creator
+ * @param status_monitor_params The status monitor parameters
+ */
+void postUpdatesToNextCertStatusToBecomeInvalid(const CertStatusFactory &cert_status_creator,
+                                  const StatusMonitor &status_monitor_params) {
+    while (postUpdatesToNextCertStatusToBecomeInvalid(cert_status_creator,
+                                 status_monitor_params.status_pv_,
+                                 status_monitor_params.certs_db_,
+                                 status_monitor_params.config_.cert_pv_prefix,
+                                 status_monitor_params.issuer_id_));
+}
+
+/**
  * @brief Post an update to the all certificates whose statuses are becoming invalid
  *
  * This function will post an update to the all certificates whose statuses are becoming invalid.
- * Certificates that are becoming invalid are those that are in the VALID, PENDING or PENDING_APPROVAL state
+ * Certificates that are becoming invalid are those that are in the VALID, PENDING, or PENDING_APPROVAL state,
  * and the status validity time is now nearly up.  We use the timeout value (default 5 seconds) to determine
  * "nearly up".
  *
@@ -2512,7 +2610,7 @@ void postUpdatesToExpiredStatuses(const CertStatusFactory &cert_status_creator,
  * @brief The main loop for the certificate monitor.
  *
  * This function will post an update to the next certificate that is becoming valid,
- * the next certificate that is becoming expired
+ * the next certificate that is becoming expired,
  * and any certificates whose statuses are becoming invalid.
  *
  * @param status_monitor_params The status monitor parameters
@@ -2537,6 +2635,9 @@ timeval statusMonitor(const StatusMonitor &status_monitor_params) {
     if (!status_monitor_params.active_status_validity_.empty()) {
         postUpdatesToExpiredStatuses(cert_status_creator, status_monitor_params);
     }
+
+    // Search for all certs whose status is becoming invalid
+    postUpdatesToNextCertStatusToBecomeInvalid(cert_status_creator, status_monitor_params);
 
     log_debug_printf(pvacmsmonitor, "Certificate Monitor Thread Sleep%s", "\n");
     return {};
