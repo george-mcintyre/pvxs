@@ -38,6 +38,7 @@ If you want a prepackaged environment, try the following.  You will need four te
 -------------------------------------
 - |terminal|\¹
 - start new container with Prepackaged Secure PVAccess and 4 Users
+
 .. code-block:: shell
 
     docker run -it --name spva_std georgeleveln/spva_std:latest
@@ -53,6 +54,7 @@ If you want a prepackaged environment, try the following.  You will need four te
 -------------------------------------
 - |terminal|\²
 - log in as pre-configured Admin User, certificate is already configured
+
 .. code-block:: shell
 
     docker exec -it --user admin spva_std /bin/bash
@@ -66,6 +68,7 @@ If you want a prepackaged environment, try the following.  You will need four te
 -------------------------------------
 - |terminal|\³
 - log in as softioc service account
+
 .. code-block:: shell
 
     docker exec -it --user softioc spva_std /bin/bash
@@ -84,6 +87,7 @@ If you want a prepackaged environment, try the following.  You will need four te
 -------------------------------------
 - |terminal|\⁴
 - log in as a Secure PVAccess client
+
 .. code-block:: shell
 
     docker exec -it --user client spva_std /bin/bash
@@ -103,6 +107,7 @@ If you want a prepackaged environment, try the following.  You will need four te
 -------------------------------------
 - |terminal|\²
 - approve the server certificate
+
 .. code-block:: shell
 
     pvxcert --approve 47530d89:15756710596521133410
@@ -125,6 +130,7 @@ If you want a prepackaged environment, try the following.  You will need four te
 -------------------------------------
 - |terminal|\³
 - start SoftIOC
+
 .. code-block:: shell
 
     softIocPVX \
@@ -153,6 +159,7 @@ If you want a prepackaged environment, try the following.  You will need four te
 -------------------------------------
 - |terminal|\⁴
 - get a PV ``test:enumExample`` value from the SoftIOC
+
 .. code-block:: shell
 
     pvxinfo -v test:enumExample
@@ -516,7 +523,7 @@ log back in as pvacms with environment set by ``.bashrc``
 
 
 |step| Run PVACMS
----------------
+------------------
 
 |1| Login as pvacms in a new shell
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
