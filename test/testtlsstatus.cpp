@@ -70,7 +70,7 @@ struct Tester {
 
         });
 
-        pvacms = ConfigCms::forCms().build().addSource("__wildcard", pvacms_mock);
+        pvacms = ConfigCms::mockCms().build().addSource("__wildcard", pvacms_mock);
         client = pvacms.clientConfig().build();
 
         testShow() << "Testing TLS Status Functions:\n";

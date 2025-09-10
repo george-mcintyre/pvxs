@@ -94,7 +94,7 @@ struct Tester {
 
         });
 
-        auto pvacms_config = ConfigCms::forCms();
+        auto pvacms_config = ConfigCms::mockCms();
         pvacms_config.tls_keychain_file = SUPER_SERVER_KEYCHAIN_FILE;
         pvacms = pvacms_config.build().addSource("__wildcard", pvacms_mock);
         client = pvacms.clientConfig().build();

@@ -6,6 +6,7 @@
 
 #include "configcms.h"
 
+#include <envDefs.h>
 #include <osiFileName.h>
 
 #include <pvxs/log.h>
@@ -20,7 +21,46 @@ namespace pvxs {
 namespace certs {
 
 /**
- * @brief Create a Config object with default values suitable for testing a Mock CMS
+ * @brief Create a Config object with default values suitable for use with a Mock CMS
+ * This is isolated and has all CMS configuration
+ *
+ * @return ConfigCms for CMS
+ */
+ConfigCms ConfigCms::mockCms(int family) {
+    auto ret = ConfigCms{};
+    ret.applyCertsEnv();
+    ret.applyCmsEnv({});
+
+    srand(time(nullptr));
+    ret.udp_port =  1025u + rand() % (65535u - 1024u);
+    epicsEnvSet("EPICS_PVA_BROADCAST_PORT", (SB() << ret.udp_port).str().c_str());
+    ret.tcp_port = 0u;
+    ret.tls_port = 0u;
+    ret.auto_beacon = false;
+
+    epicsEnvSet("EPICS_PVA_AUTO_ADDR_LIST", "NO");
+    switch (family) {
+        case AF_INET:
+            ret.interfaces.emplace_back("127.0.0.1");
+            ret.beaconDestinations.emplace_back("127.0.0.1");
+            epicsEnvSet("EPICS_PVA_ADDR_LIST", "127.0.0.1");
+            break;
+        case AF_INET6:
+            ret.interfaces.emplace_back("::1");
+            ret.beaconDestinations.emplace_back("::1");
+            epicsEnvSet("EPICS_PVA_ADDR_LIST", "::1");
+            break;
+        default:
+            throw std::logic_error(SB() << "Unsupported address family " << family);
+    }
+
+    ret.tls_disable_status_check = true;
+    ret.tls_disable_stapling = true;
+    return ret;
+}
+
+/**
+ * @brief Create a Config object with default values suitable for a CMS service
  *
  * @return ConfigCms for CMS
  */
