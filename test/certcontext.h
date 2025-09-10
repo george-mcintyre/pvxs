@@ -241,7 +241,11 @@ TestCert getTestCert() {
     using traits = CertTraits<Tag>;
 
     char buffer[PATH_MAX];
-    getcwd(buffer, sizeof(buffer));
+    if (getcwd(buffer, sizeof(buffer)) == nullptr) {
+        testFail("getcwd() failed: %s", strerror(errno));
+        throw std::runtime_error(SB() << "getcwd() failed: " << strerror(errno));
+    }
+    testDiag("CWD: %s", buffer);
 
     const auto filename = std::string(traits::file);
     const auto pwd = std::string(traits::pwd);
