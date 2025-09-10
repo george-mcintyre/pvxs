@@ -635,11 +635,8 @@ ServIface::ServIface(const SockAddr &addr, server::Server::Pvt *server, bool fal
     listener = evlisten(__FILE__, __LINE__,
                         evconnlistener_new(server->acceptor_loop.base, onConnS, this, LEV_OPT_DISABLED|LEV_OPT_CLOSE_ON_EXEC, backlog, sock.sock));
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wtautological-constant-compare"
     if(!LEV_OPT_DISABLED)
         evconnlistener_disable(listener.get());
-#pragma GCC diagnostic pop
 }
 
 void ServIface::onConnS(struct evconnlistener *listener, evutil_socket_t sock, struct sockaddr *peer, int socklen, void *raw)
