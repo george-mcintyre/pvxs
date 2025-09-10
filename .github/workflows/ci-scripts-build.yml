@@ -21,7 +21,7 @@ env:
   SETUP_PATH: .ci-local
   CMP: gcc
   _PVXS_ABORT_ON_CRIT: 1
-  PVXS_LOG: pvxs.*=WARN
+  PVXS_LOG: pvxs.*=DEBUG
   OPENSSL_VERSION: "3.1.4"
 
 jobs:
