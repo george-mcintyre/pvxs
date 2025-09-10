@@ -635,7 +635,7 @@ ServIface::ServIface(const SockAddr &addr, server::Server::Pvt *server, bool fal
     listener = evlisten(__FILE__, __LINE__,
                         evconnlistener_new(server->acceptor_loop.base, onConnS, this, LEV_OPT_DISABLED|LEV_OPT_CLOSE_ON_EXEC, backlog, sock.sock));
 
-    if(!LEV_OPT_DISABLED)
+    if(LEV_OPT_DISABLED==0)
         evconnlistener_disable(listener.get());
 }
 
