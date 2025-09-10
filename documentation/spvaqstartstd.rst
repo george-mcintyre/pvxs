@@ -133,7 +133,7 @@ If you want a prepackaged environment, try the following.  You will need four te
         -d ${PROJECT_HOME}/pvxs/test/testiocg.db \
         -d ${PROJECT_HOME}/pvxs/test/image.db \
         -G ${PROJECT_HOME}/pvxs/test/image.json \
-        -a ${PROJECT_HOME}/pvxs/test/testioc.acf
+        -a ${PROJECT_HOME}/pvxs/test/testioc.tls.acf
 
 .. code-block:: console
 
@@ -668,7 +668,7 @@ Leave this PVACMS service running while running SoftIOC and SPVA client below.
         -d ${PROJECT_HOME}/pvxs/test/testiocg.db \
         -d ${PROJECT_HOME}/pvxs/test/image.db \
         -G ${PROJECT_HOME}/pvxs/test/image.json \
-        -a ${PROJECT_HOME}/pvxs/test/testioc.acf
+        -a ${PROJECT_HOME}/pvxs/test/testioc.tls.acf
 
 .. code-block:: console
 
@@ -866,7 +866,7 @@ Leave this PVACMS service running while running SoftIOC and SPVA client below.
     }
 
 
-- the ``SPECIAL`` security group protects ``test:spec`` in ``testioc.acf``
+- the ``SPECIAL`` security group protects ``test:spec`` in ``testioc.tls.acf``
 
   - it makes it writeable if, and only if
 

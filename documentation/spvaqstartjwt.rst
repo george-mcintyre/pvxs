@@ -206,7 +206,7 @@ If you want a prepackaged environment, try the following.  You will need three t
         -d ${PROJECT_HOME}/pvxs/test/testiocg.db \
         -d ${PROJECT_HOME}/pvxs/test/image.db \
         -G ${PROJECT_HOME}/pvxs/test/image.json \
-        -a ${PROJECT_HOME}/pvxs/test/testioc.acf
+        -a ${PROJECT_HOME}/pvxs/test/testioc.tls.acf
 
 .. code-block:: console
 
@@ -788,7 +788,7 @@ using the Java Web Token (JWT) Authenticator.
         -d ${PROJECT_HOME}/pvxs/test/testiocg.db \
         -d ${PROJECT_HOME}/pvxs/test/image.db \
         -G ${PROJECT_HOME}/pvxs/test/image.json \
-        -a ${PROJECT_HOME}/pvxs/test/testioc.acf
+        -a ${PROJECT_HOME}/pvxs/test/testioc.tls.acf
 
 .. code-block:: console
 
