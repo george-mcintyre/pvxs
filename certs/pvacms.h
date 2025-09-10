@@ -258,7 +258,9 @@ class StatusMonitor {
     ossl_ptr<EVP_PKEY> &cert_auth_pkey_;
     pvxs::ossl_shared_ptr<STACK_OF(X509)> &cert_auth_cert_chain_;
     std::map<serial_number_t, time_t> &active_status_validity_;
-
+  private:
+    mutable epicsMutex lock_;
+  public:
     StatusMonitor(ConfigCms &config, sql_ptr &certs_db, std::string &issuer_id, server::WildcardPV &status_pv, ossl_ptr<X509> &cert_auth_cert,
                   ossl_ptr<EVP_PKEY> &cert_auth_pkey, ossl_shared_ptr<STACK_OF(X509)> &cert_auth_chain,
                   std::map<serial_number_t, time_t> &active_status_validity)
@@ -274,6 +276,7 @@ class StatusMonitor {
     std::vector<serial_number_t> getActiveSerials() const {
         const auto cutoff{time(nullptr) - static_cast<uint64_t>(config_.request_timeout_specified)};
         std::vector<serial_number_t> result;
+        Guard G(lock_);
         for (const auto &pair : active_status_validity_) {
             if (pair.second > cutoff) {
                 result.push_back(pair.first);
@@ -285,11 +288,11 @@ class StatusMonitor {
     /**
      * @brief Set the new validity timeout after we've updated the database
      * Note that its possible that the serial has been removed by another thread during the operation
-     * TODO make threadsafe
      * @param serial the serial number of the validity we need to update
      * @param validity_date the new validity date
      */
     void setValidity(const serial_number_t serial, const time_t validity_date) const {
+        Guard G(lock_);
         const auto it = active_status_validity_.find(serial);
         if (it != active_status_validity_.end()) {
             it->second = validity_date;
