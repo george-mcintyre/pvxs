@@ -865,10 +865,10 @@ bool SSLContext::getPeerCredentials(PeerCredentials &C, const SSL *ctx) {
 std::shared_ptr<SSLPeerStatusAndMonitor> SSLContext::subscribeToPeerCertStatus(const SSL *ssl, const std::function<void(bool)> &fn) {
     if (!ssl) throw std::invalid_argument("NULL");
 
-    const auto ex_data = CertStatusExData::fromSSL(const_cast<SSL *>(ssl));
-    // Subscribe to peer certificate status if necessary
-    if (ex_data) {
-        if (const auto cert = SSL_get0_peer_certificate(ssl)) {
+    if (const auto cert = SSL_get0_peer_certificate(ssl)) {
+        // Subscribe to peer certificate status if necessary
+        const auto ex_data = CertStatusExData::fromSSL(const_cast<SSL *>(ssl));
+        if (ex_data) {
             return ex_data->subscribeToPeerCertStatus(cert, [=](const bool is_good) { fn(is_good); });
         }
     }

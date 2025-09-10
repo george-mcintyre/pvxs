@@ -31,8 +31,8 @@ ConfigCms ConfigCms::mockCms(int family) {
     ret.applyCertsEnv();
     ret.applyCmsEnv({});
 
-    srand(time(nullptr));
-    ret.udp_port =  1025u + rand() % (65535u - 1024u);
+    evutil_secure_rng_get_bytes(&ret.udp_port, sizeof(ret.udp_port));
+    if (ret.udp_port < 1025u) ret.udp_port += 1024u;
     epicsEnvSet("EPICS_PVA_BROADCAST_PORT", (SB() << ret.udp_port).str().c_str());
     ret.tcp_port = 0u;
     ret.tls_port = 0u;

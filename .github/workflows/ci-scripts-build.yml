@@ -84,7 +84,7 @@ jobs:
             extra: "WITH_OPENSSL=YES"
 
           - name: RTEMS5
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             cmp: gcc
             configuration: default
             base: "7.0"
@@ -162,6 +162,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get -y install libreadline-dev g++-mingw-w64-x86-64 cmake gdb qemu-system-x86 libssl-dev mingw-w64-x86-64-dev
+      if: runner.os == 'Linux'
 
     - name: Install OpenSSL for MinGW
       run: |
@@ -173,6 +174,7 @@ jobs:
         sudo make install
         cd ..
         rm -rf openssl-${OPENSSL_VERSION}*
+      if: runner.os == 'Linux'
 
     - name: Host Info
       run: openssl version -a
