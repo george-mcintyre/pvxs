@@ -158,7 +158,7 @@ struct RenewalManager {
                 })
                 .exec();
         } catch (const CertStatusNoExtensionException& e) {
-            // No online status availabe
+            // No online status available
         } catch (const std::exception& e) {
             log_err_printf(config, "Error starting certificate status monitor: %s\n", e.what());
         }
