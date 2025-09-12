@@ -355,7 +355,7 @@ void makeStatusResponse(CertCtx<Tag> &cert_context,
 
         if (!cert_context.pending.empty()) {
             cert_context.pending.erase(cert_context.pending.begin());
-            if (cert_context.pending.empty()) {
+            if (!cert_context.pending.empty()) {
                 auto status = cert_context.pending[0];
                 cert_context.status =
                     (status == REVOKED)
