@@ -73,7 +73,7 @@ jobs:
             configuration: default
             base: "7.0"
             cross: "windows-x64-mingw"
-            extra: "WITH_OPENSSL=YES"
+#            extra: "WITH_OPENSSL=YES"
 
           - name: Cross mingw64 static
             os: ubuntu-latest
@@ -81,7 +81,7 @@ jobs:
             configuration: static
             base: "7.0"
             cross: "windows-x64-mingw"
-            extra: "WITH_OPENSSL=YES"
+#            extra: "WITH_OPENSSL=YES"
 
           - name: RTEMS5
             os: ubuntu-22.04
@@ -259,7 +259,7 @@ jobs:
             cmp: gcc
             configuration: default
             base: "7.0"
-            extra: "CMD_CPPFLAGS=\"-Utrue\""
+#            extra: "CMD_CPPFLAGS=\"-Utrue\""
 
     steps:
     - uses: actions/checkout@v3
