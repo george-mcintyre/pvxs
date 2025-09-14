@@ -111,6 +111,7 @@ public:
     //! Create a client configuration which can communicate with this Server.
     //! Suitable for use in self-contained unit-tests.
     client::Config clientConfig() const;
+    static client::Config clientConfig(const Config &server_config);
 
     //! Add a SharedPV to the "__builtin" StaticSource
     Server& addPV(const std::string& name, const SharedPV& pv);

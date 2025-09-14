@@ -31,24 +31,19 @@ ConfigCms ConfigCms::mockCms(int family) {
     ret.applyCertsEnv();
     ret.applyCmsEnv({});
 
-    evutil_secure_rng_get_bytes(&ret.udp_port, sizeof(ret.udp_port));
-    if (ret.udp_port < 1025u) ret.udp_port += 1024u;
-    epicsEnvSet("EPICS_PVA_BROADCAST_PORT", (SB() << ret.udp_port).str().c_str());
+    ret.udp_port = 0u; // Select a random port
     ret.tcp_port = 0u;
     ret.tls_port = 0u;
     ret.auto_beacon = false;
 
-    epicsEnvSet("EPICS_PVA_AUTO_ADDR_LIST", "NO");
     switch (family) {
         case AF_INET:
             ret.interfaces.emplace_back("127.0.0.1");
             ret.beaconDestinations.emplace_back("127.0.0.1");
-            epicsEnvSet("EPICS_PVA_ADDR_LIST", "127.0.0.1");
             break;
         case AF_INET6:
             ret.interfaces.emplace_back("::1");
             ret.beaconDestinations.emplace_back("::1");
-            epicsEnvSet("EPICS_PVA_ADDR_LIST", "::1");
             break;
         default:
             throw std::logic_error(SB() << "Unsupported address family " << family);
