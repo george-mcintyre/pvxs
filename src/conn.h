@@ -106,11 +106,10 @@ protected:
     std::shared_ptr<ossl::SSLPeerStatusAndMonitor> peer_status;
     bool isPeerStatusGood() const ;
 
+#endif
   public:
     const bool isTLS;
 
-#endif
-public:
     TypeStore rxRegistry;
     /* Flag if some received delta could not be decoded due to
      * a non-existent IOID, which *may* leave this rxRegistry out

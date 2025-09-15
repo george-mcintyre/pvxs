@@ -582,11 +582,9 @@ void ServerConn::bevWrite()
 
 
 ServIface::ServIface(const SockAddr &addr, server::Server::Pvt *server, bool fallback, bool isTLS)
-    :server(server)
-#ifdef PVXS_ENABLE_OPENSSL
-  ,isTLS(isTLS)
-#endif
-    ,bind_addr(addr)
+    : server(server)
+    , isTLS(isTLS)
+    , bind_addr(addr)
 {
     server->acceptor_loop.assertInLoop();
     const auto orig_port = bind_addr.port();

@@ -932,7 +932,6 @@ void Server::Pvt::doBeaconsS(evutil_socket_t fd, short evt, void *raw)
     }
 }
 
-#ifdef PVXS_ENABLE_OPENSSL
 void Server::reconfigure(const Config& inconf) {
     if (!pvt) throw std::logic_error("NULL Server");
 
@@ -985,7 +984,6 @@ void Server::reconfigure(const Config& inconf) {
     }
 }
 
-#endif
 
 Source::~Source() {}
 

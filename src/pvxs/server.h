@@ -93,7 +93,6 @@ public:
     //! Queue a request to break run()
     Server& interrupt();
 
-#ifdef PVXS_ENABLE_OPENSSL
     /** Apply (in part) updated configuration
      *
      * Currently, only updates TLS configuration.  Causes all in-progress
@@ -102,7 +101,6 @@ public:
      * @since UNRELEASED
      */
     void reconfigure(const Config&);
-#endif
 
     //! effective config
     //! @since UNRELEASED Reference invalidated by a call to reconfigure()
