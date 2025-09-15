@@ -142,11 +142,7 @@ public:
         Disconnected,
     } state;
 
-#ifdef PVXS_ENABLE_OPENSSL
     ConnBase(bool isClient, bool isTLS, bool sendBE, evbufferevent &&bev, const SockAddr& peerAddr);
-#else
-    ConnBase(bool isClient, bool sendBE, evbufferevent &&bev, const SockAddr& peerAddr);
-#endif
     ConnBase(const ConnBase&) = delete;
     ConnBase& operator=(const ConnBase&) = delete;
     virtual ~ConnBase();

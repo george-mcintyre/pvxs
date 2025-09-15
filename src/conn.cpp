@@ -30,16 +30,10 @@ namespace impl {
 static
 constexpr size_t tcp_readahead_mult = 2u;
 
-#ifdef PVXS_ENABLE_OPENSSL
 ConnBase::ConnBase(bool isClient, bool isTLS, bool sendBE, evbufferevent&& bev, const SockAddr& peerAddr)
-#else
-ConnBase::ConnBase(bool isClient, bool sendBE, evbufferevent&& bev, const SockAddr& peerAddr)
-#endif
     :peerAddr(peerAddr)
     ,peerName(peerAddr.tostring())
-#ifdef PVXS_ENABLE_OPENSSL
     ,isTLS(isTLS)
-#endif
     ,isClient(isClient)
     ,sendBE(sendBE)
     ,peerBE(true) // arbitrary choice, default should be overwritten before use

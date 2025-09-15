@@ -85,9 +85,7 @@ DEFINE_LOGGER(stapling, "pvxs.stapling");
 
 ServerConn::ServerConn(ServIface* iface, evutil_socket_t sock, struct sockaddr *peer, int socklen)
   : ConnBase(false,
-#ifdef PVXS_ENABLE_OPENSSL
            iface->isTLS,
-#endif
            iface->server->effective.sendBE(),
             evbufferevent(__FILE__, __LINE__, bufferevent_socket_new(iface->server->acceptor_loop.base, sock, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_DEFER_CALLBACKS)),
             SockAddr(peer))
@@ -95,9 +93,7 @@ ServerConn::ServerConn(ServIface* iface, evutil_socket_t sock, struct sockaddr *
     ,tcp_tx_limit(evsocket::get_buffer_size(sock, true) * tcp_tx_limit_mult)
 {
     log_debug_printf(connio, "Client %s connects%s, RX readahead %zu TX limit %zu\n", peerName.c_str(),
-#ifdef PVXS_ENABLE_OPENSSL
                        iface->isTLS ? " TLS" :
-#endif
                       "", readahead, tcp_tx_limit);
     {
         int opt = 1;
