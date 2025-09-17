@@ -36,7 +36,9 @@
 
 #include <ctype.h>
 
-#ifndef _WIN32
+#ifdef _WIN32
+#define PATH_MAX 256
+#else
 #include <pwd.h>
 #include <libgen.h>
 #include <unistd.h>
@@ -962,7 +964,6 @@ std::string convertPath(std::string &path) {
                 auto pw = getpwuid(getuid());
                 if (pw) abs_path = pw->pw_dir + path.substr(1);
             }
-#endif
         } else if (path[0] == '.') {
             char temp[PATH_MAX];
             if (getcwd(temp, sizeof(temp)) != nullptr) {
@@ -977,6 +978,7 @@ std::string convertPath(std::string &path) {
                 }
             }
         }
+#endif
     }
 
     if (abs_path.empty()) {
