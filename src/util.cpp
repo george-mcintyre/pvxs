@@ -44,7 +44,6 @@
 
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <pwd.h>
 
 #include <pvxs/log.h>
 #include <pvxs/util.h>
