@@ -35,11 +35,11 @@
 #include <regex>
 
 #include <ctype.h>
-#include <libgen.h>
 #include <unistd.h>
 
 #ifndef _WIN32
 #include <pwd.h>
+#include <libgen.h>
 #endif
 
 #include <sys/stat.h>
