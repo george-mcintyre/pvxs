@@ -959,8 +959,8 @@ std::string convertPath(std::string &path) {
             if (home || ((home = getenv("USERPROFILE")))) {
                 abs_path = home + path.substr(1);
             }
-#ifdef __unix__
-            else {
+#ifndef _WIN32
+           else {
                 auto pw = getpwuid(getuid());
                 if (pw) abs_path = pw->pw_dir + path.substr(1);
             }
@@ -977,8 +977,8 @@ std::string convertPath(std::string &path) {
                     abs_path = temp + path.substr(1);  // remove '.' then append
                 }
             }
-        }
 #endif
+        }
     }
 
     if (abs_path.empty()) {
