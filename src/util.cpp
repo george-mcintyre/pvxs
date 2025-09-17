@@ -38,7 +38,7 @@
 #include <libgen.h>
 #include <unistd.h>
 
-#ifdef __unix__
+#ifndef _WIN32
 #include <pwd.h>
 #endif
 
