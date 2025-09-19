@@ -435,7 +435,7 @@ void testCounterEq(const CounterMap &counters, const CertCtx<Tag> &cert_context,
     auto count = it->second.first->load();
     auto peers_count = it->second.second.size();
     if ( count > expected && peers_count == expected) {
-        testOk(count > expected,
+        testOk(peers_count == expected,
                "Expected counter of peer requests for %s's cert to be %u, got %u",
                cert_context.name.c_str(), expected, peers_count);
     } else if ( count == expected ) {
