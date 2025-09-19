@@ -413,8 +413,8 @@ typedef std::unordered_map<std::string, Counter > CounterMap;
 
 template <typename Tag>
 void resetCounter(CounterMap &counters, const CertCtx<Tag> &cert_context) {
-    counters[cert_context.pv_name].first = std::make_shared<std::atomic<uint32_t> >(0u);
-    counters[cert_context.pv_name].second = std::set<std::string>();
+    counters[cert_context.pv_name] =
+        std::make_pair(std::make_shared<std::atomic<uint32_t> >(0u), std::set<std::string>{});
 }
 
 /**
@@ -432,19 +432,26 @@ void testCounterEq(const CounterMap &counters, const CertCtx<Tag> &cert_context,
         testFail("No counter stored for PV \"%s\"", cert_context.pv_name.c_str());
         return;
     }
-    auto count = it->second.first->load();
-    auto peers_count = it->second.second.size();
-    if ( count > expected && peers_count == expected) {
-        testOk(peers_count == expected,
-               "Expected counter of peer requests for %s's cert to be %u, got %u",
-               cert_context.name.c_str(), expected, peers_count);
-    } else if ( count == expected ) {
+    const auto &cnt = it->second;
+    auto count = cnt.first->load();
+    auto peers_count = cnt.second.size();
+
+    // Accept either:
+    // - exact request count match, or
+    // - more requests than expected but unique peers equal expected.
+    if (count == expected) {
         testOk(count == expected,
                "Expected counter of requests for %s's cert to be %u, got %u",
                cert_context.name.c_str(), expected, count);
+    } else if (peers_count == expected) {
+        testOk(peers_count == expected,
+               "Expected counter of distinct peers for %s's cert to be %u, got %zu (%u total requests)",
+               cert_context.name.c_str(), expected, peers_count, count);
     } else {
-        testFail("Expected counter of requests for %s's cert to be %u, got %u", cert_context.name.c_str(), expected, count);
+        testFail("Expected counters for %s's cert to be %u; got requests=%u, unique_peers=%zu",
+                 cert_context.name.c_str(), expected, count, peers_count);
     }
+
 }
 }  // namespace certs
 

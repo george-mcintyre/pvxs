@@ -50,6 +50,7 @@ struct Tester {
     server::ServerEv pvacms;
     client::Context client;
     CounterMap cert_status_request_counters;
+    epicsMutex counter_lock;
 
     Tester()
         : now(time(nullptr)),
@@ -64,11 +65,12 @@ struct Tester {
         source->add(getCertStatusPv("CERT", issuer_id), status_pv);
         // Set up mock source that counts requests
         const auto pvacms_mock   = std::make_shared<server::MockSource>(source, [this] (std::string const& pv_name, const std::string &peer) {
+            Guard G(counter_lock);
             if (cert_status_request_counters.find(pv_name) == cert_status_request_counters.end()) {
                 cert_status_request_counters[pv_name].first = std::make_shared<std::atomic<uint32_t>>(0);
             }
-            cert_status_request_counters[pv_name].first->fetch_add(1);
-            cert_status_request_counters[pv_name].second.emplace(peer);
+            cert_status_request_counters[pv_name].first->fetch_add(1, std::memory_order_relaxed);
+            cert_status_request_counters[pv_name].second.insert(peer);
         });
 
         pvacms = ConfigCms::mockCms().build().addSource("__wildcard", pvacms_mock);
