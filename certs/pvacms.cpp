@@ -447,7 +447,7 @@ std::string getSelectedSerials(const std::vector<serial_number_t> &serials) {
 void bindValidStatusClauses(sqlite3_stmt *sql_statement, const std::vector<certstatus_t> &valid_status) {
     const auto n_valid_status = valid_status.size();
     sqlite3_bind_int(sql_statement, sqlite3_bind_parameter_index(sql_statement, ":now"), std::time(nullptr));
-    for (auto i = 0; i < n_valid_status; i++) {
+    for (size_t i = 0; i < n_valid_status; i++) {
         sqlite3_bind_int(sql_statement,
                          sqlite3_bind_parameter_index(sql_statement, (SB() << ":status" << i).str().c_str()),
                          valid_status[i]);
