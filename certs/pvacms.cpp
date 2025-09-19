@@ -399,7 +399,7 @@ std::string getValidStatusesClause(const std::vector<certstatus_t> &valid_status
     if (n_valid_status > 0) {
         auto valid_status_clauses = SB();
         valid_status_clauses << " AND status IN (";
-        for (auto i = 0; i < n_valid_status; i++) {
+        for (size_t i = 0; i < n_valid_status; i++) {
             if (i != 0)
                 valid_status_clauses << ", ";
             valid_status_clauses << ":status" << i;
@@ -1207,7 +1207,7 @@ void onGetStatus(const ConfigCms &config,
         // Get all other serial numbers to check (certificate authority and certificate authority chain)
         cert_auth_serial_numbers.push_back(CertStatusFactory::getSerialNumber(cert_auth_cert));
         const auto N = sk_X509_num(cert_auth_chain.get());
-        for (auto i = 0u; i < N; ++i) {
+        for (int i = 0; i < N; ++i) {
             cert_auth_serial_numbers.push_back(
                 CertStatusFactory::getSerialNumber(sk_X509_value(cert_auth_chain.get(), i)));
         }
