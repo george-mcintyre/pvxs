@@ -21,15 +21,17 @@
 #include <pvxs/source.h>
 #include <pvxs/unittest.h>
 
+#include "certcontext.h"
 #include "certfactory.h"
 #include "certstatus.h"
 #include "certstatusfactory.h"
 #include "certstatusmanager.h"
+#include "configcms.h"
 #include "openssl.h"
 #include "opensslgbl.h"
-#include "certcontext.h"
-#include "configcms.h"
+#include "serverev.h"
 #include "utilpvt.h"
+#include "wildcardpv.h"
 
 /**
  * @brief This tester uses a Tester object and a bunch of MACROS that rely on a very opinionated
@@ -87,12 +89,12 @@ struct Tester {
         // Set up the Mock PVACMS server certificate (does not contain custom status extension)
         source->add(getCertStatusPv("CERT", issuer_id), status_pv);
         // Set up mock source that counts requests
-        const auto pvacms_mock   = std::make_shared<server::MockSource>(source, [this] (std::string const& pv_name) {
+        const auto pvacms_mock   = std::make_shared<server::MockSource>(source, [this] (std::string const& pv_name, const std::string &peer) {
             if (cert_status_request_counters.find(pv_name) == cert_status_request_counters.end()) {
-                cert_status_request_counters[pv_name] = std::make_shared<std::atomic<uint32_t>>(0);
+                cert_status_request_counters[pv_name] = std::make_tuple(std::make_shared<std::atomic<uint32_t>>(0), std::set<std::string>());
             }
-            cert_status_request_counters[pv_name]->fetch_add(1);
-
+            cert_status_request_counters[pv_name].first->fetch_add(1);
+            cert_status_request_counters[pv_name].second.emplace(peer);
         });
 
         auto pvacms_config = ConfigCms::mockCms();
