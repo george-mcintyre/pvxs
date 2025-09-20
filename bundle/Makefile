@@ -41,12 +41,6 @@ CMAKEFLAGS += -DCMAKE_MODULE_PATH:DIR="$(abspath $(TOP)/bundle/cmake)"
 
 CMAKEFLAGS += -DCMAKE_MAKE_PROGRAM="$(MAKE)"
 
-ifeq ($(OS_CLASS),WIN32)
-CMAKEFLAGS += -DCMAKE_STATIC_LIBRARY_SUFFIX=.lib -DCMAKE_STATIC_LIBRARY_PREFIX=
-CMAKEFLAGS += -DCMAKE_IMPORT_LIBRARY_SUFFIX=.lib -DCMAKE_IMPORT_LIBRARY_PREFIX=
-endif
-
-
 # check either $(HOST_OPT) or $(CROSS_OPT) depending on $(BUILD_CLASS)
 IS_OPT = $($(BUILD_CLASS)_OPT)
 # cmake build types: DEBUG RELEASE RELWITHDEBINFO MINSIZEREL
@@ -132,6 +126,7 @@ ifneq (,$(filter %mingw,$(T_A)))
 ifeq (NO,$(SHARED_LIBRARIES))
 ifneq ($(LIB_SUFFIX_A),YES)
 	$(CP) $(LIBEVENT_$(T_A))/lib/libevent_core.a $(LIBEVENT_$(T_A))/lib/event_core.lib
+	$(CP) $(LIBEVENT_$(T_A))/lib/libevent_openssl.a $(LIBEVENT_$(T_A))/lib/event_openssl.lib || echo "don't worry about this"
 # HACK: when STATIC_BUILD=YES we (in configure/RULES_PVXS_MODULE) inject the event_core
 #       dependency via <target>_LIBS += event_core which requires the existance of
 #       $(event_core_DIR)/event_core.lib however, cmake outputs the *nix style name
