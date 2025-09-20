@@ -286,7 +286,7 @@ struct CertStatusExData {
      * @param fn - Function to call when the peer status changes from good to bad or vice versa
      * @return a shared pointer to the peer status and optional monitor
      */
-    std::shared_ptr<SSLPeerStatusAndMonitor> subscribeToPeerCertStatus(X509* cert_ptr, std::function<void(bool)> fn) noexcept;
+    std::shared_ptr<SSLPeerStatusAndMonitor> subscribeToPeerCertStatus(X509* cert_ptr, std::function<void(bool)> fn);
 
    private:
     /**

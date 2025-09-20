@@ -699,7 +699,7 @@ void SSLPeerStatusAndMonitor::updateStatus(const certs::CertificateStatus &new_s
     restartStatusValidityTimerFromCertStatus();
 }
 
-std::shared_ptr<SSLPeerStatusAndMonitor> CertStatusExData::subscribeToPeerCertStatus(X509 *cert_ptr, std::function<void(bool)> fn) noexcept {
+std::shared_ptr<SSLPeerStatusAndMonitor> CertStatusExData::subscribeToPeerCertStatus(X509 *cert_ptr, std::function<void(bool)> fn) {
     Guard G(lock);
     assert(cert_ptr && "Peer Cert NULL");
     return setPeerStatus(cert_ptr, fn);
