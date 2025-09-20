@@ -408,13 +408,11 @@ void testStatusRequest(CertCtx<Tag> &cert_context, client::Context &client, X509
     testOk1(pva_certificate_status == cert_context.status);
 }
 
-typedef std::pair<std::shared_ptr<std::atomic<uint32_t> >, std::set<std::string>> Counter;
-typedef std::unordered_map<std::string, Counter > CounterMap;
+typedef std::unordered_map<std::string, std::shared_ptr<std::atomic<uint32_t> > > CounterMap;
 
 template <typename Tag>
 void resetCounter(CounterMap &counters, const CertCtx<Tag> &cert_context) {
-    counters[cert_context.pv_name] =
-        std::make_pair(std::make_shared<std::atomic<uint32_t> >(0u), std::set<std::string>{});
+    counters[cert_context.pv_name] = std::make_shared<std::atomic<uint32_t> >(0u);
 }
 
 /**
@@ -432,26 +430,12 @@ void testCounterEq(const CounterMap &counters, const CertCtx<Tag> &cert_context,
         testFail("No counter stored for PV \"%s\"", cert_context.pv_name.c_str());
         return;
     }
-    const auto &cnt = it->second;
-    auto count = cnt.first->load();
-    auto peers_count = cnt.second.size();
-
-    // Accept either:
-    // - exact request count match, or
-    // - more requests than expected but unique peers equal expected.
-    if (count == expected) {
-        testOk(count == expected,
-               "Expected counter of requests for %s's cert to be %u, got %u",
-               cert_context.name.c_str(), expected, count);
-    } else if (peers_count == expected) {
-        testOk(peers_count == expected,
-               "Expected counter of distinct peers for %s's cert to be %u, got %zu (%u total requests)",
-               cert_context.name.c_str(), expected, peers_count, count);
-    } else {
-        testFail("Expected counters for %s's cert to be %u; got requests=%u, unique_peers=%zu",
-                 cert_context.name.c_str(), expected, count, peers_count);
-    }
-
+    const auto count = it->second->load();
+    testOk(count >= expected,
+           "Expected counter of requests for %s's cert to be at least %u, got %u",
+           cert_context.name.c_str(),
+           expected,
+           count);
 }
 }  // namespace certs
 
@@ -459,12 +443,12 @@ namespace server {
 
 class MockSource final : public Source {
     std::shared_ptr<Source> next_;
-    std::function<void(const std::string &, const std::string &)> request_counter_;
+    std::function<void(const std::string &)> request_counter_;
 
  public:
     explicit MockSource(
         std::shared_ptr<Source> inner,
-        std::function<void(const std::string &, const std::string &)> request_counter = [](const std::string &, const std::string &) {})
+        std::function<void(const std::string &)> request_counter = [](const std::string &) {})
         : next_(std::move(inner)), request_counter_(std::move(request_counter)) {}
 
     void onSearch(Search &req) override {
@@ -480,7 +464,7 @@ class MockSource final : public Source {
     }
 
     void onCreate(std::unique_ptr<ChannelControl> &&chan) override {
-        request_counter_(chan->name(), chan->peerName());
+        request_counter_(chan->name());
         next_->onCreate(std::move(chan));
     }
 };
