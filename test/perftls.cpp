@@ -6,12 +6,14 @@
 
 #include <algorithm>
 #include <csignal>
-#include <signal.h>
+#include <cstring>
 #include <iostream>
-#include <libgen.h>
+#include <vector>
 #include <string>
 
+#include <libgen.h>
 #include <unistd.h>
+
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -139,7 +141,7 @@ int main(int argc, char* argv[])
 
     // Install SIGINT handler to request stop
     struct sigaction sa{};
-    memset(&sa, 0, sizeof(sa));
+    std::memset(&sa, 0, sizeof(sa));
     sa.sa_handler = pvxs::on_signal;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
