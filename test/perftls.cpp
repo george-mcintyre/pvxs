@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <csignal>
+#include <signal.h>
 #include <iostream>
 #include <libgen.h>
 #include <string>
@@ -22,6 +23,14 @@ DEFINE_LOGGER(perf, "pvxs.perf");
 
 namespace pvxs {
 namespace {
+
+volatile sig_atomic_t g_stop_requested = 0;
+
+void on_signal(int sig)
+{
+    (void)sig;
+    g_stop_requested = 1;
+}
 /**
  * Extract target architecture from the given test executable path name
  *
@@ -121,6 +130,14 @@ int main(int argc, char* argv[])
     pvxs::logger_level_set(perf.name, pvxs::Level::Info);
     pvxs::logger_config_env();
 
+    // Install minimal SIGINT handler to request stop instead of default termination
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = pvxs::on_signal;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0; // no SA_RESTART; allow sleep to be interrupted
+    sigaction(SIGINT, &sa, NULL);
+
     std::cout << "Starting Performance Tests" << std::endl;
 
     // Determine test install dir
@@ -173,8 +190,10 @@ int main(int argc, char* argv[])
 
     std::cout << "Running Performance Tests" << std::endl;
 
-    // Here we could run actual tests; for now, just sleep briefly
-    sleep(1000*1000);
+    // Wait until SIGINT is received to request stop
+    while (!pvxs::g_stop_requested) {
+        pause(); // interrupted by signal
+    }
 
     pvxs::stopChild(pvacms_subprocess);
 
