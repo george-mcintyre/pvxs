@@ -260,9 +260,13 @@ Value getRootValue(const std::string &issuer_id, const ossl_ptr<X509> &root_cert
  * @throws std::runtime_error if the database can't be opened or initialised
  */
 void initCertsDatabase(sql_ptr &certs_db, const std::string &db_file) {
+    log_debug_printf(pvacms, "Attempting to open certificate database file: %s\n", db_file.c_str());
     if (sqlite3_open(db_file.c_str(), certs_db.acquire()) != SQLITE_OK) {
         throw std::runtime_error(SB() << "Can't open certs db file for writing: " << sqlite3_errmsg(certs_db.get()));
     }
+    log_debug_printf(pvacms, "Opened certificate database file: %s\n", db_file.c_str());
+
+    log_debug_printf(pvacms, "Checking for existence of certs database:\n%s\n", SQL_CHECK_EXISTS_DB_FILE);
     sqlite3_stmt *statement;
     if (sqlite3_prepare_v2(certs_db.get(), SQL_CHECK_EXISTS_DB_FILE, -1, &statement, nullptr) != SQLITE_OK) {
         throw std::runtime_error(SB() << "Failed to check if certs db exists: " << sqlite3_errmsg(certs_db.get()));
@@ -272,12 +276,14 @@ void initCertsDatabase(sql_ptr &certs_db, const std::string &db_file) {
     sqlite3_finalize(statement);
 
     if (!table_exists) {
+        log_debug_printf(pvacms, "Creating certs database:\n%s\n", SQL_CREATE_DB_FILE);
         const auto sql_status = sqlite3_exec(certs_db.get(), SQL_CREATE_DB_FILE, nullptr, nullptr, nullptr);
         if (sql_status != SQLITE_OK && sql_status != SQLITE_DONE) {
             throw std::runtime_error(SB() << "Can't initialize certs db file: " << sqlite3_errmsg(certs_db.get()));
         }
-        std::cout << "Certificate DB created  : " << db_file << std::endl;
+        log_info_printf(pvacms, "Certificate DB created: %s\n", db_file.c_str());
     }
+    log_debug_printf(pvacms, "Certs database exists: %s\n", "certs");
 }
 
 /**
@@ -1428,6 +1434,7 @@ void getOrCreateCertAuthCertificate(const ConfigCms &config,
                                     bool &is_initialising) {
     CertData cert_data;
     try {
+        log_debug_printf(pvacms, "Attempting to read certificate authority from: %s with %s\n", config.cert_auth_keychain_file.c_str(), (config.cert_auth_keychain_pwd.empty()?"no password":"pwd: *****"));
         cert_data =
             IdFileFactory::create(config.cert_auth_keychain_file, config.cert_auth_keychain_pwd)->getCertDataFromFile();
     } catch (...) {}
@@ -1435,11 +1442,13 @@ void getOrCreateCertAuthCertificate(const ConfigCms &config,
 
     if (!key_pair) {
         is_initialising = true;  // Let the caller know that we've created a new Cert and Key
+        log_debug_printf(pvacms, "Creating Key Pair for certificate authority%s\n","");
         key_pair = IdFileFactory::createKeyPair();
         cert_data = createCertAuthCertificate(config, certs_db, key_pair);
-    }
+    } else
+        log_debug_printf(pvacms, "Certificate authority exists: %s\n", config.cert_auth_keychain_file.c_str());
 
-    std::ifstream acf_file(config.pvacms_acf_filename);
+
     createDefaultAdminACF(config, cert_data);
 
     if (is_initialising) {
@@ -1577,10 +1586,14 @@ std::string toACFYamlAuth(const std::string &id, const CertData &cert_data) {
  * @param cert_data the certificate data to use to get the common names
  */
 void createDefaultAdminACF(const ConfigCms &config, const CertData &cert_data) {
+    log_debug_printf(pvacms, "Attempting to read ACF file from: %s\n", config.pvacms_acf_filename.c_str());
     std::ifstream file(config.pvacms_acf_filename);
-    if (file.good())
+    if (file.good()) {
+        log_debug_printf(pvacms, "ACF file exists: %s\n", config.pvacms_acf_filename.c_str());
         return;
+    }
 
+    log_debug_printf(pvacms, "Creating default ACF file into: %s\n", config.pvacms_acf_filename.c_str());
     std::string extension = config.pvacms_acf_filename.substr(config.pvacms_acf_filename.find_last_of(".") + 1);
     std::transform(extension.begin(), extension.end(), extension.begin(), tolower);
 
@@ -1793,10 +1806,14 @@ void createAdminClientCert(const ConfigCms &config,
                            const ossl_ptr<X509> &cert_auth_cert,
                            const ossl_shared_ptr<STACK_OF(X509)> &cert_auth_cert_chain,
                            const std::string &admin_name) {
+    log_debug_printf(pvacms, "Attempting to read default Admin Keychain File from: %s\n", config.admin_keychain_file.c_str());
     std::ifstream file(config.admin_keychain_file);
-    if (file.good())
+    if (file.good()) {
+        log_debug_printf(pvacms, "Default Admin Keychain File exists: %s\n", config.admin_keychain_file.c_str());
         return;
+    }
 
+    log_debug_printf(pvacms, "Creating default Admin Keychain File into: %s\n", config.admin_keychain_file.c_str());
     auto key_pair = IdFileFactory::createKeyPair();
     auto serial = generateSerial();
 
@@ -1872,6 +1889,7 @@ void ensureServerCertificateExists(const ConfigCms &config,
                                    const ossl_shared_ptr<STACK_OF(X509)> &cert_auth_cert_chain) {
     CertData cert_data;
     try {
+        log_debug_printf(pvacms, "Attempting to read PVACMS server certificate from: %s with %s\n", config.tls_keychain_file.c_str(), (config.tls_keychain_pwd.empty()?"no password":"pwd: *****"));
         cert_data = IdFileFactory::create(config.tls_keychain_file, config.tls_keychain_pwd)->getCertDataFromFile();
     } catch (...) {}
 
@@ -1882,7 +1900,8 @@ void ensureServerCertificateExists(const ConfigCms &config,
                                 cert_auth_pkey,
                                 cert_auth_cert_chain,
                                 IdFileFactory::createKeyPair());
-    }
+    } else
+        log_debug_printf(pvacms, "PVACMS server certificate exists: %s\n", config.tls_keychain_file.c_str());
 }
 
 /**
@@ -1900,6 +1919,8 @@ void ensureServerCertificateExists(const ConfigCms &config,
 CertData createCertAuthCertificate(const ConfigCms &config,
                                    sql_ptr &certs_db,
                                    const std::shared_ptr<KeyPair> &key_pair) {
+    log_debug_printf(pvacms, "Creating certificate authority into: %s with %s\n", config.cert_auth_keychain_file.c_str(), (config.cert_auth_keychain_pwd.empty()?"no password":"pwd: *****"));
+
     // Set validity to 4 yrs
     const time_t not_before(time(nullptr));
     const time_t not_after(not_before + (4 * 365 + 1) * 24 * 60 * 60);  // 4yrs
@@ -1955,6 +1976,8 @@ void createServerCertificate(const ConfigCms &config,
                              const ossl_ptr<EVP_PKEY> &cert_auth_pkey,
                              const ossl_shared_ptr<STACK_OF(X509)> &cert_auth_chain,
                              const std::shared_ptr<KeyPair> &key_pair) {
+    log_debug_printf(pvacms, "Creating PVACMS server certificate into: %s with %s\n", config.tls_keychain_file.c_str(), (config.tls_keychain_pwd.empty()?"no password":"pwd: *****"));
+
     // Generate a new serial number
     const auto serial = generateSerial();
 
@@ -2800,7 +2823,7 @@ int readParameters(int argc,
             << "  (-c | --cert-auth-keychain) <cert_auth_keychain>\n"
             << "                                             Specify Certificate Authority keychain file location. "
                "Default "
-               "${XDG_CONFIG_HOME}/pva/1.3/cert_auth.p12\n"
+               "${DA}/pva/1.3/cert_auth.p12\n"
             << "        --cert-auth-keychain-pwd <file>      Specify location of file containing Certificate Authority "
                "keychain file's password\n"
             << "        --cert-auth-name <name>              Specify name (CN) to be used for certificate authority "
@@ -3002,9 +3025,7 @@ int main(int argc, char *argv[]) {
             try {
                 createAdminClientCert(config, certs_db, cert_auth_pkey, cert_auth_cert, cert_auth_chain, admin_name);
                 addUserToAdminACF(config, admin_name);
-                std::cout << "Admin user \"" << admin_name
-                          << "\" has been added to list of administrators of this PVACMS" << std::endl;
-                std::cout << "Restart the PVACMS for it to take effect" << std::endl;
+                log_warn_printf(pvacms, "Admin user \"%s\" has been added to list of administrators of this PVACMS.  Restart the PVACMS for it to take effect\n", admin_name.c_str());
             } catch (const std::runtime_error &e) {
                 if (!is_initialising)
                     throw std::runtime_error(std::string("Error creating admin user certificate: ") + e.what());
@@ -3017,6 +3038,7 @@ int main(int argc, char *argv[]) {
 
         // Set security if configured
         if (!config.pvacms_acf_filename.empty()) {
+            log_debug_printf(pvacms, "Setting server access security from ACF: %s\n", config.pvacms_acf_filename.c_str());
             if(auto err = asInitFile(config.pvacms_acf_filename.c_str(), ""))
                 throw std::runtime_error(SB()<<"Failed to load "<<config.pvacms_acf_filename<<" : "<<err);
         } else {
