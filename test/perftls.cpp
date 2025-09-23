@@ -131,13 +131,13 @@ int main(int argc, char* argv[])
     pvxs::logger_level_set(perf.name, pvxs::Level::Info);
     pvxs::logger_config_env();
 
-    // Install minimal SIGINT handler to request stop instead of default termination
-    struct sigaction sa;
+    // Install SIGINT handler to request stop
+    struct sigaction sa{};
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = pvxs::on_signal;
     sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0; // no SA_RESTART; allow sleep to be interrupted
-    sigaction(SIGINT, &sa, NULL);
+    sa.sa_flags = 0;
+    sigaction(SIGINT, &sa, nullptr);
 
     std::cout << "Starting Performance Tests" << std::endl;
 
