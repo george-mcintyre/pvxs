@@ -79,19 +79,25 @@ bool startChild(const std::string& child_process, Child& child)
             if (key.empty()) {
                 key = env_part;
             } else {
-                if (setenv(key.c_str(), env_part.c_str(), 1) != 0) {
-                    log_err_printf(perf, "Failed to set environment variable: %s = \"%s\"\n", key.c_str(), env_part.c_str());
+                if ( env_part.empty()) {
+                    if (unsetenv(key.c_str()) != 0) {
+                        log_err_printf(perf, "Failed to unset environment variable: %s \n", key.c_str());
+                    }
+                } else {
+                    if (setenv(key.c_str(), env_part.c_str(), 1) != 0) {
+                        log_err_printf(perf, "Failed to set environment variable: %s = \"%s\"\n", key.c_str(), env_part.c_str());
+                    }
                 }
                 key = {};
             }
         }
 
         const char* argv0 = child_process.c_str();
-        log_info_printf(perf, "Starting child process: %s %s %s\n", child_process.c_str(), "pvacms", "-v");
-        execlp(argv0, "pvacms", "-v",  nullptr);
+        log_info_printf(perf, "Starting child process: %s %s\n", child_process.c_str(), "pvacms");
+        execlp(argv0, "pvacms",  nullptr);
 
         // If exec fails
-        log_err_printf(perf, "Failed to start child process: %s %s %s\n", child_process.c_str(), "pvacms", "-v");
+        log_err_printf(perf, "Failed to start child process: %s %s\n", child_process.c_str(), "pvacms");
         _exit(127);
     }
 
@@ -174,6 +180,7 @@ int main(int argc, char* argv[])
 
     // Create a child process to run PVACMS
     pvxs::Child pvacms_subprocess{
+        "SSLKEYLOGFILE",                  {},
         "XDG_DATA_HOME",                    test_dir+"perf/data",
         "XDG_CONFIG_HOME",                  test_dir+"perf/config",
         "EPICS_PVAS_BROADCAST_PORT",        "55076",
@@ -181,7 +188,6 @@ int main(int argc, char* argv[])
         "EPICS_PVAS_TLS_PORT",              "55076",
         "EPICS_CERT_AUTH_TLS_KEYCHAIN",     "cert_auth.p12",
         "EPICS_PVAS_TLS_KEYCHAIN",          "superserver1.p12",
-        "EPICS_PVACMS_DB",                  test_dir+"perf/data/pva/1.3/certs.db",
         // "PVXS_LOG",                         "pvxs.*=DEBUG",
     };
     if (!pvxs::startChild(pvacms_executable_path, pvacms_subprocess)) {
