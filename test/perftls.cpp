@@ -31,6 +31,7 @@ void on_signal(int sig)
     (void)sig;
     g_stop_requested = 1;
 }
+
 /**
  * Extract target architecture from the given test executable path name
  *
