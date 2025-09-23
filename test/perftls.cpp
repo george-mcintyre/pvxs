@@ -17,6 +17,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#include <epicsVersion.h>
+
 #include <pvxs/log.h>
 
 #include "osiFileName.h"
@@ -135,6 +137,7 @@ bool startChild(const std::string& child_process, Child& child)
 
 int main(int argc, char* argv[])
 {
+#if defined(EPICS_VERSION_INT) && EPICS_VERSION_INT >= VERSION_INT(7, 0, 3, 1)
     (void)argc; (void)argv;
     pvxs::logger_level_set(perf.name, pvxs::Level::Info);
     pvxs::logger_config_env();
@@ -207,6 +210,6 @@ int main(int argc, char* argv[])
     pvxs::stopChild(pvacms_subprocess);
 
     std::cout << "Performance Tests Complete" << std::endl;
-
+#endif
     return 0;
 }
