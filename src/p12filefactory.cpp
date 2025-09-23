@@ -6,6 +6,7 @@
 
 #include <climits>
 #include <cstdio>
+#include <iostream>
 #include <memory>
 
 #include <libgen.h>
@@ -277,7 +278,7 @@ void P12FileFactory::writePKCS12File() {
 
     chmod(filename_.c_str(),
           S_IRUSR | S_IWUSR);  // Protect P12 file
-    log_info_printf(filelogger, "Keychain file created   : %s\n", filename_.c_str());
+    std::cout << "Keychain file created   : " << filename_ << std::endl;
 }
 
 #ifdef NID_oracle_jdk_trustedkeyusage

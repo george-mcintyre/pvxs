@@ -460,6 +460,7 @@ CertData getCertificate(bool &retrieved_credentials,
                 log_info_printf(auth, "RENEWAL BY: %s\n", renew_by_date.substr(0, renew_by_date.size()-1).c_str());
             }
             log_info_printf(auth, "EXPIRES ON: %s\n", expiration_s.substr(0, expiration_s.size()-1).c_str());
+            std::cout << "Certificate identifier  : " << issuer_id << ":" << serial_number << std::endl;
             log_info_printf(auth, "--------------------------------------%s", "\n");
         }
     }
