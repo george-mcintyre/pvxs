@@ -168,6 +168,12 @@ testtlsstatus_SRCS += certstatus.cpp
 testtlsstatus_SRCS += configcerts.cpp
 TESTS += testtlsstatus
 
+ifneq (WIN32,$(OS_CLASS))
+# Performance test harness (not a unittest)
+TESTPROD_HOST += perftls
+perftls_SRCS += perftls.cpp
+endif # Not windows
+
 endif # EVENT2_HAS_OPENSSL
 endif
 
