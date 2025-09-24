@@ -257,18 +257,79 @@ struct Scenario {
     Value small_array_value;
     Value large_array_value;
 
-    void run(const ScenarioType scenario_type, const PayloadType payload_type) {
-        const auto payload_label = (payload_type == LargeArray ? "Large Array" : payload_type == SmallArray ? "Small Array" : "Scalar");
-        run(scenario_type, payload_type, 1, payload_label, "  1 Hz");
-        run(scenario_type, payload_type, 10, payload_label, " 10 Hz");
-        run(scenario_type, payload_type, 100, payload_label, "100 Hz");
-        run(scenario_type, payload_type, 1000, payload_label, "  1KHz");
-        run(scenario_type, payload_type, 10000, payload_label, " 10KHz");
-        run(scenario_type, payload_type, 100000, payload_label, "100KHz");
-        run(scenario_type, payload_type, 1000000, payload_label, "  1MHz");
+    Scenario(ScenarioType scenario_type) {
+        // Build Server
+        auto serv_conf = pvxs::server::Config::fromEnv();
+        serv_conf.tls_keychain_file = "server1.p12";
+        serv_conf.udp_port = 55076;
+        serv_conf.tls_disabled = scenario_type == TCP;
+        serv_conf.tls_disable_status_check = scenario_type < TLS_CMS;
+        serv_conf.tls_disable_stapling = scenario_type < TLS_CMS_STAPLED;
+        serv = serv_conf.build();
+
+        // Build Client
+        auto cli_conf(serv.clientConfig());
+        cli_conf.tls_keychain_file = "client1.p12";
+        cli_conf.tls_disable_status_check = scenario_type < TLS_CMS;
+        cli = cli_conf.build();
+
+        // Build PVs
+        scalar_pv = server::SharedPV::buildReadonly();
+        serv.addPV("PERF:SCALAR", scalar_pv);
+        small_array_pv = server::SharedPV::buildReadonly();
+        serv.addPV("PERF:SMALL_ARRAY", small_array_pv);
+        large_array_pv = server::SharedPV::buildReadonly();
+        serv.addPV("PERF:LARGE_ARRAY", large_array_pv);
+
+        // Build data
+        // 4 byte data payload (plus NT scaffolding)
+        scalar_value = pvxs::nt::NTScalar{pvxs::TypeCode::Int32}.create();
+
+        auto def(pvxs::nt::NTNDArray{}.build());
+        def += { StructA("dimensions", { Int32("value"), }), };
+
+        // 1k payloads (plus NT scaffolding)
+        small_array_value = def.create();
+        shared_array<const uint8_t> small_array_data({0,1,2,3,4,5,6,7,8,9});
+        shared_array<pvxs::Value> small_dimensions;
+        small_dimensions.resize(2);
+        small_dimensions[0] = small_array_value["dimension"].allocMember() .update("size", 10);
+        small_dimensions[1] = small_dimensions[0].cloneEmpty() .update("size", 10);
+
+        small_array_value["value->ubyteValue"] = small_array_data;
+        small_array_value["dimension"] = small_dimensions.freeze();
+
+        // 100k payloads (plus NT scaffolding)
+        large_array_value = def.create();
+        pvxs::shared_array<const uint8_t> large_array_data({0,1,2,3,4,5,6,7,8,9});
+        pvxs::shared_array<pvxs::Value> large_dimensions;
+        large_dimensions.resize(3);
+        large_dimensions[0] = large_array_value["dimension"].allocMember() .update("size", 100);
+        large_dimensions[1] = large_dimensions[0].cloneEmpty() .update("size", 10);
+        large_dimensions[2] = large_dimensions[1].cloneEmpty() .update("size", 10);
+
+        large_array_value["value->ubyteValue"] = large_array_data;
+        large_array_value["dimension"] = large_dimensions.freeze();
+
+        serv.start();
     }
 
-    void run(const ScenarioType scenario_type, const PayloadType payload_type, const long updates_per_second, const std::string &payload_label, const std::string &speed_label) {
+    ~Scenario() {
+        serv.stop();
+    }
+
+    void run(const Scenario &scenario, const ScenarioType scenario_type, const PayloadType payload_type) {
+        const auto payload_label = (payload_type == LargeArray ? "Large Array" : payload_type == SmallArray ? "Small Array" : "Scalar");
+        run(scenario, scenario_type, payload_type, 1, payload_label, "  1 Hz");
+        run(scenario, scenario_type, payload_type, 10, payload_label, " 10 Hz");
+        run(scenario, scenario_type, payload_type, 100, payload_label, "100 Hz");
+        run(scenario, scenario_type, payload_type, 1000, payload_label, "  1KHz");
+        run(scenario, scenario_type, payload_type, 10000, payload_label, " 10KHz");
+        run(scenario, scenario_type, payload_type, 100000, payload_label, "100KHz");
+        run(scenario, scenario_type, payload_type, 1000000, payload_label, "  1MHz");
+    }
+
+    void run(const Scenario &scenario, const ScenarioType scenario_type, const PayloadType payload_type, const long updates_per_second, const std::string &payload_label, const std::string &speed_label) {
         Result result{};
 
         // Collect Data
@@ -392,65 +453,6 @@ bool startChild(const std::string& child_process, Child& child)
     }
 }
 
-Scenario createScenario(ScenarioType scenario_type) {
-    Scenario scenario;
-
-    // Build Server
-    auto serv_conf = pvxs::server::Config::fromEnv();
-    serv_conf.tls_keychain_file = "server1.p12";
-    serv_conf.udp_port = 55076;
-    serv_conf.tls_disabled = scenario_type == TCP;
-    serv_conf.tls_disable_status_check = scenario_type < TLS_CMS;
-    serv_conf.tls_disable_stapling = scenario_type < TLS_CMS_STAPLED;
-    scenario.serv = serv_conf.build();
-
-    // Build Client
-    auto cli_conf(scenario.serv.clientConfig());
-    cli_conf.tls_keychain_file = "client1.p12";
-    cli_conf.tls_disable_status_check = scenario_type < TLS_CMS;
-    scenario.cli = cli_conf.build();
-
-    // Build PVs
-    scenario.scalar_pv = server::SharedPV::buildReadonly();
-    scenario.serv.addPV("PERF:SCALAR", scenario.scalar_pv);
-    scenario.small_array_pv = server::SharedPV::buildReadonly();
-    scenario.serv.addPV("PERF:SMALL_ARRAY", scenario.small_array_pv);
-    scenario.large_array_pv = server::SharedPV::buildReadonly();
-    scenario.serv.addPV("PERF:LARGE_ARRAY", scenario.large_array_pv);
-
-    // Build data
-    // 4 byte data payload (plus NT scaffolding)
-    scenario.scalar_value = pvxs::nt::NTScalar{pvxs::TypeCode::Int32}.create();
-
-    auto def(pvxs::nt::NTNDArray{}.build());
-    def += { StructA("dimensions", { Int32("value"), }), };
-
-    // 1k payloads (plus NT scaffolding)
-    scenario.small_array_value = def.create();
-    shared_array<const uint8_t> small_array_data({0,1,2,3,4,5,6,7,8,9});
-    shared_array<pvxs::Value> small_dimensions;
-    small_dimensions.resize(2);
-    small_dimensions[0] = scenario.small_array_value["dimension"].allocMember() .update("size", 10);
-    small_dimensions[1] = small_dimensions[0].cloneEmpty() .update("size", 10);
-
-    scenario.small_array_value["value->ubyteValue"] = small_array_data;
-    scenario.small_array_value["dimension"] = small_dimensions.freeze();
-
-    // 100k payloads (plus NT scaffolding)
-    scenario.large_array_value = def.create();
-    pvxs::shared_array<const uint8_t> large_array_data({0,1,2,3,4,5,6,7,8,9});
-    pvxs::shared_array<pvxs::Value> large_dimensions;
-    large_dimensions.resize(3);
-    large_dimensions[0] = scenario.large_array_value["dimension"].allocMember() .update("size", 100);
-    large_dimensions[1] = large_dimensions[0].cloneEmpty() .update("size", 10);
-    large_dimensions[2] = large_dimensions[1].cloneEmpty() .update("size", 10);
-
-    scenario.large_array_value["value->ubyteValue"] = large_array_data;
-    scenario.large_array_value["dimension"] = large_dimensions.freeze();
-
-    return scenario;
-}
-
 } // anonymous namespace
 } // namespace pvxs
 
@@ -534,7 +536,7 @@ int main(int argc, char* argv[])
             scenario_type == pvxs::TLS ? "TLS no status": "TCP") << std::endl;
 
         std::cout << "Configuring Performance Tests" << std::endl;
-        auto scenario = pvxs::createScenario(pvxs::TCP);
+        auto scenario = pvxs::Scenario(scenario_type);
 
         std::cout << "Running Performance Tests" << std::endl;
         std::cout << "+=======================================+=======================================" << std::endl;
@@ -554,7 +556,7 @@ int main(int argc, char* argv[])
         for (auto payload_type = pvxs::Scalar;
             payload_type <= pvxs::LargeArray && !pvxs::g_stop_requested;
             payload_type = static_cast<pvxs::PayloadType>(static_cast<int>(payload_type) + 1)) {
-            scenario.run(scenario_type, payload_type);
+            scenario.run(scenario, scenario_type, payload_type);
         }
         std::cout << "+=======================================+=======================================" << std::endl;
         std::cout << "Test Complete" << std::endl;
