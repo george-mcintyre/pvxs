@@ -18,15 +18,37 @@
 #include <sys/wait.h>
 
 #include <epicsVersion.h>
+#include <osiFileName.h>
 
+#include <pvxs/client.h>
 #include <pvxs/log.h>
-
-#include "osiFileName.h"
+#include <pvxs/nt.h>
+#include <pvxs/server.h>
+#include <pvxs/sharedpv.h>
 
 DEFINE_LOGGER(perf, "pvxs.perf");
 
 namespace pvxs {
 namespace {
+using namespace pvxs::members;
+
+enum ScenarioType {
+    TCP,
+    TLS,
+    TLS_CMS,
+    TLS_CMS_STAPLED
+};
+
+struct Scenario {
+    server::Server serv;
+    client::Context cli;
+    server::SharedPV scalar_pv;
+    server::SharedPV small_array_pv;
+    server::SharedPV large_array_pv;
+    Value scalar_value;
+    Value small_array_value;
+    Value large_array_value;
+};
 
 volatile sig_atomic_t g_stop_requested = 0;
 
@@ -132,6 +154,62 @@ bool startChild(const std::string& child_process, Child& child)
     }
 }
 
+Scenario createScenario(ScenarioType scenario_type) {
+    Scenario scenario;
+
+    // Build Server
+    auto serv_conf = pvxs::server::Config::fromEnv();
+    serv_conf.tls_keychain_file = "server1.p12";
+    serv_conf.udp_port = 55076;
+    serv_conf.tls_disabled = scenario_type == TCP;
+    serv_conf.tls_disable_status_check = scenario_type < TLS_CMS;
+    serv_conf.tls_disable_stapling = scenario_type < TLS_CMS_STAPLED;
+    scenario.serv = serv_conf.build();
+
+    // Build Client
+    auto cli_conf(scenario.serv.clientConfig());
+    cli_conf.tls_keychain_file = "client1.p12";
+    cli_conf.tls_disable_status_check = scenario_type < TLS_CMS;
+    scenario.cli = cli_conf.build();
+
+    // Build PVs
+    scenario.scalar_pv = server::SharedPV::buildReadonly();
+    scenario.serv.addPV("PERF:SCALAR", scenario.scalar_pv);
+    scenario.small_array_pv = server::SharedPV::buildReadonly();
+    scenario.serv.addPV("PERF:SMALL_ARRAY", scenario.small_array_pv);
+    scenario.large_array_pv = server::SharedPV::buildReadonly();
+    scenario.serv.addPV("PERF:LARGE_ARRAY", scenario.large_array_pv);
+
+    // Build data
+    scenario.scalar_value = pvxs::nt::NTScalar{pvxs::TypeCode::Int32}.create();
+
+    auto def(pvxs::nt::NTNDArray{}.build());
+    def += { StructA("dimensions", { Int32("value"), }), };
+
+    scenario.small_array_value = def.create();
+    shared_array<const uint8_t> small_array_data({0,1,2,3,4,5,6,7,8,9});
+    shared_array<pvxs::Value> small_dimensions;
+    small_dimensions.resize(2);
+    small_dimensions[0] = scenario.small_array_value["dimension"].allocMember() .update("size", 1000);
+    small_dimensions[1] = small_dimensions[0].cloneEmpty() .update("size", 100);
+
+    scenario.small_array_value["value->ubyteValue"] = small_array_data;
+    scenario.small_array_value["dimension"] = small_dimensions.freeze();
+
+    scenario.large_array_value = def.create();
+    pvxs::shared_array<const uint8_t> large_array_data({0,1,2,3,4,5,6,7,8,9});
+    pvxs::shared_array<pvxs::Value> large_dimensions;
+    large_dimensions.resize(3);
+    large_dimensions[0] = scenario.large_array_value["dimension"].allocMember() .update("size", 1000);
+    large_dimensions[1] = large_dimensions[0].cloneEmpty() .update("size", 1000);
+    large_dimensions[2] = large_dimensions[1].cloneEmpty() .update("size", 100);
+
+    scenario.large_array_value["value->ubyteValue"] = large_array_data;
+    scenario.large_array_value["dimension"] = large_dimensions.freeze();
+
+    return scenario;
+}
+
 } // anonymous namespace
 } // namespace pvxs
 
@@ -188,19 +266,28 @@ int main(int argc, char* argv[])
         "SSLKEYLOGFILE",                  {},
         "XDG_DATA_HOME",                    test_dir+"perf/data",
         "XDG_CONFIG_HOME",                  test_dir+"perf/config",
-        "EPICS_PVAS_BROADCAST_PORT",        "55076",
-        "EPICS_PVAS_SERVER_PORT",           "55075",
-        "EPICS_PVAS_TLS_PORT",              "55076",
+        "EPICS_PVA_BROADCAST_PORT",         "55076",
+        "EPICS_PVA_SERVER_PORT",            "55075",
+        "EPICS_PVA_TLS_PORT",               "55076",
         "EPICS_CERT_AUTH_TLS_KEYCHAIN",     "cert_auth.p12",
         "EPICS_PVAS_TLS_KEYCHAIN",          "superserver1.p12",
-        // "PVXS_LOG",                         "pvxs.*=DEBUG",
     };
     if (!pvxs::startChild(pvacms_executable_path, pvacms_subprocess)) {
         std::cerr << "Failed to start pvacms: " << pvacms_executable_path << std::endl;
         return 1;
     }
 
+    std::cout << "Configuring Performance Tests" << std::endl;
+
+    auto senario = pvxs::createScenario(pvxs::TCP);
+
+
     std::cout << "Running Performance Tests" << std::endl;
+
+    // Time
+    // Size
+    // CPU
+    // Memory
 
     // Wait until SIGINT is received to request stop
     while (!pvxs::g_stop_requested) {
