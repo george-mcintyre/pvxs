@@ -11,6 +11,22 @@
 #include <vector>
 #include <string>
 
+#ifdef __linux__
+#include <chrono>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <unistd.h>
+#include <time.h>
+#elif defined(__APPLE__) || defined(__FreeBSD__)
+#include <mach/mach.h>
+#include <sys/resource.h>
+#include <sys/time.h>
+#include <time.h>
+#include <iostream>
+#endif
+
 #include <libgen.h>
 #include <unistd.h>
 
@@ -33,6 +49,68 @@ namespace {
 using namespace pvxs::members;
 
 volatile sig_atomic_t g_stop_requested = 0;
+
+#ifdef __linux__
+// Return resident set size in bytes
+std::uint64_t getRssBytes() {
+    // Fast path: /proc/self/statm (field 2 = resident pages)
+    FILE* f = std::fopen("/proc/self/statm", "r");
+    if (!f) return 0;
+    long pages_res = 0;
+    long pages_total = 0;
+    if (std::fscanf(f, "%ld %ld", &pages_total, &pages_res) != 2) {
+        std::fclose(f);
+        return 0;
+    }
+    std::fclose(f);
+    const long page_size = sysconf(_SC_PAGESIZE); // bytes per page
+    return static_cast<std::uint64_t>(pages_res) * static_cast<std::uint64_t>(page_size);
+}
+
+// Return process CPU time (user+sys) in seconds
+double procCPUSeconds() {
+    timespec ts{};
+    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts) != 0) return 0.0;
+    return ts.tv_sec + ts.tv_nsec/1e9;
+}
+
+#elif defined(__APPLE__) || defined(__FreeBSD__)
+
+// Return resident set size in bytes
+std::uint64_t getRssBytes() {
+    mach_task_basic_info info{};
+    mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
+    if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &count) != KERN_SUCCESS) {
+        return 0;
+    }
+    return info.resident_size;
+}
+
+// Return process CPU time (user+sys) in seconds
+double procCPUSeconds() {
+    rusage ru{};
+    getrusage(RUSAGE_SELF, &ru);
+    double user = ru.ru_utime.tv_sec + ru.ru_utime.tv_usec/1e6;
+    double sys  = ru.ru_stime.tv_sec + ru.ru_stime.tv_usec/1e6;
+    return user + sys;
+}
+#endif
+
+// Return wall clock (monotonic) in seconds
+double wallSeconds() {
+    timespec ts{};
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return static_cast<double>(ts.tv_sec) + static_cast<double>(ts.tv_nsec)/1e9;
+}
+
+// Sample CPU usage since prior reading (percentage of one core)
+double cpuPercentSince(const double w0, const double c0) {
+    const double w1 = wallSeconds();
+    const double c1 = procCPUSeconds();
+    const double dw = w1 - w0;
+    const double dc = c1 - c0;
+    return dw > 0.0 ? dc/dw*100.0 : 0.0;
+}
 
 void on_signal(int sig)
 {
@@ -64,85 +142,40 @@ struct Scenario {
     Value large_array_value;
 
     void run(const PayloadType payload_type) {
-        sleep(60);
-       if (g_stop_requested) return;
-        const auto payload_label = ( payload_type == LargeArray ? "Large Array " : payload_type == SmallArray ? "Small Array ": "Scalar      ");
+        const auto payload_label = (payload_type == LargeArray
+                                        ? "Large Array"
+                                        : payload_type == SmallArray
+                                              ? "Small Array"
+                                              : "Scalar");
+        run(payload_label, "  1 Hz,");
+        run(payload_label, " 10 Hz,");
+        run(payload_label, "100 Hz,");
+        run(payload_label, "  1KHz,");
+        run(payload_label, " 10KHz,");
+        run(payload_label, "100KHz,");
+        run(payload_label, "  1MHz,");
+    }
 
-        std::cout << " 1Hz: " << payload_label;
-        std::cout << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "20.00001, 1.00000,  10.00000" << std::endl;
+    void run(const std::string payload_label, std::string speed_label) {
+        // Collect Data
+        const double w0 = wallSeconds();
+        const double c0 = procCPUSeconds();
+        sleep(5);
+        if (g_stop_requested) return;
 
-        sleep(60);
-       if (g_stop_requested) return;
-        std::cout << "10Hz: " << payload_label;
-        std::cout << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "20.00001, 1.00000,  10.00000" << std::endl;
+        const double rss_mb = static_cast<double>(getRssBytes()) / (1024 * 1024);
+        const auto cpu_percent = cpuPercentSince(w0, c0);
 
-        sleep(60);
-       if (g_stop_requested) return;
-        std::cout << "Scenario: 100Hz"  << payload_label;
-        std::cout << " 1         2         3         4         5         6         7         8         9        10        "
-                  << "11        12        13        14        15        16        17        18        19        20        "
-                  << "21        22        23        24        25        26        27        28        29        30        "
-                  << "31        32        33        34        35        36        37        38        39        40        "
-                  << "41        42        43        44        45        46        47        48        49        50        "
-                  << "51        52        53        54        55        56        57        58        59        60        "
-                  << "cpu       mem      wire size"
-                  << std::endl;
-
-        sleep(60);
-       if (g_stop_requested) return;
-        std::cout << "Scenario: 1KHz" << payload_label;
-        std::cout << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "20.00001, 1.00000,  10.00000" << std::endl;
-
-        sleep(60);
-       if (g_stop_requested) return;
-        std::cout << "Scenario: 10kKz" << payload_label;
-        std::cout << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "20.00001, 1.00000,  10.00000" << std::endl;
-
-        sleep(60);
-       if (g_stop_requested) return;
-        std::cout << "Scenario: 100KHz" << payload_label;
-        std::cout << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "20.00001, 1.00000,  10.00000" << std::endl;
-
-        sleep(60);
-       if (g_stop_requested) return;
-        std::cout << "Scenario: 1MHz" << payload_label;
-        std::cout << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
-                  << "20.00001, 1.00000,  10.00000" << std::endl;
+        // Display Data
+        std::cout << payload_label << ", "  << speed_label << ", ";
+        std::cout <<
+            "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, " <<
+            "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, " <<
+            "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, " <<
+            "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, " <<
+            "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, " <<
+            "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, " <<
+            cpu_percent << ", " << rss_mb << ",  10.00000" << std::endl;
     }
 };
 
@@ -398,7 +431,7 @@ int main(int argc, char* argv[])
                   << "31        32        33        34        35        36        37        38        39        40        "
                   << "41        42        43        44        45        46        47        48        49        50        "
                   << "51        52        53        54        55        56        57        58        59        60        "
-                  << "cpu       mem      wire size"
+                  << "cpu(%)    mem(MB)   wire size"
                   << std::endl;
         for (auto payload_type = pvxs::Scalar;
             payload_type <= pvxs::LargeArray && !pvxs::g_stop_requested;
