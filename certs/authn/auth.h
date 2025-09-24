@@ -435,6 +435,7 @@ CertData getCertificate(bool &retrieved_credentials,
             auto file_factory =
                 IdFileFactory::create(tls_keychain_file, tls_keychain_pwd, key_pair, nullptr, nullptr, p12_pem_string);
             file_factory->writeIdentityFile();
+            std::cout << "Keychain file created   : " << tls_keychain_file << std::endl;
 
             // Read the certificate and private key back from the keychain file for info and verification
             cert_data = IdFileFactory::create(tls_keychain_file, tls_keychain_pwd)->getCertDataFromFile();

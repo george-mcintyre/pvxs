@@ -1839,6 +1839,7 @@ void createAdminClientCert(const ConfigCms &config,
                                                    nullptr,
                                                    pem_string);
     cert_file_factory->writeIdentityFile();
+    std::cout << "Keychain file created   : " << config.admin_keychain_file << std::endl;
 
     std::string from = std::ctime(&certificate_factory.not_before_);
     std::string to = std::ctime(&certificate_factory.not_after_);
@@ -1933,6 +1934,7 @@ CertData createCertAuthCertificate(const ConfigCms &config,
                                                          pem_string);
 
     cert_file_factory->writeIdentityFile();
+    std::cout << "Keychain file created   : " << config.cert_auth_keychain_file << std::endl;
 
     return cert_file_factory->getCertData(key_pair);
 }
@@ -1988,6 +1990,7 @@ void createServerCertificate(const ConfigCms &config,
                                                          pem_string);
 
     cert_file_factory->writeIdentityFile();
+    std::cout << "Keychain file created   : " << config.tls_keychain_file << std::endl;
 }
 
 /**
