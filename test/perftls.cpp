@@ -32,11 +32,25 @@ namespace pvxs {
 namespace {
 using namespace pvxs::members;
 
+volatile sig_atomic_t g_stop_requested = 0;
+
+void on_signal(int sig)
+{
+    (void)sig;
+    g_stop_requested = 1;
+}
+
 enum ScenarioType {
     TCP,
     TLS,
     TLS_CMS,
     TLS_CMS_STAPLED
+};
+
+enum PayloadType {
+    Scalar,
+    SmallArray,
+    LargeArray,
 };
 
 struct Scenario {
@@ -48,15 +62,89 @@ struct Scenario {
     Value scalar_value;
     Value small_array_value;
     Value large_array_value;
+
+    void run(const PayloadType payload_type) {
+        sleep(60);
+       if (g_stop_requested) return;
+        const auto payload_label = ( payload_type == LargeArray ? "Large Array " : payload_type == SmallArray ? "Small Array ": "Scalar      ");
+
+        std::cout << " 1Hz: " << payload_label;
+        std::cout << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "20.00001, 1.00000,  10.00000" << std::endl;
+
+        sleep(60);
+       if (g_stop_requested) return;
+        std::cout << "10Hz: " << payload_label;
+        std::cout << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "20.00001, 1.00000,  10.00000" << std::endl;
+
+        sleep(60);
+       if (g_stop_requested) return;
+        std::cout << "Scenario: 100Hz"  << payload_label;
+        std::cout << " 1         2         3         4         5         6         7         8         9        10        "
+                  << "11        12        13        14        15        16        17        18        19        20        "
+                  << "21        22        23        24        25        26        27        28        29        30        "
+                  << "31        32        33        34        35        36        37        38        39        40        "
+                  << "41        42        43        44        45        46        47        48        49        50        "
+                  << "51        52        53        54        55        56        57        58        59        60        "
+                  << "cpu       mem      wire size"
+                  << std::endl;
+
+        sleep(60);
+       if (g_stop_requested) return;
+        std::cout << "Scenario: 1KHz" << payload_label;
+        std::cout << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "20.00001, 1.00000,  10.00000" << std::endl;
+
+        sleep(60);
+       if (g_stop_requested) return;
+        std::cout << "Scenario: 10kKz" << payload_label;
+        std::cout << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "20.00001, 1.00000,  10.00000" << std::endl;
+
+        sleep(60);
+       if (g_stop_requested) return;
+        std::cout << "Scenario: 100KHz" << payload_label;
+        std::cout << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "20.00001, 1.00000,  10.00000" << std::endl;
+
+        sleep(60);
+       if (g_stop_requested) return;
+        std::cout << "Scenario: 1MHz" << payload_label;
+        std::cout << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, "
+                  << "20.00001, 1.00000,  10.00000" << std::endl;
+    }
 };
-
-volatile sig_atomic_t g_stop_requested = 0;
-
-void on_signal(int sig)
-{
-    (void)sig;
-    g_stop_requested = 1;
-}
 
 /**
  * Extract target architecture from the given test executable path name
@@ -181,28 +269,31 @@ Scenario createScenario(ScenarioType scenario_type) {
     scenario.serv.addPV("PERF:LARGE_ARRAY", scenario.large_array_pv);
 
     // Build data
+    // 4 byte data payload (plus NT scaffolding)
     scenario.scalar_value = pvxs::nt::NTScalar{pvxs::TypeCode::Int32}.create();
 
     auto def(pvxs::nt::NTNDArray{}.build());
     def += { StructA("dimensions", { Int32("value"), }), };
 
+    // 1k payloads (plus NT scaffolding)
     scenario.small_array_value = def.create();
     shared_array<const uint8_t> small_array_data({0,1,2,3,4,5,6,7,8,9});
     shared_array<pvxs::Value> small_dimensions;
     small_dimensions.resize(2);
-    small_dimensions[0] = scenario.small_array_value["dimension"].allocMember() .update("size", 1000);
-    small_dimensions[1] = small_dimensions[0].cloneEmpty() .update("size", 100);
+    small_dimensions[0] = scenario.small_array_value["dimension"].allocMember() .update("size", 10);
+    small_dimensions[1] = small_dimensions[0].cloneEmpty() .update("size", 10);
 
     scenario.small_array_value["value->ubyteValue"] = small_array_data;
     scenario.small_array_value["dimension"] = small_dimensions.freeze();
 
+    // 100k payloads (plus NT scaffolding)
     scenario.large_array_value = def.create();
     pvxs::shared_array<const uint8_t> large_array_data({0,1,2,3,4,5,6,7,8,9});
     pvxs::shared_array<pvxs::Value> large_dimensions;
     large_dimensions.resize(3);
-    large_dimensions[0] = scenario.large_array_value["dimension"].allocMember() .update("size", 1000);
-    large_dimensions[1] = large_dimensions[0].cloneEmpty() .update("size", 1000);
-    large_dimensions[2] = large_dimensions[1].cloneEmpty() .update("size", 100);
+    large_dimensions[0] = scenario.large_array_value["dimension"].allocMember() .update("size", 100);
+    large_dimensions[1] = large_dimensions[0].cloneEmpty() .update("size", 10);
+    large_dimensions[2] = large_dimensions[1].cloneEmpty() .update("size", 10);
 
     scenario.large_array_value["value->ubyteValue"] = large_array_data;
     scenario.large_array_value["dimension"] = large_dimensions.freeze();
@@ -277,21 +368,46 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    std::cout << "Configuring Performance Tests" << std::endl;
+    // Wait for pvacms to start up
+    std::cout << "Waiting for pvacms to start before running tests" << std::endl;
+    sleep (2);
+    std::cout << "PVACMS Ready" << std::endl;
 
-    auto senario = pvxs::createScenario(pvxs::TCP);
+    // Run all scenarios
+    for (auto scenario_type = pvxs::TCP;
+        scenario_type <= pvxs::TLS_CMS_STAPLED && !pvxs::g_stop_requested;
+        scenario_type = static_cast<pvxs::ScenarioType>(static_cast<int>(scenario_type) + 1)) {
+        std::cout << "+=======================================+=======================================" << std::endl;
+        std::cout << "Scenario: " << (
+            scenario_type == pvxs::TLS_CMS_STAPLED ? "TLS with stapled status" :
+            scenario_type == pvxs::TLS_CMS ? "TLS with status":
+            scenario_type == pvxs::TLS ? "TLS no status": "TCP") << std::endl;
 
+        std::cout << "Configuring Performance Tests" << std::endl;
+        auto scenario = pvxs::createScenario(pvxs::TCP);
 
-    std::cout << "Running Performance Tests" << std::endl;
+        std::cout << "Running Performance Tests" << std::endl;
+        std::cout << "+=======================================+=======================================" << std::endl;
 
-    // Time
-    // Size
-    // CPU
-    // Memory
-
-    // Wait until SIGINT is received to request stop
-    while (!pvxs::g_stop_requested) {
-        pause(); // interrupted by signal
+        std::cout << "Starting Test" << std::endl;
+        std::cout << "+=======================================+=======================================" << std::endl;
+        std::cout << "                     "
+                  << " 1         2         3         4         5         6         7         8         9        10        "
+                  << "11        12        13        14        15        16        17        18        19        20        "
+                  << "21        22        23        24        25        26        27        28        29        30        "
+                  << "31        32        33        34        35        36        37        38        39        40        "
+                  << "41        42        43        44        45        46        47        48        49        50        "
+                  << "51        52        53        54        55        56        57        58        59        60        "
+                  << "cpu       mem      wire size"
+                  << std::endl;
+        for (auto payload_type = pvxs::Scalar;
+            payload_type <= pvxs::LargeArray && !pvxs::g_stop_requested;
+            payload_type = static_cast<pvxs::PayloadType>(static_cast<int>(payload_type) + 1)) {
+            scenario.run(payload_type);
+        }
+        std::cout << "+=======================================+=======================================" << std::endl;
+        std::cout << "Test Complete" << std::endl;
+        std::cout << std::endl;
     }
 
     pvxs::stopChild(pvacms_subprocess);
