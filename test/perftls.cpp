@@ -257,18 +257,18 @@ struct Scenario {
     Value small_array_value;
     Value large_array_value;
 
-    void run(const PayloadType payload_type) {
+    void run(const ScenarioType scenario_type, const PayloadType payload_type) {
         const auto payload_label = (payload_type == LargeArray ? "Large Array" : payload_type == SmallArray ? "Small Array" : "Scalar");
-        run(payload_label, "  1 Hz");
-        run(payload_label, " 10 Hz");
-        run(payload_label, "100 Hz");
-        run(payload_label, "  1KHz");
-        run(payload_label, " 10KHz");
-        run(payload_label, "100KHz");
-        run(payload_label, "  1MHz");
+        run(scenario_type, payload_type, 1, payload_label, "  1 Hz");
+        run(scenario_type, payload_type, 10, payload_label, " 10 Hz");
+        run(scenario_type, payload_type, 100, payload_label, "100 Hz");
+        run(scenario_type, payload_type, 1000, payload_label, "  1KHz");
+        run(scenario_type, payload_type, 10000, payload_label, " 10KHz");
+        run(scenario_type, payload_type, 100000, payload_label, "100KHz");
+        run(scenario_type, payload_type, 1000000, payload_label, "  1MHz");
     }
 
-    void run(const std::string payload_label, std::string speed_label) {
+    void run(const ScenarioType scenario_type, const PayloadType payload_type, const long updates_per_second, const std::string &payload_label, const std::string &speed_label) {
         Result result{};
 
         // Collect Data
@@ -554,7 +554,7 @@ int main(int argc, char* argv[])
         for (auto payload_type = pvxs::Scalar;
             payload_type <= pvxs::LargeArray && !pvxs::g_stop_requested;
             payload_type = static_cast<pvxs::PayloadType>(static_cast<int>(payload_type) + 1)) {
-            scenario.run(payload_type);
+            scenario.run(scenario_type, payload_type);
         }
         std::cout << "+=======================================+=======================================" << std::endl;
         std::cout << "Test Complete" << std::endl;
