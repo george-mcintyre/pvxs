@@ -55,7 +55,7 @@ jobs:
             cmp: gcc
             configuration: default
             base: "7.0-secure-pvaccess"
-            extra: "CMD_CPPFLAGS=-Werror PVXS_ENABLE_PVACMS=YES"
+            extra: "CMD_CPPFLAGS=-Werror PVXS_ENABLE_PVACMS=YES PVXS_ENABLE_PERF=YES"
             doc: 1
 
           - name: Native Linux (libc++ debug)

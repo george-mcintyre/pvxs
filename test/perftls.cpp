@@ -24,6 +24,8 @@
 #include <sys/resource.h>
 #include <sys/time.h>
 #include <time.h>
+#include <ifaddrs.h>
+#include <net/if.h>
 #include <iostream>
 #endif
 
@@ -41,6 +43,12 @@
 #include <pvxs/nt.h>
 #include <pvxs/server.h>
 #include <pvxs/sharedpv.h>
+
+#include "openssl.h"
+
+#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__)
+#include <pcap.h>
+#endif
 
 DEFINE_LOGGER(perf, "pvxs.perf");
 
@@ -94,6 +102,7 @@ double procCPUSeconds() {
     double sys  = ru.ru_stime.tv_sec + ru.ru_stime.tv_usec/1e6;
     return user + sys;
 }
+
 #endif
 
 // Return wall clock (monotonic) in seconds
@@ -111,6 +120,84 @@ double cpuPercentSince(const double w0, const double c0) {
     const double dc = c1 - c0;
     return dw > 0.0 ? dc/dw*100.0 : 0.0;
 }
+
+#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__)
+// Packet capture helper to measure bytes for specific ports during an interval
+struct PortSniffer {
+    std::vector<pcap_t*> handles;
+    std::string bpf;
+    std::uint64_t total{0};
+    PortSniffer()
+        : bpf("(tcp or udp) and (port 55075 or port 55076)") {}
+
+    static void onPacket(u_char* user, const struct pcap_pkthdr* h, const u_char* /*bytes*/) {
+        auto* total = reinterpret_cast<std::uint64_t*>(user);
+        *total += static_cast<std::uint64_t>(h->len);
+    }
+
+    bool openAll(std::string& err) {
+        char ebuf[PCAP_ERRBUF_SIZE] = {0};
+        pcap_if_t* alldevs = nullptr;
+        if (pcap_findalldevs(&alldevs, ebuf) != 0) {
+            err = ebuf;
+            return false;
+        }
+        for (pcap_if_t* d = alldevs; d; d = d->next) {
+            // skip interfaces that are down or not running capture
+            // but include loopback as pvacms may use it
+            pcap_t* h = pcap_open_live(d->name, 65535, 1 /*promisc*/, 100 /*ms*/, ebuf);
+            if (!h) continue;
+            bpf_program prog{};
+            if (pcap_compile(h, &prog, bpf.c_str(), 1, PCAP_NETMASK_UNKNOWN) != 0) {
+                pcap_close(h);
+                continue;
+            }
+            if (pcap_setfilter(h, &prog) != 0) {
+                pcap_freecode(&prog);
+                pcap_close(h);
+                continue;
+            }
+            pcap_freecode(&prog);
+            handles.push_back(h);
+        }
+        pcap_freealldevs(alldevs);
+        if (handles.empty()) {
+            err = "pcap: no capture handles opened";
+            return false;
+        }
+        return true;
+    }
+
+    void closeAll() {
+        for (auto* h : handles) pcap_close(h);
+        handles.clear();
+    }
+
+    void startCapture() {
+        total = 0;
+
+        std::string err;
+        if (handles.empty() && !openAll(err)) {
+            std::cerr << "PortSniffer init failed: " << err << std::endl;
+            return;
+        }
+        for (auto* h : handles) {
+            // process up to some number of packets per iteration to yield
+            pcap_dispatch(h, 64, &PortSniffer::onPacket, reinterpret_cast<u_char*>(&total));
+        }
+    }
+
+    std::uint64_t endCapture() {
+        for (auto* h : handles) {
+            // process up to some number of packets per iteration to yield
+            pcap_dispatch(h, 64, &PortSniffer::onPacket, reinterpret_cast<u_char*>(&total));
+        }
+        return total;
+    }
+
+    ~PortSniffer() { closeAll(); }
+};
+#endif
 
 void on_signal(int sig)
 {
@@ -131,6 +218,35 @@ enum PayloadType {
     LargeArray,
 };
 
+struct Result {
+    epicsMutex lock;
+    std::array<uint64_t, 60> counts;
+    std::array<double, 60> values;
+    double min;
+    double max;
+
+    void add(const uint index, const double value) {
+        Guard G(lock);
+        auto count = counts[index]++;
+        if ( count ) {
+            values[index] = value;
+            min = max = value;
+        } else {
+            // Caluclate moving average
+            values[index] = (values[index] * count + value)/(count+1);
+            if (value < min) min = value;
+            if (value > max) max = value;
+        }
+    }
+
+    void print() const {
+        for (const auto value: values) {
+            std::cout << value << ", ";
+        }
+        std::cout << ", " << min << ", " << max;
+    }
+};
+
 struct Scenario {
     server::Server serv;
     client::Context cli;
@@ -142,25 +258,32 @@ struct Scenario {
     Value large_array_value;
 
     void run(const PayloadType payload_type) {
-        const auto payload_label = (payload_type == LargeArray
-                                        ? "Large Array"
-                                        : payload_type == SmallArray
-                                              ? "Small Array"
-                                              : "Scalar");
-        run(payload_label, "  1 Hz,");
-        run(payload_label, " 10 Hz,");
-        run(payload_label, "100 Hz,");
-        run(payload_label, "  1KHz,");
-        run(payload_label, " 10KHz,");
-        run(payload_label, "100KHz,");
-        run(payload_label, "  1MHz,");
+        const auto payload_label = (payload_type == LargeArray ? "Large Array" : payload_type == SmallArray ? "Small Array" : "Scalar");
+        run(payload_label, "  1 Hz");
+        run(payload_label, " 10 Hz");
+        run(payload_label, "100 Hz");
+        run(payload_label, "  1KHz");
+        run(payload_label, " 10KHz");
+        run(payload_label, "100KHz");
+        run(payload_label, "  1MHz");
     }
 
     void run(const std::string payload_label, std::string speed_label) {
+        Result result{};
+
         // Collect Data
         const double w0 = wallSeconds();
         const double c0 = procCPUSeconds();
-        sleep(5);
+        std::uint64_t bytes_captured = 0;
+        {
+            PortSniffer sniffer;
+            sniffer.startCapture();
+
+            // Run Tests
+            sleep (5);
+            // End of Tests
+            bytes_captured = sniffer.endCapture();
+        }
         if (g_stop_requested) return;
 
         const double rss_mb = static_cast<double>(getRssBytes()) / (1024 * 1024);
@@ -168,14 +291,8 @@ struct Scenario {
 
         // Display Data
         std::cout << payload_label << ", "  << speed_label << ", ";
-        std::cout <<
-            "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, " <<
-            "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, " <<
-            "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, " <<
-            "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, " <<
-            "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, " <<
-            "0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000001, " <<
-            cpu_percent << ", " << rss_mb << ",  10.00000" << std::endl;
+        result.print();
+        std::cout << ", " << cpu_percent << ", " << rss_mb << ",  " << bytes_captured << std::endl;
     }
 };
 
@@ -424,14 +541,15 @@ int main(int argc, char* argv[])
 
         std::cout << "Starting Test" << std::endl;
         std::cout << "+=======================================+=======================================" << std::endl;
-        std::cout << "                     "
-                  << " 1         2         3         4         5         6         7         8         9        10        "
-                  << "11        12        13        14        15        16        17        18        19        20        "
-                  << "21        22        23        24        25        26        27        28        29        30        "
-                  << "31        32        33        34        35        36        37        38        39        40        "
-                  << "41        42        43        44        45        46        47        48        49        50        "
-                  << "51        52        53        54        55        56        57        58        59        60        "
-                  << "cpu(%)    mem(MB)   wire size"
+        std::cout << "           ,  ,"
+                  << "1,2,3,4,5,6,7,8,9,10,"
+                  << "11,12,13,14,15,16,17,18,19,20,"
+                  << "21,22,23,24,25,26,27,28,29,30,"
+                  << "31,32,33,34,35,36,37,38,39,40,"
+                  << "41,42,43,44,45,46,47,48,49,50,"
+                  << "51,52,53,54,55,56,57,58,59,60,"
+                  << "min,max,"
+                  << "cpu(%),mem(MB),wire(bytes)"
                   << std::endl;
         for (auto payload_type = pvxs::Scalar;
             payload_type <= pvxs::LargeArray && !pvxs::g_stop_requested;
