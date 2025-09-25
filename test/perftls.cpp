@@ -44,6 +44,12 @@
 #include <pvxs/server.h>
 #include <pvxs/sharedpv.h>
 
+#include <epicsTime.h>
+
+// Enable expert API (Timer, evbase)
+#define PVXS_ENABLE_EXPERT_API
+#include "evhelper.h"
+
 #include "openssl.h"
 
 #if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__)
@@ -242,6 +248,7 @@ struct Result {
 };
 
 struct Scenario {
+    epicsEvent event;
     server::Server serv;
     client::Context cli;
     server::SharedPV scalar_pv;
@@ -284,26 +291,43 @@ struct Scenario {
 
         // 1k payloads (plus NT scaffolding)
         small_array_value = def.create();
-        shared_array<const uint8_t> small_array_data({0,1,2,3,4,5,6,7,8,9});
-        shared_array<pvxs::Value> small_dimensions;
-        small_dimensions.resize(2);
-        small_dimensions[0] = small_array_value["dimension"].allocMember() .update("size", 10);
-        small_dimensions[1] = small_dimensions[0].cloneEmpty() .update("size", 10);
+        // Build 32x32 = 1024 bytes ubyte array
+        {
+            const int d0 = 32, d1 = 32;
+            pvxs::shared_array<uint8_t> buf(d0*d1);
+            for(size_t i=0u; i<buf.size(); ++i) buf[i] = static_cast<uint8_t>(i);
+            shared_array<const uint8_t> small_array_data(buf.freeze());
+            shared_array<pvxs::Value> small_dimensions;
+            small_dimensions.resize(2);
+            small_dimensions[0] = small_array_value["dimension"].allocMember().update("size", d0);
+            small_dimensions[1] = small_dimensions[0].cloneEmpty().update("size", d1);
 
-        small_array_value["value->ubyteValue"] = small_array_data;
-        small_array_value["dimension"] = small_dimensions.freeze();
+            small_array_value["value->ubyteValue"] = small_array_data;
+            small_array_value["dimension"] = small_dimensions.freeze();
+        }
 
         // 100k payloads (plus NT scaffolding)
         large_array_value = def.create();
-        pvxs::shared_array<const uint8_t> large_array_data({0,1,2,3,4,5,6,7,8,9});
-        pvxs::shared_array<pvxs::Value> large_dimensions;
-        large_dimensions.resize(3);
-        large_dimensions[0] = large_array_value["dimension"].allocMember() .update("size", 100);
-        large_dimensions[1] = large_dimensions[0].cloneEmpty() .update("size", 10);
-        large_dimensions[2] = large_dimensions[1].cloneEmpty() .update("size", 10);
+        // Build 100 x 100 x 10 = 100,000 bytes ubyte array
+        {
+            const int d0 = 100, d1 = 100, d2 = 10;
+            pvxs::shared_array<uint8_t> buf(d0*d1*d2);
+            for(size_t i=0u; i<buf.size(); ++i) buf[i] = static_cast<uint8_t>(i);
+            pvxs::shared_array<const uint8_t> large_array_data(buf.freeze());
+            pvxs::shared_array<pvxs::Value> large_dimensions;
+            large_dimensions.resize(3);
+            large_dimensions[0] = large_array_value["dimension"].allocMember().update("size", d0);
+            large_dimensions[1] = large_dimensions[0].cloneEmpty().update("size", d1);
+            large_dimensions[2] = large_dimensions[1].cloneEmpty().update("size", d2);
 
-        large_array_value["value->ubyteValue"] = large_array_data;
-        large_array_value["dimension"] = large_dimensions.freeze();
+            large_array_value["value->ubyteValue"] = large_array_data;
+            large_array_value["dimension"] = large_dimensions.freeze();
+        }
+
+        // Open PVs so clients can subscribe (open with full initial values, not empty)
+        scalar_pv.open(scalar_value);
+        small_array_pv.open(small_array_value);
+        large_array_pv.open(large_array_value);
 
         serv.start();
     }
@@ -312,18 +336,18 @@ struct Scenario {
         serv.stop();
     }
 
-    void run(const Scenario &scenario, const ScenarioType scenario_type, const PayloadType payload_type) {
+    void run(const PayloadType payload_type) {
         const auto payload_label = (payload_type == LargeArray ? "Large Array" : payload_type == SmallArray ? "Small Array" : "Scalar");
-        run(scenario, scenario_type, payload_type, 1, payload_label, "  1 Hz");
-        run(scenario, scenario_type, payload_type, 10, payload_label, " 10 Hz");
-        run(scenario, scenario_type, payload_type, 100, payload_label, "100 Hz");
-        run(scenario, scenario_type, payload_type, 1000, payload_label, "  1KHz");
-        run(scenario, scenario_type, payload_type, 10000, payload_label, " 10KHz");
-        run(scenario, scenario_type, payload_type, 100000, payload_label, "100KHz");
-        run(scenario, scenario_type, payload_type, 1000000, payload_label, "  1MHz");
+        run(payload_type, 1, payload_label, "  1 Hz");
+        run(payload_type, 10, payload_label, " 10 Hz");
+        run(payload_type, 100, payload_label, "100 Hz");
+        run(payload_type, 1000, payload_label, "  1KHz");
+        run(payload_type, 10000, payload_label, " 10KHz");
+        run(payload_type, 100000, payload_label, "100KHz");
+        run(payload_type, 1000000, payload_label, "  1MHz");
     }
 
-    void run(const Scenario &scenario, const ScenarioType scenario_type, const PayloadType payload_type, const long updates_per_second, const std::string &payload_label, const std::string &speed_label) {
+    void run(const PayloadType payload_type, const long rate, const std::string &payload_label, const std::string &speed_label) {
         Result result{};
 
         // Collect Data
@@ -334,8 +358,118 @@ struct Scenario {
             PortSniffer sniffer;
             sniffer.startCapture();
 
-            // Run Tests
-            sleep (5);
+            // Set up monitor subscription and consume updates using epicsEvent pattern
+            const char* pv_name = (payload_type == LargeArray) ? "PERF:LARGE_ARRAY" : (payload_type == SmallArray) ? "PERF:SMALL_ARRAY" : "PERF:SCALAR";
+
+            auto sub = cli.monitor(pv_name)
+                    .maskConnected(true)   // suppress Connected events from throwing
+                    .maskDisconnected(true)
+                    .event([this](client::Subscription&){
+                        // signal our Scenario epicsEvent when an update arrives
+                        event.signal();
+                    })
+                    .exec();
+
+            // 60-second window
+            epicsTimeStamp start{};
+            epicsTimeGetCurrent(&start);
+            const double window = 60.0;
+
+            // Posting cadence
+            const double period = 1.0/static_cast<double>(rate);
+
+            auto postOnce = [this, payload_type]() {
+                try {
+                    // Build update value and post to the appropriate PV
+                    if(payload_type == LargeArray) {
+                        auto v = large_array_value.clone();
+                        auto ts = v["timeStamp"];
+                        if(ts) {
+                            epicsTimeStamp now{}; epicsTimeGetCurrent(&now);
+                            ts["secondsPastEpoch"] = now.secPastEpoch + POSIX_TIME_AT_EPICS_EPOCH;
+                            ts["nanoseconds"] = now.nsec;
+                        }
+                        v.mark(true);
+                        large_array_pv.post(v);
+                    } else if(payload_type == SmallArray) {
+                        auto v = small_array_value.clone();
+                        auto ts = v["timeStamp"];
+                        if(ts) {
+                            epicsTimeStamp now{}; epicsTimeGetCurrent(&now);
+                            ts["secondsPastEpoch"] = now.secPastEpoch + POSIX_TIME_AT_EPICS_EPOCH;
+                            ts["nanoseconds"] = now.nsec;
+                        }
+                        v.mark(true);
+                        small_array_pv.post(v);
+                    } else {
+                        auto v = scalar_value.clone();
+                        auto ts = v["timeStamp"];
+                        if(ts) {
+                            epicsTimeStamp now{}; epicsTimeGetCurrent(&now);
+                            ts["secondsPastEpoch"] = now.secPastEpoch + POSIX_TIME_AT_EPICS_EPOCH;
+                            ts["nanoseconds"] = now.nsec;
+                        }
+                        v.mark(true);
+                        scalar_pv.post(v);
+                    }
+                } catch(std::exception& e) {
+                    log_warn_printf(perf, "post_once error: %s\n", e.what());
+                }
+            };
+
+            // Initial post to kick things off
+            postOnce();
+
+            while(true) {
+                // Drain all pending updates
+                while(true) {
+                    try {
+                        if (auto val = sub->pop()) {
+                            // Determine which second bucket this update belongs to
+                            epicsTimeStamp now{};
+                            epicsTimeGetCurrent(&now);
+                            const auto timestamp = val["timeStamp"];
+                            epicsTimeStamp sent{
+                                timestamp["secondsPastEpoch"].as<epicsUInt32>(),
+                                timestamp["nanoseconds"].as<epicsUInt32>()
+                            };
+
+                            const double elapsed = epicsTimeDiffInSeconds(&now, &start);
+                            const double transit_time = epicsTimeDiffInSeconds(&now, &sent);
+                            if(elapsed >= window) {
+                                break;
+                            }
+                            auto bucket_index = static_cast<uint32_t>(elapsed);
+                            if(bucket_index < result.values.size()) {
+                                result.add(bucket_index, transit_time);
+                            }
+                        } else break;
+                    } catch(const client::Connected&) {
+                        // ignore
+                    } catch(const client::Disconnect&) {
+                        // ignore
+                    }
+                }
+
+                // Check if the time window has expired
+                epicsTimeStamp now{};
+                epicsTimeGetCurrent(&now);
+                double elapsed = epicsTimeDiffInSeconds(&now, &start);
+                double remaining_time = window - elapsed;
+                if (remaining_time <= 0.0) break;
+
+                // Determine time until next post
+                double until_next = period - std::fmod(elapsed, period);
+                if (until_next < 0.0) until_next = 0.0;
+                double time_to_wait = std::min(remaining_time, until_next);
+
+                // Wait for the next update or the next time to post a new value
+                bool signaled = event.wait(time_to_wait);
+                if(!signaled) {
+                    postOnce();
+                }
+            }
+
             // End of Tests
             bytes_captured = sniffer.endCapture();
         }
@@ -535,7 +669,7 @@ int main(int argc, char* argv[])
             scenario_type == pvxs::TLS ? "TLS no status": "TCP") << std::endl;
 
         std::cout << "Configuring Performance Tests" << std::endl;
-        auto scenario = pvxs::Scenario(scenario_type);
+        pvxs::Scenario scenario(scenario_type);
 
         std::cout << "Running Performance Tests" << std::endl;
         std::cout << "+=======================================+=======================================" << std::endl;
@@ -555,7 +689,7 @@ int main(int argc, char* argv[])
         for (auto payload_type = pvxs::Scalar;
             payload_type <= pvxs::LargeArray;
             payload_type = static_cast<pvxs::PayloadType>(static_cast<int>(payload_type) + 1)) {
-            scenario.run(scenario, scenario_type, payload_type);
+            scenario.run(payload_type);
         }
         std::cout << "+=======================================+=======================================" << std::endl;
         std::cout << "Test Complete" << std::endl;
