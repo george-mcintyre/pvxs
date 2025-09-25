@@ -1,4 +1,3 @@
-#define PVXS_ENABLE_EXPERT_API
 /*
  * Minimal performance test harness.
  * Starts pvacms from project_root/bin, prints progress messages, then stops it.
@@ -10,7 +9,6 @@
 #include <cstring>
 #include <iostream>
 #include <vector>
-#include <epicsEvent.h>
 #include <string>
 
 #ifdef __linux__
@@ -45,8 +43,6 @@
 #include <pvxs/nt.h>
 #include <pvxs/server.h>
 #include <pvxs/sharedpv.h>
-
-#include "evhelper.h"
 
 #include "openssl.h"
 
@@ -231,8 +227,8 @@ struct Result {
 
     void add(const uint index, const double value) {
         Guard G(lock);
-        const auto count = counts[index]++;
-        if ( !count ) {
+        auto count = counts[index]++;
+        if ( count ) {
             values[index] = value;
             min = max = value;
         } else {
@@ -247,7 +243,7 @@ struct Result {
         for (const auto value: values) {
             std::cout << value << ", ";
         }
-        std::cout << min << ", " << max;
+        std::cout << ", " << min << ", " << max;
     }
 };
 
@@ -336,107 +332,26 @@ struct Scenario {
     void run(const Scenario &scenario, const ScenarioType scenario_type, const PayloadType payload_type, const long updates_per_second, const std::string &payload_label, const std::string &speed_label) {
         Result result{};
 
-        // Choose PV and Value based on payload type
-        server::SharedPV* pv = nullptr;
-        Value* pval = nullptr;
-        const char* pvname = nullptr;
-        switch (payload_type) {
-            case Scalar:      pv = &scalar_pv;      pval = &scalar_value;      pvname = "PERF:SCALAR"; break;
-            case SmallArray:  pv = &small_array_pv; pval = &small_array_value; pvname = "PERF:SMALL_ARRAY"; break;
-            case LargeArray:  pv = &large_array_pv; pval = &large_array_value; pvname = "PERF:LARGE_ARRAY"; break;
-        }
-        // Ensure PV is opened
-        if (pv && !pv->isOpen()) pv->open(*pval);
-
-        // Measurement window
-        constexpr double duration = 60.0; // seconds
-
         // Collect Data
         const double w0 = wallSeconds();
         const double c0 = procCPUSeconds();
+        std::uint64_t bytes_captured = 0;
+        {
+            PortSniffer sniffer;
+            sniffer.startCapture();
 
-        // Setup network sniffer (port-limited)
-        PortSniffer sniffer;
-        sniffer.startCapture();
-
-        // Done signal
-        auto done = std::make_shared<epicsEvent>();
-
-        // Subscribe client and collect per-second bins
-        auto sub = cli.monitor(pvname)
-            .event([&](client::Subscription& S){
-                std::vector<Value> vals;
-                while (S.pop(vals, 64)) {
-                    for (auto& v : vals) {
-                        epicsTimeStamp now{};
-                        (void)epicsTimeGetCurrent(&now);
-                        epicsTimeStamp sent{ v["timeStamp.secondsPastEpoch"].as<epicsUInt32>(), v["timeStamp.nanoseconds"].as<epicsUInt32>()};
-                        const auto elapsed = epicsTimeDiffInSeconds(&now, &sent) ;
-                        const int idx = int(wallSeconds() - w0);
-                        if (idx>=0 && idx<60) {
-                            result.add(static_cast<unsigned>(idx), elapsed);
-                        }
-                    }
-                }
-            })
-            .exec();
-
-        // Create event base and schedule periodic posts
-        evbase base("perftest");
-
-        // limit minimum interval to something reasonable to avoid timer flood
-        const double interval = 1.0 / std::max<long>(1, updates_per_second);
-        const double endTime = w0 + duration;
-
-        // period tick timer, and end timer
-        auto tick_timer = std::make_shared<Timer>();
-        const auto end_timer  = std::make_shared<Timer>();
-        auto expired = std::make_shared<bool>(false);
-        auto counter = std::make_shared<int64_t>(0);
-
-        std::function<void()> armTick;
-        armTick = [&, tick_timer, counter, expired, pv, pval, interval, endTime, base]() mutable {
-            *tick_timer = Timer::Pvt::buildOneShot(interval, base.internal(), [&, tick_timer, counter, expired, pv, pval, endTime, base]() mutable {
-                if (*expired || g_stop_requested) return;
-                // prepare value to post
-                Value v = pval->clone();
-                // ensure timestamp is current
-                auto ts = v["timeStamp"];
-                if (ts) {
-                    epicsTimeStamp now{};
-                    if (!epicsTimeGetCurrent(&now)) {
-                        ts["secondsPastEpoch"] = now.secPastEpoch + POSIX_TIME_AT_EPICS_EPOCH;
-                        ts["nanoseconds"] = now.nsec;
-                    }
-                }
-                // mark all fields changed so the full payload is sent
-                v.mark(true);
-                pv->post(v);
-
-                if (wallSeconds() < endTime) {
-                    armTick();
-                }
-            });
-        };
-        armTick();
-
-        // End timer to stop after duration
-        *end_timer = Timer::Pvt::buildOneShot(duration, base.internal(), [done, expired]() {
-            *expired = true;
-            done->signal();
-        });
-
-        // Wait for completion without sleep()
-        (void)done->wait(duration + 5.0);
-
-        const std::uint64_t bytes_captured = sniffer.endCapture();
+            // Run Tests
+            sleep (5);
+            // End of Tests
+            bytes_captured = sniffer.endCapture();
+        }
         if (g_stop_requested) return;
 
         const double rss_mb = static_cast<double>(getRssBytes()) / (1024 * 1024);
         const auto cpu_percent = cpuPercentSince(w0, c0);
 
         // Display Data
-        std::cout << payload_label << ",  " << speed_label << ", ";
+        std::cout << payload_label << ", "  << speed_label << ", ";
         result.print();
         std::cout << ", " << cpu_percent << ", " << rss_mb << ",  " << bytes_captured << std::endl;
     }
