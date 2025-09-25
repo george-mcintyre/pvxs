@@ -11,6 +11,7 @@
 #include <vector>
 #include <string>
 #include <limits>
+#include <functional>
 
 #ifdef __linux__
 #include <chrono>
@@ -53,7 +54,7 @@
 
 #include "openssl.h"
 
-#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__)
+#if defined(__APPLE__)
 #include <pcap.h>
 #endif
 
@@ -65,7 +66,11 @@ using namespace pvxs::members;
 
 
 #ifdef __linux__
-// Return resident set size in bytes
+/**
+ * Retrieve the current RSS (Resident Set Size) memory usage of the process
+ *
+ * @return The RSS memory usage in bytes
+ */
 std::uint64_t getRssBytes() {
     // Fast path: /proc/self/statm (field 2 = resident pages)
     FILE* f = std::fopen("/proc/self/statm", "r");
@@ -82,6 +87,10 @@ std::uint64_t getRssBytes() {
 }
 
 // Return process CPU time (user+sys) in seconds
+/**
+ *
+ * @return
+ */
 double procCPUSeconds() {
     timespec ts{};
     if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts) != 0) return 0.0;
@@ -237,12 +246,14 @@ struct Result {
     epicsMutex lock;
     std::array<uint64_t, 60> counts;
     std::array<double, 60> values;
-    double min;
-    double max;
+    double min=std::numeric_limits<double>::max();
+    double max=-1.0;
 
     void add(const uint index, const double value) {
+        if (value <= 0.0) return;
+
         Guard G(lock);
-        auto count = counts[index]++;
+        const auto count = counts[index]++;
         if ( count ) {
             values[index] = value;
             min = max = value;
@@ -256,9 +267,10 @@ struct Result {
 
     void print() const {
         for (const auto value: values) {
-            std::cout << value << ", ";
+            if (value) std::cout << value ; else std::cout << "   ";
+            std::cout << ", ";
         }
-        std::cout << ", " << min << ", " << max;
+        std::cout << min << ", " << max;
     }
 };
 
@@ -272,6 +284,7 @@ struct Scenario {
     Value scalar_value;
     Value small_array_value;
     Value large_array_value;
+    std::shared_ptr<client::Subscription> sub;
 
     Scenario(ScenarioType scenario_type) {
         // Build Server
@@ -362,6 +375,110 @@ struct Scenario {
         run(payload_type, 1000000, payload_label, "  1MHz");
     }
 
+    void startMonitor(const PayloadType payload_type) {
+        // Set up monitor subscription and consume updates using epicsEvent pattern
+        const char* pv_name = (payload_type == LargeArray) ? "PERF:LARGE_ARRAY" : (payload_type == SmallArray) ? "PERF:SMALL_ARRAY" : "PERF:SCALAR";
+
+        sub = cli.monitor(pv_name)
+            .maskConnected(true)   // suppress Connected events from throwing
+            .maskDisconnected(true)
+            .event([this](client::Subscription&){
+                // signal our Scenario epicsEvent when an update arrives
+                event.signal();
+            })
+            .exec();
+    }
+
+    std::function<void()> postValue(const PayloadType payload_type) {
+        return [this, payload_type]() {
+            try {
+                // Build update value and post to the appropriate PV
+                if (payload_type == LargeArray) {
+                    auto v = large_array_value.clone();
+                    auto ts = v["timeStamp"];
+                    if (ts) {
+                        epicsTimeStamp now{};
+                        epicsTimeGetCurrent(&now);
+                        ts["secondsPastEpoch"] = now.secPastEpoch;
+                        ts["nanoseconds"] = now.nsec;
+                    }
+                    v.mark(true);
+                    large_array_pv.post(v);
+                } else if (payload_type == SmallArray) {
+                    auto v = small_array_value.clone();
+                    auto ts = v["timeStamp"];
+                    if (ts) {
+                        epicsTimeStamp now{};
+                        epicsTimeGetCurrent(&now);
+                        ts["secondsPastEpoch"] = now.secPastEpoch;
+                        ts["nanoseconds"] = now.nsec;
+                    }
+                    v.mark(true);
+                    small_array_pv.post(v);
+                } else {
+                    auto v = scalar_value.clone();
+                    auto ts = v["timeStamp"];
+                    if (ts) {
+                        epicsTimeStamp now{};
+                        epicsTimeGetCurrent(&now);
+                        ts["secondsPastEpoch"] = now.secPastEpoch;
+                        ts["nanoseconds"] = now.nsec;
+                    }
+                    v.mark(true);
+                    scalar_pv.post(v);
+                }
+            } catch (std::exception &e) {
+                log_warn_printf(perf, "post_once error: %s\n", e.what());
+            }
+        };
+    }
+
+    // Drain all pending updates
+    void processPendingUpdates(Result &result, epicsTimeStamp &start, uint32_t &last_index, const std::string &progress_prefix) const {
+        bool first_event_in_batch = true;
+        epicsTimeStamp now{};
+        while(true) {
+            try {
+                if (auto val = sub->pop()) {
+
+                    // Get now only when we get the first update in this batch
+                    if (first_event_in_batch)
+                        epicsTimeGetCurrent(&now);
+
+                    first_event_in_batch = false;
+
+                    // Get the timestamp tha shows when the data was sent
+                    const auto timestamp = val["timeStamp"];
+                    epicsTimeStamp sent{
+                        timestamp["secondsPastEpoch"].as<epicsUInt32>(),
+                        timestamp["nanoseconds"].as<epicsUInt32>()
+                    };
+
+                    // Determine how much time has elapsed from the beginning of the test sequence
+                    const double elapsed = epicsTimeDiffInSeconds(&now, &start);
+                    // Determine how much time the data was in transit
+                    const double transit_time = epicsTimeDiffInSeconds(&now, &sent);
+
+                    constexpr double window = 60.0;
+                    if (elapsed >= window) break;
+                    const auto bucket_index = static_cast<uint32_t>(elapsed);
+
+                    if(bucket_index < result.values.size() && transit_time > 0)
+                        result.add(bucket_index, transit_time);
+
+                    if (bucket_index != last_index) {
+                        last_index = bucket_index;
+                        printProgressBar(bucket_index, progress_prefix);
+                    }
+                } else break;
+            } catch(const client::Connected&) {
+                // ignore
+            } catch(const client::Disconnect&) {
+                // ignore
+            }
+        }
+    }
+
     void run(const PayloadType payload_type, const long rate, const std::string &payload_label, const std::string &speed_label) {
         Result result{};
 
@@ -373,120 +490,41 @@ struct Scenario {
             PortSniffer sniffer;
             sniffer.startCapture();
 
-            // Set up monitor subscription and consume updates using epicsEvent pattern
-            const char* pv_name = (payload_type == LargeArray) ? "PERF:LARGE_ARRAY" : (payload_type == SmallArray) ? "PERF:SMALL_ARRAY" : "PERF:SCALAR";
+            startMonitor(payload_type);
 
-            auto sub = cli.monitor(pv_name)
-                    .maskConnected(true)   // suppress Connected events from throwing
-                    .maskDisconnected(true)
-                    .event([this](client::Subscription&){
-                        // signal our Scenario epicsEvent when an update arrives
-                        event.signal();
-                    })
-                    .exec();
-
-            // 60-second window
-            epicsTimeStamp start{};
-            epicsTimeGetCurrent(&start);
-            const double window = 60.0;
-
-            // Posting cadence
+            // Calculate the posting cadence
             const double period = 1.0/static_cast<double>(rate);
 
-            auto postOnce = [this, payload_type]() {
-                try {
-                    // Build update value and post to the appropriate PV
-                    if(payload_type == LargeArray) {
-                        auto v = large_array_value.clone();
-                        auto ts = v["timeStamp"];
-                        if(ts) {
-                            epicsTimeStamp now{};
-                            epicsTimeGetCurrent(&now);
-                            ts["secondsPastEpoch"] = now.secPastEpoch;
-                            ts["nanoseconds"] = now.nsec;
-                        }
-                        v.mark(true);
-                        large_array_pv.post(v);
-                    } else if(payload_type == SmallArray) {
-                        auto v = small_array_value.clone();
-                        auto ts = v["timeStamp"];
-                        if(ts) {
-                            epicsTimeStamp now{}; epicsTimeGetCurrent(&now);
-                            ts["secondsPastEpoch"] = now.secPastEpoch;
-                            ts["nanoseconds"] = now.nsec;
-                        }
-                        v.mark(true);
-                        small_array_pv.post(v);
-                    } else {
-                        auto v = scalar_value.clone();
-                        auto ts = v["timeStamp"];
-                        if(ts) {
-                            epicsTimeStamp now{}; epicsTimeGetCurrent(&now);
-                            ts["secondsPastEpoch"] = now.secPastEpoch;
-                            ts["nanoseconds"] = now.nsec;
-                        }
-                        v.mark(true);
-                        scalar_pv.post(v);
-                    }
-                } catch(std::exception& e) {
-                    log_warn_printf(perf, "post_once error: %s\n", e.what());
-                }
-            };
+            const auto postOnce = postValue(payload_type);
+
+            // Mark the start time for this sequence
+            epicsTimeStamp start{};
+            epicsTimeGetCurrent(&start);
 
             // Initial post to kick things off
+            // 60-second window
             postOnce();
             uint32_t last_index = std::numeric_limits<uint32_t>::max();
             const std::string progress_prefix = std::string(payload_label) + ", " + std::string(speed_label) + ", ";
 
             while(true) {
-                // Drain all pending updates
-                while(true) {
-                    try {
-                        if (auto val = sub->pop()) {
-                            // Determine which second bucket this update belongs to
-                            epicsTimeStamp now{};
-                            epicsTimeGetCurrent(&now);
-                            const auto timestamp = val["timeStamp"];
-                            epicsTimeStamp sent{
-                                timestamp["secondsPastEpoch"].as<epicsUInt32>(),
-                                timestamp["nanoseconds"].as<epicsUInt32>()
-                            };
+                processPendingUpdates(result, start, last_index, progress_prefix);
 
-                            const double elapsed = epicsTimeDiffInSeconds(&now, &start);
-                            const double transit_time = epicsTimeDiffInSeconds(&now, &sent);
-                            if(elapsed >= window) {
-                                break;
-                            }
-                            auto bucket_index = static_cast<uint32_t>(elapsed);
-                            if(bucket_index < result.values.size()) {
-                                result.add(bucket_index, transit_time);
-                            }
-                            if (bucket_index != last_index) {
-                                last_index = bucket_index;
-                                printProgressBar(bucket_index, progress_prefix);
-                            }
-                        } else break;
-                    } catch(const client::Connected&) {
-                        // ignore
-                    } catch(const client::Disconnect&) {
-                        // ignore
-                    }
-                }
-
+                constexpr double windows = 60.0;
                 // Check if the time window has expired
-                epicsTimeStamp now{};
-                epicsTimeGetCurrent(&now);
-                double elapsed = epicsTimeDiffInSeconds(&now, &start);
-                double remaining_time = window - elapsed;
+                epicsTimeStamp nows{};
+                epicsTimeGetCurrent(&nows);
+                double elapsed = epicsTimeDiffInSeconds(&nows, &start);
+                double remaining_time = windows - elapsed;
                 if (remaining_time <= 0.0) break;
 
                 // Determine time until next post
                 double until_next = period - std::fmod(elapsed, period);
                 if (until_next < 0.0) until_next = 0.0;
-                double time_to_wait = std::min(remaining_time, until_next);
+                const double time_to_wait = std::min(remaining_time, until_next);
 
                 // Wait for the next update or the next time to post a new value
-                bool signaled = event.wait(time_to_wait);
+                const bool signaled = event.wait(time_to_wait);
                 if(!signaled) {
                     postOnce();
                 }
