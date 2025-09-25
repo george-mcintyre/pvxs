@@ -54,6 +54,9 @@
 
 #include "openssl.h"
 
+// CLI11 for command-line parsing
+#include <CLI/CLI.hpp>
+
 #if defined(__APPLE__)
 #include <pcap.h>
 #endif
@@ -242,6 +245,47 @@ enum PayloadType {
     LargeArray,
 };
 
+// Helpers for CLI parsing and labels
+static inline std::string toUpperStr(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return std::toupper(c); });
+    return s;
+}
+
+static bool parseScenarioType(const std::string& name, ScenarioType& out) {
+    auto n = toUpperStr(name);
+    if(n=="TCP") { out = TCP; return true; }
+    if(n=="TLS") { out = TLS; return true; }
+    if(n=="TLS_CMS" || n=="TLS-CMS" || n=="TLSCMS") { out = TLS_CMS; return true; }
+    if(n=="TLS_CMS_STAPLED" || n=="TLS-CMS-STAPLED" || n=="TLSSTAPLED" || n=="TLSCMSSTAPLED") { out = TLS_CMS_STAPLED; return true; }
+    return false;
+}
+
+static bool parsePayloadType(const std::string& name, PayloadType& out) {
+    auto n = toUpperStr(name);
+    if(n=="SCALAR") { out = Scalar; return true; }
+    if(n=="SMALL" || n=="SMALLARRAY" || n=="SMALL_ARRAY") { out = SmallArray; return true; }
+    if(n=="LARGE" || n=="LARGEARRAY" || n=="LARGE_ARRAY") { out = LargeArray; return true; }
+    return false;
+}
+
+static std::string formatRateLabel(long rate) {
+    if(rate>=1000000 && rate%1000000==0) {
+        long v = rate/1000000;
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "%3ldMHz", v);
+        return std::string(buf);
+    } else if(rate>=1000 && rate%1000==0) {
+        long v = rate/1000;
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "%3ldKHz", v);
+        return std::string(buf);
+    } else {
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "%3ld Hz", rate);
+        return std::string(buf);
+    }
+}
+
 struct Result {
     epicsMutex lock;
     std::array<uint64_t, 60> counts;
@@ -254,15 +298,14 @@ struct Result {
 
         Guard G(lock);
         const auto count = counts[index]++;
-        if ( count ) {
+        if (count == 0) {
             values[index] = value;
-            min = max = value;
         } else {
-            // Caluclate moving average
+            // Calculate moving average
             values[index] = (values[index] * count + value)/(count+1);
-            if (value < min) min = value;
-            if (value > max) max = value;
         }
+        if (value < min) min = value;
+        if (value > max) max = value;
     }
 
     void print() const {
@@ -270,7 +313,8 @@ struct Result {
             if (value) std::cout << value ; else std::cout << "   ";
             std::cout << ", ";
         }
-        std::cout << min << ", " << max;
+        if (min < std::numeric_limits<double>::max()) std::cout << min ; else std::cout << "  ";
+        if (max > 0) std::cout << ", " << max; else std::cout << ",    " ;
     }
 };
 
@@ -663,6 +707,44 @@ int main(int argc, char* argv[])
     // Install simple Ctrl-C trap
     signal(SIGINT, pvxs::onSigint);
 
+    // CLI argument parsing
+    std::vector<std::string> opt_scenarios;
+    std::vector<std::string> opt_payloads;
+    std::vector<long> opt_rates;
+    CLI::App app{"PVXS TLS performance tests"};
+    app.add_option("-s,--scenario-type", opt_scenarios, "Scenario type(s): TCP, TLS, TLS_CMS, TLS_CMS_STAPLED. May be repeated.");
+    app.add_option("-p,--payload-type", opt_payloads, "Payload type(s): Scalar, SmallArray, LargeArray. May be repeated.");
+    app.add_option("-r,--rate", opt_rates, "Update rate(s) in Hz. May be repeated.");
+    CLI11_PARSE(app, argc, argv);
+
+    // Build selected lists (defaults to all if no selection)
+    std::vector<pvxs::ScenarioType> scenarios_sel;
+    if(opt_scenarios.empty()) {
+        scenarios_sel = {pvxs::TCP, pvxs::TLS, pvxs::TLS_CMS, pvxs::TLS_CMS_STAPLED};
+    } else {
+        for(const auto& s : opt_scenarios) {
+            pvxs::ScenarioType st{};
+            if(!pvxs::parseScenarioType(s, st)) {
+                std::cerr << "Unknown scenario type: " << s << std::endl;
+                return 2;
+            }
+            scenarios_sel.push_back(st);
+        }
+    }
+
+    std::vector<pvxs::PayloadType> payloads_sel;
+    if(opt_payloads.empty()) {
+        payloads_sel = {pvxs::Scalar, pvxs::SmallArray, pvxs::LargeArray};
+    } else {
+        for(const auto& p : opt_payloads) {
+            pvxs::PayloadType pt{};
+            if(!pvxs::parsePayloadType(p, pt)) {
+                std::cerr << "Unknown payload type: " << p << std::endl;
+                return 2;
+            }
+            payloads_sel.push_back(pt);
+        }
+    }
 
     std::cout << "Starting Performance Tests" << std::endl;
 
@@ -720,10 +802,8 @@ int main(int argc, char* argv[])
     sleep (2);
     std::cout << "PVACMS Ready" << std::endl;
 
-    // Run all scenarios
-    for (auto scenario_type = pvxs::TCP;
-        scenario_type <= pvxs::TLS_CMS_STAPLED;
-        scenario_type = static_cast<pvxs::ScenarioType>(static_cast<int>(scenario_type) + 1)) {
+    // Run selected scenarios
+    for (auto scenario_type : scenarios_sel) {
         std::cout << "+=======================================+=======================================" << std::endl;
         std::cout << "Scenario: " << (
             scenario_type == pvxs::TLS_CMS_STAPLED ? "TLS with stapled status" :
@@ -748,11 +828,19 @@ int main(int argc, char* argv[])
                   << "min,max,"
                   << "cpu(%),mem(MB),wire(bytes)"
                   << std::endl;
-        for (auto payload_type = pvxs::Scalar;
-            payload_type <= pvxs::LargeArray;
-            payload_type = static_cast<pvxs::PayloadType>(static_cast<int>(payload_type) + 1)) {
-            scenario.run(payload_type);
+
+        for (auto payload_type : payloads_sel) {
+            if(opt_rates.empty()) {
+                scenario.run(payload_type);
+            } else {
+                const std::string payload_label = (payload_type == pvxs::LargeArray ? "Large Array" : (payload_type == pvxs::SmallArray ? "Small Array" : "Scalar"));
+                for (auto rate : opt_rates) {
+                    const std::string speed_label = pvxs::formatRateLabel(rate);
+                    scenario.run(payload_type, rate, payload_label, speed_label);
+                }
+            }
         }
+
         std::cout << "+=======================================+=======================================" << std::endl;
         std::cout << "Test Complete" << std::endl;
         std::cout << std::endl;
