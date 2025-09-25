@@ -643,8 +643,10 @@ int main(int argc, char* argv[])
         "XDG_DATA_HOME",                    test_dir+"perf/data",
         "XDG_CONFIG_HOME",                  test_dir+"perf/config",
         "EPICS_PVA_BROADCAST_PORT",         "55076",
-        "EPICS_PVA_SERVER_PORT",            "55075",
-        "EPICS_PVA_TLS_PORT",               "55076",
+        "EPICS_PVACMS_SERVER_PORT",         "55075",
+        "EPICS_PVACMS_TLS_PORT",            "55076",
+        "EPICS_PVA_SERVER_PORT",            "55077",
+        "EPICS_PVA_TLS_PORT",               "55078",
         "EPICS_CERT_AUTH_TLS_KEYCHAIN",     "cert_auth.p12",
         "EPICS_PVAS_TLS_KEYCHAIN",          "superserver1.p12",
     };
