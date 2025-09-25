@@ -240,9 +240,9 @@ enum ScenarioType {
 };
 
 enum PayloadType {
-    Scalar,
-    SmallArray,
-    LargeArray,
+    SMALL,
+    MEDIUM,
+    LARGE,
 };
 
 // Helpers for CLI parsing and labels
@@ -262,9 +262,9 @@ static bool parseScenarioType(const std::string& name, ScenarioType& out) {
 
 static bool parsePayloadType(const std::string& name, PayloadType& out) {
     auto n = toUpperStr(name);
-    if(n=="SCALAR") { out = Scalar; return true; }
-    if(n=="SMALL" || n=="SMALLARRAY" || n=="SMALL_ARRAY") { out = SmallArray; return true; }
-    if(n=="LARGE" || n=="LARGEARRAY" || n=="LARGE_ARRAY") { out = LargeArray; return true; }
+    if ( n == "SMALL"  ) { out = SMALL; return true; }
+    if ( n == "MEDIUM" ) { out = SMALL; return true; }
+    if ( n == "LARGE"  ) { out = LARGE; return true; }
     return false;
 }
 
@@ -290,26 +290,34 @@ struct Result {
     epicsMutex lock;
     std::array<uint64_t, 60> counts;
     std::array<double, 60> values;
+    uint32_t expected_count{0};
+    std::array<uint32_t, 60> dropped;
     double min=std::numeric_limits<double>::max();
     double max=-1.0;
 
-    void add(const uint index, const double value) {
+    void add(const uint index, const double value, const uint32_t this_count, const uint32_t rate) {
         if (value <= 0.0) return;
 
         Guard G(lock);
         const auto count = counts[index]++;
-        if (count == 0) {
-            values[index] = value;
-        } else {
-            // Calculate moving average
-            values[index] = (values[index] * count + value)/(count+1);
+        // Calculate moving average
+        values[index] = (values[index] * count + value)/(count+1);
+        // Calculate dropped packets
+        for (; expected_count < this_count; ++expected_count) {
+            const auto dropped_index = expected_count / rate;
+            dropped[dropped_index]++;
         }
+        expected_count++;
         if (value < min) min = value;
         if (value > max) max = value;
     }
 
     void print() const {
         for (const auto value: values) {
+            if (value) std::cout << value ; else std::cout << "   ";
+            std::cout << ", ";
+        }
+        for (const auto value: dropped) {
             if (value) std::cout << value ; else std::cout << "   ";
             std::cout << ", ";
         }
@@ -322,13 +330,14 @@ struct Scenario {
     epicsEvent event;
     server::Server serv;
     client::Context cli;
-    server::SharedPV scalar_pv;
-    server::SharedPV small_array_pv;
-    server::SharedPV large_array_pv;
-    Value scalar_value;
-    Value small_array_value;
-    Value large_array_value;
+    server::SharedPV small_pv;
+    server::SharedPV medium_pv;
+    server::SharedPV large_pv;
+    Value small_value;
+    Value medium_value;
+    Value large_value;
     std::shared_ptr<client::Subscription> sub;
+    uint32_t counter{0};
 
     Scenario(ScenarioType scenario_type) {
         // Build Server
@@ -347,59 +356,62 @@ struct Scenario {
         cli = cli_conf.build();
 
         // Build PVs
-        scalar_pv = server::SharedPV::buildReadonly();
-        serv.addPV("PERF:SCALAR", scalar_pv);
-        small_array_pv = server::SharedPV::buildReadonly();
-        serv.addPV("PERF:SMALL_ARRAY", small_array_pv);
-        large_array_pv = server::SharedPV::buildReadonly();
-        serv.addPV("PERF:LARGE_ARRAY", large_array_pv);
+        small_pv = server::SharedPV::buildReadonly();
+        serv.addPV("PERF:SMALL", small_pv);
+        medium_pv = server::SharedPV::buildReadonly();
+        serv.addPV("PERF:MEDIUM", medium_pv);
+        large_pv = server::SharedPV::buildReadonly();
+        serv.addPV("PERF:LARGE", large_pv);
 
         // Build data
         // 4 byte data payload (plus NT scaffolding)
-        scalar_value = pvxs::nt::NTScalar{pvxs::TypeCode::Int32}.create();
+        auto s_def (nt::NTScalar{TypeCode::Int32}.build());
+        s_def += { Int32("counter") };
+        small_value = s_def.create();
 
-        auto def(pvxs::nt::NTNDArray{}.build());
+        auto def(nt::NTNDArray{}.build());
+        def += { Int32("counter") };
         def += { StructA("dimensions", { Int32("value"), }), };
 
         // 1k payloads (plus NT scaffolding)
-        small_array_value = def.create();
+        medium_value = def.create();
         // Build 32x32 = 1024 bytes ubyte array
         {
-            const int d0 = 32, d1 = 32;
-            pvxs::shared_array<uint8_t> buf(d0*d1);
-            for(size_t i=0u; i<buf.size(); ++i) buf[i] = static_cast<uint8_t>(i);
-            shared_array<const uint8_t> small_array_data(buf.freeze());
-            shared_array<pvxs::Value> small_dimensions;
+            constexpr int d0 = 32, d1 = 32;
+            shared_array<uint8_t> buf(d0*d1);
+            for (size_t i = 0u; i < buf.size(); ++i) buf[i] = static_cast<uint8_t>(i);
+            shared_array<const uint8_t> medium_data(buf.freeze());
+            shared_array<Value> small_dimensions;
             small_dimensions.resize(2);
-            small_dimensions[0] = small_array_value["dimension"].allocMember().update("size", d0);
+            small_dimensions[0] = medium_value["dimension"].allocMember().update("size", d0);
             small_dimensions[1] = small_dimensions[0].cloneEmpty().update("size", d1);
 
-            small_array_value["value->ubyteValue"] = small_array_data;
-            small_array_value["dimension"] = small_dimensions.freeze();
+            medium_value["value->ubyteValue"] = medium_data;
+            medium_value["dimension"] = small_dimensions.freeze();
         }
 
         // 100k payloads (plus NT scaffolding)
-        large_array_value = def.create();
+        large_value = def.create();
         // Build 100 x 100 x 10 = 100,000 bytes ubyte array
         {
-            const int d0 = 100, d1 = 100, d2 = 10;
-            pvxs::shared_array<uint8_t> buf(d0*d1*d2);
-            for(size_t i=0u; i<buf.size(); ++i) buf[i] = static_cast<uint8_t>(i);
-            pvxs::shared_array<const uint8_t> large_array_data(buf.freeze());
-            pvxs::shared_array<pvxs::Value> large_dimensions;
+            constexpr int d0 = 100, d1 = 100, d2 = 10;
+            shared_array<uint8_t> buf(d0 * d1 * d2);
+            for(size_t i = 0u; i < buf.size(); ++i) buf[i] = static_cast<uint8_t>(i);
+            shared_array<const uint8_t> large_data(buf.freeze());
+            shared_array<pvxs::Value> large_dimensions;
             large_dimensions.resize(3);
-            large_dimensions[0] = large_array_value["dimension"].allocMember().update("size", d0);
+            large_dimensions[0] = large_value["dimension"].allocMember().update("size", d0);
             large_dimensions[1] = large_dimensions[0].cloneEmpty().update("size", d1);
             large_dimensions[2] = large_dimensions[1].cloneEmpty().update("size", d2);
 
-            large_array_value["value->ubyteValue"] = large_array_data;
-            large_array_value["dimension"] = large_dimensions.freeze();
+            large_value["value->ubyteValue"] = large_data;
+            large_value["dimension"] = large_dimensions.freeze();
         }
 
         // Open PVs so clients can subscribe (open with full initial values, not empty)
-        scalar_pv.open(scalar_value);
-        small_array_pv.open(small_array_value);
-        large_array_pv.open(large_array_value);
+        small_pv.open(small_value);
+        medium_pv.open(medium_value);
+        large_pv.open(large_value);
 
         serv.start();
     }
@@ -409,7 +421,7 @@ struct Scenario {
     }
 
     void run(const PayloadType payload_type) {
-        const auto payload_label = (payload_type == LargeArray ? "Large Array" : payload_type == SmallArray ? "Small Array" : "Scalar");
+        const auto payload_label = (payload_type == LARGE ? "Large" : payload_type == MEDIUM ? "Medium" : "SMALL");
         run(payload_type, 1, payload_label, "  1 Hz");
         run(payload_type, 10, payload_label, " 10 Hz");
         run(payload_type, 100, payload_label, "100 Hz");
@@ -421,7 +433,7 @@ struct Scenario {
 
     void startMonitor(const PayloadType payload_type) {
         // Set up monitor subscription and consume updates using epicsEvent pattern
-        const char* pv_name = (payload_type == LargeArray) ? "PERF:LARGE_ARRAY" : (payload_type == SmallArray) ? "PERF:SMALL_ARRAY" : "PERF:SCALAR";
+        const char* pv_name = (payload_type == LARGE) ? "PERF:LARGE" : (payload_type == MEDIUM) ? "PERF:MEDIUM" : "PERF:SMALL";
 
         sub = cli.monitor(pv_name)
             .maskConnected(true)   // suppress Connected events from throwing
@@ -437,8 +449,9 @@ struct Scenario {
         return [this, payload_type]() {
             try {
                 // Build update value and post to the appropriate PV
-                if (payload_type == LargeArray) {
-                    auto v = large_array_value.clone();
+                if (payload_type == LARGE) {
+                    auto v = large_value.clone();
+                    v["counter"] = counter++;
                     auto ts = v["timeStamp"];
                     if (ts) {
                         epicsTimeStamp now{};
@@ -447,9 +460,10 @@ struct Scenario {
                         ts["nanoseconds"] = now.nsec;
                     }
                     v.mark(true);
-                    large_array_pv.post(v);
-                } else if (payload_type == SmallArray) {
-                    auto v = small_array_value.clone();
+                    large_pv.post(v);
+                } else if (payload_type == MEDIUM) {
+                    auto v = medium_value.clone();
+                    v["counter"] = counter++;
                     auto ts = v["timeStamp"];
                     if (ts) {
                         epicsTimeStamp now{};
@@ -458,9 +472,10 @@ struct Scenario {
                         ts["nanoseconds"] = now.nsec;
                     }
                     v.mark(true);
-                    small_array_pv.post(v);
+                    medium_pv.post(v);
                 } else {
-                    auto v = scalar_value.clone();
+                    auto v = small_value.clone();
+                    v["counter"] = counter++;
                     auto ts = v["timeStamp"];
                     if (ts) {
                         epicsTimeStamp now{};
@@ -469,7 +484,7 @@ struct Scenario {
                         ts["nanoseconds"] = now.nsec;
                     }
                     v.mark(true);
-                    scalar_pv.post(v);
+                    small_pv.post(v);
                 }
             } catch (std::exception &e) {
                 log_warn_printf(perf, "post_once error: %s\n", e.what());
@@ -478,7 +493,8 @@ struct Scenario {
     }
 
     // Drain all pending updates
-    void processPendingUpdates(Result &result, epicsTimeStamp &start, uint32_t &last_index, const std::string &progress_prefix) const {
+    void processPendingUpdates(Result &result, const epicsTimeStamp &start, uint32_t &last_index, const std::string &progress_prefix, const uint32_t
+                               rate) const {
         bool first_event_in_batch = true;
         epicsTimeStamp now{};
         while(true) {
@@ -491,15 +507,16 @@ struct Scenario {
 
                     first_event_in_batch = false;
 
-                    // Get the timestamp tha shows when the data was sent
+                    // Get the timestamp that shows when the data was sent
                     const auto timestamp = val["timeStamp"];
+                    const auto received_count = val["counter"].as<uint32_t>();
                     epicsTimeStamp sent{
                         timestamp["secondsPastEpoch"].as<epicsUInt32>(),
                         timestamp["nanoseconds"].as<epicsUInt32>()
                     };
 
                     // Determine how much time has elapsed from the beginning of the test sequence
-                    const double elapsed = epicsTimeDiffInSeconds(&now, &start);
+                    const double elapsed = epicsTimeDiffInSeconds(&sent, &start);
                     // Determine how much time the data was in transit
                     const double transit_time = epicsTimeDiffInSeconds(&now, &sent);
 
@@ -507,8 +524,8 @@ struct Scenario {
                     if (elapsed >= window) break;
                     const auto bucket_index = static_cast<uint32_t>(elapsed);
 
-                    if(bucket_index < result.values.size() && transit_time > 0)
-                        result.add(bucket_index, transit_time);
+                    if (bucket_index < result.values.size() && transit_time > 0)
+                        result.add(bucket_index, transit_time, received_count, rate);
 
                     if (bucket_index != last_index) {
                         last_index = bucket_index;
@@ -545,27 +562,27 @@ struct Scenario {
             epicsTimeStamp start{};
             epicsTimeGetCurrent(&start);
 
-            // Initial post to kick things off
             // 60-second window
-            postOnce();
             uint32_t last_index = std::numeric_limits<uint32_t>::max();
             const std::string progress_prefix = std::string(payload_label) + ", " + std::string(speed_label) + ", ";
 
             while(true) {
-                processPendingUpdates(result, start, last_index, progress_prefix);
+                processPendingUpdates(result, start, last_index, progress_prefix, rate);
 
-                constexpr double windows = 60.0;
+                constexpr double window = 60.0;
+                constexpr double receive_window = 120.0;
                 // Check if the time window has expired
                 epicsTimeStamp nows{};
                 epicsTimeGetCurrent(&nows);
                 double elapsed = epicsTimeDiffInSeconds(&nows, &start);
-                double remaining_time = windows - elapsed;
+                const double remaining_time = window - elapsed;
+                const double remaining_wait_time = receive_window - elapsed;
                 if (remaining_time <= 0.0) break;
 
                 // Determine time until next post
                 double until_next = period - std::fmod(elapsed, period);
                 if (until_next < 0.0) until_next = 0.0;
-                const double time_to_wait = std::min(remaining_time, until_next);
+                const double time_to_wait = std::min(remaining_wait_time, until_next);
 
                 // Wait for the next update or the next time to post a new value
                 const bool signaled = event.wait(time_to_wait);
@@ -713,7 +730,7 @@ int main(int argc, char* argv[])
     std::vector<long> opt_rates;
     CLI::App app{"PVXS TLS performance tests"};
     app.add_option("-s,--scenario-type", opt_scenarios, "Scenario type(s): TCP, TLS, TLS_CMS, TLS_CMS_STAPLED. May be repeated.");
-    app.add_option("-p,--payload-type", opt_payloads, "Payload type(s): Scalar, SmallArray, LargeArray. May be repeated.");
+    app.add_option("-p,--payload-type", opt_payloads, "Payload type(s): SMALL, MEDIUM, LARGE. May be repeated.");
     app.add_option("-r,--rate", opt_rates, "Update rate(s) in Hz. May be repeated.");
     CLI11_PARSE(app, argc, argv);
 
@@ -734,7 +751,7 @@ int main(int argc, char* argv[])
 
     std::vector<pvxs::PayloadType> payloads_sel;
     if(opt_payloads.empty()) {
-        payloads_sel = {pvxs::Scalar, pvxs::SmallArray, pvxs::LargeArray};
+        payloads_sel = {pvxs::SMALL, pvxs::MEDIUM, pvxs::LARGE};
     } else {
         for(const auto& p : opt_payloads) {
             pvxs::PayloadType pt{};
@@ -819,12 +836,18 @@ int main(int argc, char* argv[])
         std::cout << "Starting Test" << std::endl;
         std::cout << "+=======================================+=======================================" << std::endl;
         std::cout << "           ,  ,"
-                  << "1,2,3,4,5,6,7,8,9,10,"
+                  << " 1, 2, 3, 4, 5, 6, 7, 8, 9,10,"
                   << "11,12,13,14,15,16,17,18,19,20,"
                   << "21,22,23,24,25,26,27,28,29,30,"
                   << "31,32,33,34,35,36,37,38,39,40,"
                   << "41,42,43,44,45,46,47,48,49,50,"
                   << "51,52,53,54,55,56,57,58,59,60,"
+                  << "D1,  D2, D3, D4, D5, D6, D7, D8, D9,D10,"
+                  << "D11,D12,D13,D14,D15,D16,D17,D18,D19,D20,"
+                  << "D21,D22,D23,D24,D25,D26,D27,D28,D29,D30,"
+                  << "D31,D32,D33,D34,D35,D36,D37,D38,D39,D40,"
+                  << "D41,D42,D43,D44,D45,D46,D47,D48,D49,D50,"
+                  << "D51,D52,D53,D54,D55,D56,D57,D58,D59,D60,"
                   << "min,max,"
                   << "cpu(%),mem(MB),wire(bytes)"
                   << std::endl;
@@ -833,7 +856,7 @@ int main(int argc, char* argv[])
             if(opt_rates.empty()) {
                 scenario.run(payload_type);
             } else {
-                const std::string payload_label = (payload_type == pvxs::LargeArray ? "Large Array" : (payload_type == pvxs::SmallArray ? "Small Array" : "Scalar"));
+                const std::string payload_label = (payload_type == pvxs::LARGE ? "Large" : (payload_type == pvxs::MEDIUM ? "Medium" : "Small"));
                 for (auto rate : opt_rates) {
                     const std::string speed_label = pvxs::formatRateLabel(rate);
                     scenario.run(payload_type, rate, payload_label, speed_label);
