@@ -34,6 +34,7 @@
 #include <thread>
 #include <tuple>
 #include <vector>
+#include <iomanip>
 
 #include <asDbLib.h>
 #include <epicsGetopt.h>
@@ -64,6 +65,7 @@
 #include "certfilefactory.h"
 #include "certstatus.h"
 #include "certstatusfactory.h"
+#include "certstatusmanager.h"
 #include "configcms.h"
 #include "credentials.h"
 #include "evhelper.h"

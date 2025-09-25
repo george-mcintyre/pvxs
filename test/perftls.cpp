@@ -145,8 +145,16 @@ struct PortSniffer {
     std::vector<pcap_t*> handles;
     std::string bpf;
     std::uint64_t total{0};
-    PortSniffer()
-        : bpf("(tcp or udp) and (port 55075 or port 55076)") {}
+    int tcp_port{0};
+    int udp_port{0};
+
+    explicit PortSniffer(int tcp_port_, int udp_port_)
+        : tcp_port(tcp_port_), udp_port(udp_port_)
+    {
+        char buf[128];
+        std::snprintf(buf, sizeof(buf), "(tcp or udp) and (port %d or port %d)", tcp_port, udp_port);
+        bpf.assign(buf);
+    }
 
     static void onPacket(u_char* user, const struct pcap_pkthdr* h, const u_char* /*bytes*/) {
         auto* total = reinterpret_cast<std::uint64_t*>(user);
@@ -161,10 +169,29 @@ struct PortSniffer {
             return false;
         }
         for (pcap_if_t* d = alldevs; d; d = d->next) {
-            // skip interfaces that are down or not running capture
-            // but include loopback as pvacms may use it
-            pcap_t* h = pcap_open_live(d->name, 65535, 1 /*promisc*/, 100 /*ms*/, ebuf);
+            // Build handles via pcap_create to enable immediate mode
+            pcap_t* h = pcap_create(d->name, ebuf);
             if (!h) continue;
+            // Snaplen, promisc, timeout
+            pcap_set_snaplen(h, 65535);
+            pcap_set_promisc(h, 1);
+            pcap_set_timeout(h, 50);
+#if defined(PCAP_ERROR_BREAK)
+            (void)0; // placeholder to keep preprocessor happy in some environments
+#endif
+#ifdef PCAP_TSTAMP_PRECISION_NANO
+            // Prefer microsecond default; leave as-is
+#endif
+#ifdef HAVE_PCAP_SET_IMMEDIATE_MODE
+            pcap_set_immediate_mode(h, 1);
+#endif
+            if (pcap_activate(h) != 0) {
+                pcap_close(h);
+                continue;
+            }
+            // Non-blocking to allow polling without stalls
+            pcap_setnonblock(h, 1, ebuf);
+
             bpf_program prog{};
             if (pcap_compile(h, &prog, bpf.c_str(), 1, PCAP_NETMASK_UNKNOWN) != 0) {
                 pcap_close(h);
@@ -193,22 +220,26 @@ struct PortSniffer {
 
     void startCapture() {
         total = 0;
-
         std::string err;
         if (handles.empty() && !openAll(err)) {
             std::cerr << "PortSniffer init failed: " << err << std::endl;
             return;
         }
+        // no initial dispatch; polling will drain continuously during the test window
+    }
+
+    // Poll all handles and drain all currently buffered packets
+    void poll() {
         for (auto* h : handles) {
-            // process up to some number of packets per iteration to yield
-            pcap_dispatch(h, 64, &PortSniffer::onPacket, reinterpret_cast<u_char*>(&total));
+            // -1 => process all currently buffered packets
+            pcap_dispatch(h, -1, &PortSniffer::onPacket, reinterpret_cast<u_char*>(&total));
         }
     }
 
     std::uint64_t endCapture() {
+        // final drain
         for (auto* h : handles) {
-            // process up to some number of packets per iteration to yield
-            pcap_dispatch(h, 64, &PortSniffer::onPacket, reinterpret_cast<u_char*>(&total));
+            pcap_dispatch(h, -1, &PortSniffer::onPacket, reinterpret_cast<u_char*>(&total));
         }
         return total;
     }
@@ -338,22 +369,20 @@ struct Scenario {
     Value large_value;
     std::shared_ptr<client::Subscription> sub;
     uint32_t counter{0};
+    int tcp_port{0};
+    int udp_port{0};
 
     Scenario(ScenarioType scenario_type) {
         // Build Server
         auto serv_conf = pvxs::server::Config::fromEnv();
         serv_conf.tls_keychain_file = "server1.p12";
-        serv_conf.udp_port = 55076;
+        // Use ephemeral port to avoid conflicts with pvacms child process
+        serv_conf.udp_port = 0;
         serv_conf.tls_disabled = scenario_type == TCP;
         serv_conf.tls_disable_status_check = scenario_type < TLS_CMS;
         serv_conf.tls_disable_stapling = scenario_type < TLS_CMS_STAPLED;
         serv = serv_conf.build();
 
-        // Build Client
-        auto cli_conf(serv.clientConfig());
-        cli_conf.tls_keychain_file = "client1.p12";
-        cli_conf.tls_disable_status_check = scenario_type < TLS_CMS;
-        cli = cli_conf.build();
 
         // Build PVs
         small_pv = server::SharedPV::buildReadonly();
@@ -414,6 +443,35 @@ struct Scenario {
         large_pv.open(large_value);
 
         serv.start();
+        // After server starts, query effective bound ports and build client
+        {
+            const auto& eff = serv.config();
+            udp_port = eff.udp_port;
+            tcp_port = eff.tcp_port;
+        }
+
+        // Build Client (force network over loopback, using the server's actual ports)
+        {
+            auto cli_conf = client::Config::fromEnv();
+#ifdef PVXS_ENABLE_OPENSSL
+            // Mirror TLS flags from scenario
+            cli_conf.tls_disabled = (scenario_type == TCP);
+            cli_conf.tls_disable_status_check = scenario_type < TLS_CMS;
+            cli_conf.tls_disable_stapling = scenario_type < TLS_CMS_STAPLED;
+#endif
+            cli_conf.tls_keychain_file = "client1.p12";
+            // Direct all discovery and name resolution to localhost using our server's ports
+            cli_conf.udp_port = udp_port;
+            cli_conf.tcp_port = tcp_port;
+            cli_conf.addressList.clear();
+            cli_conf.addressList.push_back(std::string("127.0.0.1:") + std::to_string(udp_port));
+            cli_conf.nameServers.clear();
+            cli_conf.nameServers.push_back(std::string("127.0.0.1:") + std::to_string(tcp_port));
+            cli_conf.interfaces.clear();
+            cli_conf.interfaces.push_back("127.0.0.1");
+            cli_conf.autoAddrList = false;
+            cli = cli_conf.build();
+        }
     }
 
     ~Scenario() {
@@ -548,7 +606,7 @@ struct Scenario {
         const double c0 = procCPUSeconds();
         std::uint64_t bytes_captured = 0;
         {
-            PortSniffer sniffer;
+            PortSniffer sniffer(tcp_port, udp_port);
             sniffer.startCapture();
 
             startMonitor(payload_type);
@@ -567,6 +625,9 @@ struct Scenario {
             const std::string progress_prefix = std::string(payload_label) + ", " + std::string(speed_label) + ", ";
 
             while(true) {
+                // continuously drain captured packets during the test window
+                sniffer.poll();
+
                 processPendingUpdates(result, start, last_index, progress_prefix, rate);
 
                 constexpr double window = 60.0;
@@ -586,12 +647,20 @@ struct Scenario {
 
                 // Wait for the next update or the next time to post a new value
                 const bool signaled = event.wait(time_to_wait);
+
+                // drain again after wait to catch bursts
+                sniffer.poll();
+
                 if(!signaled) {
                     postOnce();
+                    // drain after posting too
+                    sniffer.poll();
                 }
             }
 
             // End of Tests
+            // final drain before reading total
+            sniffer.poll();
             bytes_captured = sniffer.endCapture();
         }
 
