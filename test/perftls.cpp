@@ -650,7 +650,7 @@ bool startPVACMS(const std::string& pvacms_executable_path, Child& pvacms_subpro
 
         const char* argv0 = pvacms_executable_path.c_str();
         log_info_printf(perf, "Starting child process: %s %s\n", pvacms_executable_path.c_str(), "pvacms");
-        execlp(argv0, "pvacms",  nullptr);
+        execlp(argv0, "pvacms", "--preload-cert", "server1.p12", "client1.p12",  nullptr);
 
         // If exec fails
         log_err_printf(perf, "Failed to start child process: %s %s\n", pvacms_executable_path.c_str(), "pvacms");

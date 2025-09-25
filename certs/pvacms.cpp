@@ -82,6 +82,14 @@ DEFINE_LOGGER(pvacmsmonitor, "pvxs.certs.stat");
 namespace pvxs {
 namespace certs {
 
+// fwd decl
+static void insertLoadedCertIfMissing(const ConfigCms &config,
+                                      sql_ptr &certs_db,
+                                      const ossl_ptr<X509> &cert,
+                                      const ossl_shared_ptr<STACK_OF(X509)> &chain,
+                                      const std::string &expected_issuer_id,
+                                      bool is_ca);
+
 bool postUpdateToNextCertToExpire(const CertStatusFactory &cert_status_factory,
                                   server::WildcardPV &status_pv,
                                   const sql_ptr &certs_db,
@@ -735,7 +743,7 @@ void checkForDuplicates(const sql_ptr &certs_db, const CertFactory &cert_factory
  * @return the PEM string that contains the Cert, its chain, and the root cert
  */
 ossl_ptr<X509> createCertificate(sql_ptr &certs_db, CertFactory &cert_factory) {
-    // Check validity falls within acceptable range
+    // Check validity falls within an acceptable range
     if (cert_factory.issuer_certificate_ptr_)
         ensureValidityCompatible(cert_factory);
 
@@ -1437,6 +1445,14 @@ void getOrCreateCertAuthCertificate(const ConfigCms &config,
         is_initialising = true;  // Let the caller know that we've created a new Cert and Key
         key_pair = IdFileFactory::createKeyPair();
         cert_data = createCertAuthCertificate(config, certs_db, key_pair);
+    } else {
+        // Existing CA cert loaded: ensure it is present in the DB (validate status extension and prefix)
+        try {
+            insertLoadedCertIfMissing(config, certs_db, cert_data.cert, cert_data.cert_auth_chain, "", true);
+        } catch (std::exception &e) {
+            log_err_printf(pvacms, "CA certificate validation/DB preload failed: %s\n", e.what());
+            throw; // fail fast
+        }
     }
 
     std::ifstream acf_file(config.pvacms_acf_filename);
@@ -1845,6 +1861,119 @@ void createAdminClientCert(const ConfigCms &config,
     std::string to = std::ctime(&certificate_factory.not_after_);
 }
 
+// Helper: ensure a loaded certificate is present in the DB, validating status extension and issuer
+static void insertLoadedCertIfMissing(const ConfigCms &config,
+                                      sql_ptr &certs_db,
+                                      const ossl_ptr<X509> &cert,
+                                      const ossl_shared_ptr<STACK_OF(X509)> & /*chain*/,
+                                      const std::string &expected_issuer_id,
+                                      bool is_ca)
+{
+    if (!cert) return;
+
+    // Check if already in DB
+    const auto serial = CertStatusFactory::getSerialNumber(cert);
+    const auto validity = getCertificateValidity(certs_db, serial);
+    if (validity.not_after != 0) {
+        // already present
+        return;
+    }
+
+    // Validate status extension
+    std::string status_uri;
+    try {
+        status_uri = CertStatusManager::getStatusPvFromCert(cert);
+    } catch (...) {
+        // No certificate monitoring is included so don't add
+        return;
+    }
+
+    // Expected prefix: CERT:STATUS:<issuer>:<serial>
+    const auto expected_prefix = getCertStatusPvBase(config.cert_pv_prefix) + ":";
+    if (status_uri.rfind(expected_prefix, 0) != 0) {
+        throw std::runtime_error(SB() << "Loaded certificate status URI has wrong prefix. Expected '" << expected_prefix << "*' got '" << status_uri << "'");
+    }
+
+    // Extract issuer id part from URI
+    const auto rest = status_uri.substr(expected_prefix.size());
+    const auto pos_colon = rest.find(':');
+    if (pos_colon == std::string::npos) {
+        throw std::runtime_error(SB() << "Malformed status URI in loaded certificate: '" << status_uri << "'");
+    }
+    const auto issuer_in_cert = rest.substr(0, pos_colon);
+    if (!is_ca) {
+        if (!expected_issuer_id.empty() && issuer_in_cert != expected_issuer_id) {
+            throw std::runtime_error(SB() << "Loaded certificate issuer id '" << issuer_in_cert << "' does not match PVACMS issuer id '" << expected_issuer_id << "'");
+        }
+    }
+
+    // Extract subject fields
+    auto *subj = X509_get_subject_name(cert.get());
+    auto get_nid = [subj](int nid) -> std::string {
+        char buf[512] = {0};
+        const int len = X509_NAME_get_text_by_NID(subj, nid, buf, sizeof(buf));
+        if (len < 0) return std::string();
+        return std::string(buf, (size_t)len);
+    };
+
+    const std::string cn = get_nid(NID_commonName);
+    const std::string o  = get_nid(NID_organizationName);
+    const std::string ou = get_nid(NID_organizationalUnitName);
+    const std::string c  = get_nid(NID_countryName);
+
+    // Times
+    const time_t not_before = getNotBeforeTimeFromCert(cert.get());
+    const time_t not_after  = getNotAfterTimeFromCert(cert.get());
+
+    // Compute full SKID (hex)
+    std::string full_skid;
+    {
+        int pos = -1;
+        pos = X509_get_ext_by_NID(cert.get(), NID_subject_key_identifier, pos);
+        X509_EXTENSION *ex = X509_get_ext(cert.get(), pos);
+        const ossl_ptr<ASN1_OCTET_STRING> skid(static_cast<ASN1_OCTET_STRING *>(X509V3_EXT_d2i(ex)), false);
+        if (skid) {
+            std::ostringstream ss;
+            for (int i = 0; i < skid->length; i++) ss << std::hex << std::setw(2) << std::setfill('0') << (int)skid->data[i];
+            full_skid = ss.str();
+        }
+    }
+
+    // Determine effective status at load time
+    const auto now = std::time(nullptr);
+    const certstatus_t effective_status = now < not_before ? PENDING : (now >= not_after ? EXPIRED : VALID);
+    const int approved = (effective_status == VALID) ? 1 : 0;
+
+    // Insert into DB using SQL_CREATE_CERT
+    sqlite3_stmt *stmt = nullptr;
+    int rc = sqlite3_prepare_v2(certs_db.get(), SQL_CREATE_CERT, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        if (stmt) sqlite3_finalize(stmt);
+        throw std::runtime_error(SB() << "Failed to prepare insert for loaded certificate: " << sqlite3_errmsg(certs_db.get()));
+    }
+
+    const int64_t db_serial = *reinterpret_cast<const int64_t *>(&serial);
+    sqlite3_bind_int64(stmt, sqlite3_bind_parameter_index(stmt, ":serial"), db_serial);
+    sqlite3_bind_text (stmt, sqlite3_bind_parameter_index(stmt, ":skid"), full_skid.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text (stmt, sqlite3_bind_parameter_index(stmt, ":CN"),   cn.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text (stmt, sqlite3_bind_parameter_index(stmt, ":O"),    o.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text (stmt, sqlite3_bind_parameter_index(stmt, ":OU"),   ou.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text (stmt, sqlite3_bind_parameter_index(stmt, ":C"),    c.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int  (stmt, sqlite3_bind_parameter_index(stmt, ":not_before"), (int)not_before);
+    sqlite3_bind_int  (stmt, sqlite3_bind_parameter_index(stmt, ":not_after"),  (int)not_after);
+    sqlite3_bind_int  (stmt, sqlite3_bind_parameter_index(stmt, ":renew_by"),   (int)not_after);
+    sqlite3_bind_int  (stmt, sqlite3_bind_parameter_index(stmt, ":status"),     (int)effective_status);
+    sqlite3_bind_int  (stmt, sqlite3_bind_parameter_index(stmt, ":approved"),   approved);
+    sqlite3_bind_int64(stmt, sqlite3_bind_parameter_index(stmt, ":status_date"), now);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    if (rc != SQLITE_OK && rc != SQLITE_DONE) {
+        throw std::runtime_error(SB() << "Failed to insert loaded certificate into DB: " << sqlite3_errmsg(certs_db.get()));
+    }
+    std::cout << "Pre-loaded Certificate  : " << status_uri << " : " << cn  << std::endl;
+}
+
 /**
  * @brief Ensure that the PVACMS server has a valid certificate.
  *
@@ -1883,6 +2012,15 @@ void ensureServerCertificateExists(const ConfigCms &config,
                                 cert_auth_pkey,
                                 cert_auth_cert_chain,
                                 IdFileFactory::createKeyPair());
+    } else {
+        // Existing server cert loaded: ensure it is present in the DB and matches our issuer
+        try {
+            const std::string issuer_id = CertStatus::getSkId(cert_auth_cert);
+            insertLoadedCertIfMissing(config, certs_db, cert_data.cert, cert_data.cert_auth_chain, issuer_id, false);
+        } catch (std::exception &e) {
+            log_err_printf(pvacms, "Server certificate validation/DB preload failed: %s\n", e.what());
+            throw; // fail fast
+        }
     }
 }
 
@@ -2709,7 +2847,7 @@ int readParameters(int argc,
     app.add_option("--pvacms-country",
                    config.pvacms_country,
                    "Specify the PVACMS Country. Used if we need to create a PVACMS certificate");
-
+    app.add_option("--preload-cert", config.preload_cert_files, "Certificate keychain file(s) to preload into the certs DB");
     app.add_option("-a,--admin-keychain",
                    config.admin_keychain_file,
                    "Specify PVACMS admin user's keychain file location");
@@ -2848,6 +2986,7 @@ int readParameters(int argc,
             << "        --status-monitoring-enabled <YES|NO> Require Peers to monitor Status of Certificates Generated "
                "by this\n"
             << "                                             server by default. Can be overridden in each CCR\n"
+            << "        --preload-cert <cert_file> ...       A list of certificate files you want to pre-load on startup\n"
             << "        --status-validity-mins               Set Status Validity Time in Minutes\n"
             << "        --cert-pv-prefix <cert_pv_prefix>    Specifies the prefix for all PVs published by this "
                "PVACMS.  Default `CERT`\n"
@@ -3017,6 +3156,18 @@ int main(int argc, char *argv[]) {
 
         // Create this PVACMS server's certificate if it does not already exist
         ensureServerCertificateExists(config, certs_db, cert_auth_cert, cert_auth_pkey, cert_auth_chain);
+
+        // Preload additional certificates into DB if requested
+        for (const auto &preload_path : config.preload_cert_files) {
+            try {
+                CertData preload = IdFileFactory::create(preload_path, std::string())->getCertDataFromFile();
+                if (preload.cert) {
+                    insertLoadedCertIfMissing(config, certs_db, preload.cert, preload.cert_auth_chain, our_issuer_id, false);
+                }
+            } catch (const std::exception &e) {
+                log_err_printf(pvacms, "Failed to preload certificate '%s': %s\n", preload_path.c_str(), e.what());
+            }
+        }
 
         // Set security if configured
         if (!config.pvacms_acf_filename.empty()) {
