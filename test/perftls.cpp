@@ -10,6 +10,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <limits>
 
 #ifdef __linux__
 #include <chrono>
@@ -205,6 +206,20 @@ struct PortSniffer {
 #endif
 
 
+void printProgressBar(uint32_t elapsed, const std::string &prefix)
+{
+    constexpr uint32_t total = 60;
+    if (elapsed > total) elapsed = total;
+    std::string bar;
+    bar.reserve(prefix.size() + total * 3 + 16);
+    bar += prefix;
+    bar += "▏"; // left cap
+    for (uint32_t i = 0u; i < elapsed; ++i) bar += "█";
+    for (uint32_t i = elapsed; i < total; ++i) bar += "░";
+    bar += "▕"; // right cap
+    std::cout << bar << "\r" << std::flush;
+}
+
 enum ScenarioType {
     TCP,
     TLS,
@@ -385,8 +400,9 @@ struct Scenario {
                         auto v = large_array_value.clone();
                         auto ts = v["timeStamp"];
                         if(ts) {
-                            epicsTimeStamp now{}; epicsTimeGetCurrent(&now);
-                            ts["secondsPastEpoch"] = now.secPastEpoch + POSIX_TIME_AT_EPICS_EPOCH;
+                            epicsTimeStamp now{};
+                            epicsTimeGetCurrent(&now);
+                            ts["secondsPastEpoch"] = now.secPastEpoch;
                             ts["nanoseconds"] = now.nsec;
                         }
                         v.mark(true);
@@ -396,7 +412,7 @@ struct Scenario {
                         auto ts = v["timeStamp"];
                         if(ts) {
                             epicsTimeStamp now{}; epicsTimeGetCurrent(&now);
-                            ts["secondsPastEpoch"] = now.secPastEpoch + POSIX_TIME_AT_EPICS_EPOCH;
+                            ts["secondsPastEpoch"] = now.secPastEpoch;
                             ts["nanoseconds"] = now.nsec;
                         }
                         v.mark(true);
@@ -406,7 +422,7 @@ struct Scenario {
                         auto ts = v["timeStamp"];
                         if(ts) {
                             epicsTimeStamp now{}; epicsTimeGetCurrent(&now);
-                            ts["secondsPastEpoch"] = now.secPastEpoch + POSIX_TIME_AT_EPICS_EPOCH;
+                            ts["secondsPastEpoch"] = now.secPastEpoch;
                             ts["nanoseconds"] = now.nsec;
                         }
                         v.mark(true);
@@ -419,6 +435,8 @@ struct Scenario {
 
             // Initial post to kick things off
             postOnce();
+            uint32_t last_index = std::numeric_limits<uint32_t>::max();
+            const std::string progress_prefix = std::string(payload_label) + ", " + std::string(speed_label) + ", ";
 
             while(true) {
                 // Drain all pending updates
@@ -442,6 +460,10 @@ struct Scenario {
                             auto bucket_index = static_cast<uint32_t>(elapsed);
                             if(bucket_index < result.values.size()) {
                                 result.add(bucket_index, transit_time);
+                            }
+                            if (bucket_index != last_index) {
+                                last_index = bucket_index;
+                                printProgressBar(bucket_index, progress_prefix);
                             }
                         } else break;
                     } catch(const client::Connected&) {
