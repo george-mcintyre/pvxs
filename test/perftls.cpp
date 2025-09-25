@@ -369,7 +369,7 @@ std::string extractTargetArch(const std::string& path)
 
 struct Child {
     pid_t pid;
-    const std::vector<std::string> env{};
+    std::vector<std::string> env{};
 
     Child() : pid(-1) {}
 
@@ -378,7 +378,7 @@ struct Child {
 
 };
 
-bool startChild(const std::string& child_process, Child& child)
+bool startPVACMS(const std::string& pvacms_executable_path, Child& pvacms_subprocess)
 {
     const pid_t pid = fork();
     if (pid < 0) {
@@ -393,7 +393,7 @@ bool startChild(const std::string& child_process, Child& child)
 
         // Apply environment setup
         std::string key{};
-        for (const auto &env_part : child.env) {
+        for (const auto &env_part : pvacms_subprocess.env) {
             if (key.empty()) {
                 key = env_part;
             } else {
@@ -410,21 +410,21 @@ bool startChild(const std::string& child_process, Child& child)
             }
         }
 
-        const char* argv0 = child_process.c_str();
-        log_info_printf(perf, "Starting child process: %s %s\n", child_process.c_str(), "pvacms");
+        const char* argv0 = pvacms_executable_path.c_str();
+        log_info_printf(perf, "Starting child process: %s %s\n", pvacms_executable_path.c_str(), "pvacms");
         execlp(argv0, "pvacms",  nullptr);
 
         // If exec fails
-        log_err_printf(perf, "Failed to start child process: %s %s\n", child_process.c_str(), "pvacms");
+        log_err_printf(perf, "Failed to start child process: %s %s\n", pvacms_executable_path.c_str(), "pvacms");
         _exit(127);
     }
 
     // Parent process
-    child.pid = pid;
+    pvacms_subprocess.pid = pid;
     return true;
 }
 
- void stopChild(Child& child)
+void stopPVACMS(Child& child)
 {
     if (child.pid > 0) {
         // Try SIGTERM first
@@ -446,6 +446,17 @@ bool startChild(const std::string& child_process, Child& child)
     }
 }
 
+Child pvacms_subprocess;
+
+// Simple Ctrl-C (SIGINT) trap: print message then exit
+static void onSigint(int)
+{
+    const char msg[] = "Caught Ctrl-C (SIGINT). Exiting...\n";
+    write(STDERR_FILENO, msg, sizeof(msg)-1);
+    stopPVACMS(pvacms_subprocess);
+    _exit(130);
+}
+
 } // anonymous namespace
 } // namespace pvxs
 
@@ -455,6 +466,8 @@ int main(int argc, char* argv[])
     (void)argc; (void)argv;
     pvxs::logger_level_set(perf.name, pvxs::Level::Info);
     pvxs::logger_config_env();
+    // Install simple Ctrl-C trap
+    signal(SIGINT, pvxs::onSigint);
 
 
     std::cout << "Starting Performance Tests" << std::endl;
@@ -491,7 +504,7 @@ int main(int argc, char* argv[])
     std::cout << "pvacms executable: " << pvacms_executable_path << std::endl;
 
     // Create a child process to run PVACMS
-    pvxs::Child pvacms_subprocess{
+    pvxs::pvacms_subprocess = pvxs::Child{
         "SSLKEYLOGFILE",                  {},
         "XDG_DATA_HOME",                    test_dir+"perf/data",
         "XDG_CONFIG_HOME",                  test_dir+"perf/config",
@@ -501,7 +514,7 @@ int main(int argc, char* argv[])
         "EPICS_CERT_AUTH_TLS_KEYCHAIN",     "cert_auth.p12",
         "EPICS_PVAS_TLS_KEYCHAIN",          "superserver1.p12",
     };
-    if (!pvxs::startChild(pvacms_executable_path, pvacms_subprocess)) {
+    if (!pvxs::startPVACMS(pvacms_executable_path, pvxs::pvacms_subprocess)) {
         std::cerr << "Failed to start pvacms: " << pvacms_executable_path << std::endl;
         return 1;
     }
@@ -549,7 +562,7 @@ int main(int argc, char* argv[])
         std::cout << std::endl;
     }
 
-    pvxs::stopChild(pvacms_subprocess);
+    pvxs::stopPVACMS(pvxs::pvacms_subprocess);
 
     std::cout << "Performance Tests Complete" << std::endl;
 #endif
