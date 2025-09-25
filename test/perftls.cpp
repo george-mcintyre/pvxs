@@ -56,7 +56,6 @@ namespace pvxs {
 namespace {
 using namespace pvxs::members;
 
-volatile sig_atomic_t g_stop_requested = 0;
 
 #ifdef __linux__
 // Return resident set size in bytes
@@ -199,11 +198,6 @@ struct PortSniffer {
 };
 #endif
 
-void on_signal(int sig)
-{
-    (void)sig;
-    g_stop_requested = 1;
-}
 
 enum ScenarioType {
     TCP,
@@ -345,7 +339,6 @@ struct Scenario {
             // End of Tests
             bytes_captured = sniffer.endCapture();
         }
-        if (g_stop_requested) return;
 
         const double rss_mb = static_cast<double>(getRssBytes()) / (1024 * 1024);
         const auto cpu_percent = cpuPercentSince(w0, c0);
@@ -463,13 +456,6 @@ int main(int argc, char* argv[])
     pvxs::logger_level_set(perf.name, pvxs::Level::Info);
     pvxs::logger_config_env();
 
-    // Install SIGINT handler to request stop
-    struct sigaction sa{};
-    std::memset(&sa, 0, sizeof(sa));
-    sa.sa_handler = pvxs::on_signal;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sigaction(SIGINT, &sa, nullptr);
 
     std::cout << "Starting Performance Tests" << std::endl;
 
@@ -527,7 +513,7 @@ int main(int argc, char* argv[])
 
     // Run all scenarios
     for (auto scenario_type = pvxs::TCP;
-        scenario_type <= pvxs::TLS_CMS_STAPLED && !pvxs::g_stop_requested;
+        scenario_type <= pvxs::TLS_CMS_STAPLED;
         scenario_type = static_cast<pvxs::ScenarioType>(static_cast<int>(scenario_type) + 1)) {
         std::cout << "+=======================================+=======================================" << std::endl;
         std::cout << "Scenario: " << (
@@ -554,7 +540,7 @@ int main(int argc, char* argv[])
                   << "cpu(%),mem(MB),wire(bytes)"
                   << std::endl;
         for (auto payload_type = pvxs::Scalar;
-            payload_type <= pvxs::LargeArray && !pvxs::g_stop_requested;
+            payload_type <= pvxs::LargeArray;
             payload_type = static_cast<pvxs::PayloadType>(static_cast<int>(payload_type) + 1)) {
             scenario.run(scenario, scenario_type, payload_type);
         }
