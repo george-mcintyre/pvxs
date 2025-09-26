@@ -289,7 +289,7 @@ void initCertsDatabase(sql_ptr &certs_db, const std::string &db_file) {
         if (sql_status != SQLITE_OK && sql_status != SQLITE_DONE) {
             throw std::runtime_error(SB() << "Can't initialize certs db file: " << sqlite3_errmsg(certs_db.get()));
         }
-        log_info_printf(pvacms, "Certificate DB created: %s\n", db_file.c_str());
+        std::cout << "Certificate DB created  : " << db_file << std::endl;
     }
     log_debug_printf(pvacms, "Certs database exists: %s\n", "certs");
 }
@@ -1463,7 +1463,6 @@ void getOrCreateCertAuthCertificate(const ConfigCms &config,
         }
     }
 
-
     createDefaultAdminACF(config, cert_data);
 
     if (is_initialising) {
@@ -1900,7 +1899,7 @@ static void insertLoadedCertIfMissing(const ConfigCms &config,
     try {
         status_uri = CertStatusManager::getStatusPvFromCert(cert);
     } catch (...) {
-        // No certificate monitoring is included so don't add
+        // No certificate monitoring is included, so don't add
         return;
     }
 
@@ -2962,7 +2961,7 @@ int readParameters(int argc,
             << "  (-c | --cert-auth-keychain) <cert_auth_keychain>\n"
             << "                                             Specify Certificate Authority keychain file location. "
                "Default "
-               "${DA}/pva/1.3/cert_auth.p12\n"
+               "${XDG_CONFIG_HOME}/pva/1.3/cert_auth.p12\n"
             << "        --cert-auth-keychain-pwd <file>      Specify location of file containing Certificate Authority "
                "keychain file's password\n"
             << "        --cert-auth-name <name>              Specify name (CN) to be used for certificate authority "
