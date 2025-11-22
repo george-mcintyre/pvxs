@@ -19,7 +19,8 @@ INCLUDES += $(if $(LIBEVENT),-I$(LIBEVENT)/include)
 
 # use libssl in non-default location.  (eg. OSX w/ brew)
 OPENSSL ?= $(OPENSSL_$(T_A))
-OPENSSL_$(T_A) ?=
+# Auto-detect OpenSSL in common Windows locations
+OPENSSL_$(T_A) ?= $(firstword $(wildcard C:/Strawberry/c) $(wildcard C:/OpenSSL-Win64) $(wildcard C:/OpenSSL))
 
 INCLUDES += $(if $(OPENSSL),-I$(OPENSSL)/include)
 
@@ -35,7 +36,7 @@ install: TOOLCHAIN
 
 TOOLCHAIN: toolchain.c
 	$(CPP) $(CPPFLAGS) $(INCLUDES) ../toolchain.c > $@.tmp
-	$(CPP) $(CPPFLAGS) $(INCLUDES) ../probe-openssl.c > probe-openssl.out && echo "EVENT2_HAS_OPENSSL = YES" >> $@.tmp || echo "No OpenSSL"
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) -c ../probe-openssl.c -o probe-openssl.o > probe-openssl.out 2>&1 && $(ECHO) EVENT2_HAS_OPENSSL = YES >> $@.tmp || $(ECHO) No OpenSSL
 	$(MV) $@.tmp $@
 
 endif

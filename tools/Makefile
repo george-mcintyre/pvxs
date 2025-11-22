@@ -8,6 +8,12 @@ include $(TOP)/configure/CONFIG
 #  ADD MACRO DEFINITIONS AFTER THIS LINE
 #=============================
 
+# Strip whitespace from EVENT2_HAS_OPENSSL if it was set by TOOLCHAIN
+# (CONFIG_PVXS_MODULE should also do this, but we need it here before the condition)
+ifdef EVENT2_HAS_OPENSSL
+EVENT2_HAS_OPENSSL := $(strip $(EVENT2_HAS_OPENSSL))
+endif
+
 # access to private headers
 USR_CPPFLAGS += -I$(TOP)/src
 
