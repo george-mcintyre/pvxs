@@ -8,17 +8,17 @@
 #include <cstdio>
 #include <memory>
 
+#ifdef _WIN32
+#include <direct.h>
+#else
 #include <libgen.h>
-
-#ifdef __unix__
 #include <pwd.h>
+#include <unistd.h>
 #endif
 #include <string>
 #include <tuple>
 #include <type_traits>
 #include <unordered_set>
-
-#include <unistd.h>
 
 #include <openssl/err.h>
 #include <openssl/evp.h>
@@ -275,8 +275,10 @@ void P12FileFactory::writePKCS12File() {
 
     p12_ptr_ = nullptr;
 
+#ifndef _WIN32
     chmod(filename_.c_str(),
           S_IRUSR | S_IWUSR);  // Protect P12 file
+#endif
 }
 
 #ifdef NID_oracle_jdk_trustedkeyusage

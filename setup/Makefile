@@ -28,6 +28,28 @@ OPENSSL_$(T_A) ?= $(firstword $(wildcard C:/Strawberry/c) $(wildcard C:/OpenSSL-
 _LIBEVENT_BUNDLE_LIBS_YES = event_openssl
 _LIBEVENT_SYS_LIBS_YES += ssl crypto
 
+# For Windows MSVC builds, check if OpenSSL libraries are MinGW format (.a files)
+# MSVC linker cannot link MinGW .a files, only .lib files
+ifeq (WIN32,$(OS_CLASS))
+ifndef GNUISH
+# Not using GCC/MinGW, so likely MSVC
+# Check if OpenSSL has .lib files (MSVC-compatible) or only .a files (MinGW)
+ifdef OPENSSL
+OPENSSL_LIB_SSL_LIB = $(wildcard $(OPENSSL)/lib/ssl.lib)
+OPENSSL_LIB_CRYPTO_LIB = $(wildcard $(OPENSSL)/lib/crypto.lib)
+OPENSSL_LIB_SSL_A = $(wildcard $(OPENSSL)/lib/libssl.a)
+OPENSSL_LIB_CRYPTO_A = $(wildcard $(OPENSSL)/lib/libcrypto.a)
+# If only .a files exist but no .lib files, skip OpenSSL libraries for MSVC
+ifeq (,$(OPENSSL_LIB_SSL_LIB)$(OPENSSL_LIB_CRYPTO_LIB))
+ifneq (,$(OPENSSL_LIB_SSL_A)$(OPENSSL_LIB_CRYPTO_A))
+# Only MinGW .a files available, MSVC can't link them
+_LIBEVENT_SYS_LIBS_YES := $(filter-out ssl crypto,$(_LIBEVENT_SYS_LIBS_YES))
+endif
+endif
+endif
+endif
+endif
+
 _LIBEVENT_BUNDLE_LIBS += $(_LIBEVENT_BUNDLE_LIBS_$(EVENT2_HAS_OPENSSL))
 _LIBEVENT_BUNDLE_LIBS += event_core
 

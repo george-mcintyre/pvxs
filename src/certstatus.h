@@ -37,8 +37,7 @@ DEFINE_LOGGER(status_setup, "pvxs.certs.status");
 #elif defined(__INT_MAX__)
 #define PERMANENTLY_VALID_STATUS (time_t)(__INT_MAX__)
 #else
-PERMANENTLY_VALID_STATUS(time_t)
-((~(unsigned long long)0) >> 1)
+#define PERMANENTLY_VALID_STATUS ((time_t)((~(unsigned long long)0) >> 1))
 #endif
 
 namespace pvxs {
@@ -319,12 +318,20 @@ enum ocspcertstatus_t { OCSP_CERT_STATUS_LIST };
 // String initializer list
 #define X_IT(name) #name,
 #define O_IT(name) #name,
-#define CERT_STATES {CERT_STATUS_LIST}
-#define OCSP_CERT_STATES {OCSP_CERT_STATUS_LIST}
 
-// Gets status name based on index
-#define CERT_STATE(index) ((const char*[])CERT_STATES[(index)])
-#define OCSP_CERT_STATE(index) ((const char*[])OCSP_CERT_STATES[(index)])
+// Helper functions to get status name based on index (MSVC compatible)
+inline const char* getCertStatusName(certstatus_t index) {
+    static const char* const names[] = {CERT_STATUS_LIST};
+    return names[index];
+}
+inline const char* getOCSPCertStatusName(ocspcertstatus_t index) {
+    static const char* const names[] = {OCSP_CERT_STATUS_LIST};
+    return names[index];
+}
+
+// Macros for backward compatibility
+#define CERT_STATE(index) (getCertStatusName(index))
+#define OCSP_CERT_STATE(index) (getOCSPCertStatusName(index))
 
 // Forward declarations
 struct PVACertStatus;
@@ -410,10 +417,27 @@ struct CertStatus {
                         Member(TypeCode::UInt8A, "ocsp_response"),
         }).create();
 
-        shared_array<const std::string> choices(CERT_STATES);
-        value["value.choices"] = choices.freeze();
-        shared_array<const std::string> ocsp_choices(OCSP_CERT_STATES);
-        value["ocsp_status.value.choices"] = ocsp_choices.freeze();
+        // Create arrays from macros - convert const char* to std::string
+        static const char* const cert_states_arr[] = {CERT_STATUS_LIST};
+        static const char* const ocsp_states_arr[] = {OCSP_CERT_STATUS_LIST};
+        
+        // Convert const char* arrays to std::string arrays using iterator constructor
+        // Create non-const arrays, populate them, then freeze
+        size_t cert_count = sizeof(cert_states_arr) / sizeof(cert_states_arr[0]);
+        shared_array<std::string> choices_temp(cert_count);
+        for(size_t i = 0; i < cert_count; ++i) {
+            choices_temp[i] = std::string(cert_states_arr[i]);
+        }
+        shared_array<const std::string> choices = choices_temp.freeze();
+        value["value.choices"] = choices;
+        
+        size_t ocsp_count = sizeof(ocsp_states_arr) / sizeof(ocsp_states_arr[0]);
+        shared_array<std::string> ocsp_choices_temp(ocsp_count);
+        for(size_t i = 0; i < ocsp_count; ++i) {
+            ocsp_choices_temp[i] = std::string(ocsp_states_arr[i]);
+        }
+        shared_array<const std::string> ocsp_choices = ocsp_choices_temp.freeze();
+        value["ocsp_status.value.choices"] = ocsp_choices;
         return value;
     }
 
