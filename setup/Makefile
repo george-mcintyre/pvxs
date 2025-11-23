@@ -28,24 +28,44 @@ OPENSSL_$(T_A) ?= $(firstword $(wildcard C:/Strawberry/c) $(wildcard C:/OpenSSL-
 _LIBEVENT_BUNDLE_LIBS_YES = event_openssl
 _LIBEVENT_SYS_LIBS_YES += ssl crypto
 
-# For Windows MSVC builds, check if OpenSSL libraries are MinGW format (.a files)
-# MSVC linker cannot link MinGW .a files, only .lib files
+# For Windows MSVC builds, check if OpenSSL libraries are MSVC-compatible
+# If only MinGW .a files are available, or OpenSSL is not found, build OpenSSL for MSVC
 ifeq (WIN32,$(OS_CLASS))
 ifndef GNUISH
 # Not using GCC/MinGW, so likely MSVC
-# Check if OpenSSL has .lib files (MSVC-compatible) or only .a files (MinGW)
+OPENSSL_BUILD_PREFIX = C:/OpenSSL-Win64
+OPENSSL_BUILD_SSL_LIB = $(wildcard $(OPENSSL_BUILD_PREFIX)/lib/ssl.lib)
+OPENSSL_BUILD_CRYPTO_LIB = $(wildcard $(OPENSSL_BUILD_PREFIX)/lib/crypto.lib)
+
+# Check if we have MSVC-compatible OpenSSL at the detected location
 ifdef OPENSSL
 OPENSSL_LIB_SSL_LIB = $(wildcard $(OPENSSL)/lib/ssl.lib)
 OPENSSL_LIB_CRYPTO_LIB = $(wildcard $(OPENSSL)/lib/crypto.lib)
 OPENSSL_LIB_SSL_A = $(wildcard $(OPENSSL)/lib/libssl.a)
 OPENSSL_LIB_CRYPTO_A = $(wildcard $(OPENSSL)/lib/libcrypto.a)
-# If only .a files exist but no .lib files, skip OpenSSL libraries for MSVC
+# If only .a files exist but no .lib files, we need to build OpenSSL for MSVC
 ifeq (,$(OPENSSL_LIB_SSL_LIB)$(OPENSSL_LIB_CRYPTO_LIB))
 ifneq (,$(OPENSSL_LIB_SSL_A)$(OPENSSL_LIB_CRYPTO_A))
 # Only MinGW .a files available, MSVC can't link them
-_LIBEVENT_SYS_LIBS_YES := $(filter-out ssl crypto,$(_LIBEVENT_SYS_LIBS_YES))
+# Build OpenSSL for MSVC instead of giving up
+ifeq (,$(OPENSSL_BUILD_SSL_LIB)$(OPENSSL_BUILD_CRYPTO_LIB))
+# OpenSSL for MSVC not found, need to build it
+_NEED_OPENSSL_BUILD = YES
+endif
+# Use the built OpenSSL location
+OPENSSL_$(T_A) = $(OPENSSL_BUILD_PREFIX)
+OPENSSL = $(OPENSSL_BUILD_PREFIX)
 endif
 endif
+else
+# OPENSSL not defined, check if we have it at the default build location
+ifeq (,$(OPENSSL_BUILD_SSL_LIB)$(OPENSSL_BUILD_CRYPTO_LIB))
+# OpenSSL for MSVC not found, need to build it
+_NEED_OPENSSL_BUILD = YES
+endif
+# Use the built OpenSSL location
+OPENSSL_$(T_A) = $(OPENSSL_BUILD_PREFIX)
+OPENSSL = $(OPENSSL_BUILD_PREFIX)
 endif
 endif
 endif
@@ -74,6 +94,17 @@ endif
 include $(TOP)/configure/RULES
 
 ifdef T_A
+
+# Build OpenSSL for MSVC if needed
+ifeq ($(_NEED_OPENSSL_BUILD),YES)
+.PHONY: build-openssl-msvc
+build-openssl-msvc:
+	@echo "Building OpenSSL for MSVC..."
+	@python $(TOP)/.ci-local/openssl.py || (echo "Error: Failed to build OpenSSL for MSVC" && exit 1)
+
+# Make sure OpenSSL is built before generating TOOLCHAIN
+TOOLCHAIN_PVXS.$(T_A): build-openssl-msvc
+endif
 
 EXPAND_ARGS = -a $(T_A) -t "$(INSTALL_LOCATION)"
 EXPAND_ARGS += "-DOPENSSL=$(OPENSSL)"

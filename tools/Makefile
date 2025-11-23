@@ -24,32 +24,7 @@ USR_CPPFLAGS += -DPVXS_ENABLE_OPENSSL
 USR_CPPFLAGS += -I$(TOP)/certs -I$(TOP)/bundle/CLI11/include
 
 # pvxcert directly uses OpenSSL functions, so it needs ssl and crypto libraries
-# On Windows MSVC, we can only build it if MSVC-compatible .lib files are available
-# Check if we can build pvxcert (use same logic as setup/Makefile)
-PVXCERT_CAN_BUILD = YES
-ifeq (WIN32,$(OS_CLASS))
-ifndef GNUISH
-# MSVC build - check if OpenSSL has .lib files (MSVC-compatible)
-# Use OPENSSL variable (same as setup/Makefile)
-OPENSSL ?= $(OPENSSL_$(T_A))
-OPENSSL_$(T_A) ?= $(firstword $(wildcard C:/Strawberry/c) $(wildcard C:/OpenSSL-Win64) $(wildcard C:/OpenSSL))
-ifdef OPENSSL
-OPENSSL_SSL_LIB = $(wildcard $(OPENSSL)/lib/ssl.lib)
-OPENSSL_CRYPTO_LIB = $(wildcard $(OPENSSL)/lib/crypto.lib)
-OPENSSL_SSL_A = $(wildcard $(OPENSSL)/lib/libssl.a)
-OPENSSL_CRYPTO_A = $(wildcard $(OPENSSL)/lib/libcrypto.a)
-# If only .a files exist but no .lib files, skip building pvxcert for MSVC
-ifeq (,$(OPENSSL_SSL_LIB)$(OPENSSL_CRYPTO_LIB))
-ifneq (,$(OPENSSL_SSL_A)$(OPENSSL_CRYPTO_A))
-# Only MinGW .a files available, MSVC can't link them - skip pvxcert
-PVXCERT_CAN_BUILD = NO
-endif
-endif
-endif
-endif
-endif
-
-ifeq ($(PVXCERT_CAN_BUILD),YES)
+# setup/Makefile ensures MSVC-compatible OpenSSL is available when needed
 PROD += pvxcert
 pvxcert_SRCS += cert.cpp
 pvxcert_SRCS += p12filefactory.cpp
