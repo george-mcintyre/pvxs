@@ -79,7 +79,7 @@ using cert_status_ptr = ossl_shared_ptr<T, cert_status_delete<T>>;
  *  // unsubscribe() automatically called when csm goes out of scope
  * @endcode
  */
-class PVXS_API CertStatusManager {
+class CertStatusManager {
    public:
     friend struct OCSPStatus;
     using StatusCallback = std::function<void(const PVACertificateStatus &)>;

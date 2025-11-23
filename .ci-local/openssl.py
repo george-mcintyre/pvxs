@@ -51,30 +51,34 @@ def find_nasm():
         print("Please install NASM from https://www.nasm.us/")
     return nasm
 
+def find_vcvarsall():
+    """Find Visual Studio vcvarsall.bat file"""
+    vcvarsall_paths = [
+        r'C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat',
+        r'C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat',
+        r'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat',
+        r'C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat',
+        r'C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\vcvarsall.bat',
+        r'C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat',
+        r'C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat',
+        r'C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\VC\Auxiliary\Build\vcvarsall.bat',
+        r'C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat',
+        r'C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat',
+    ]
+    for vcvarsall_path in vcvarsall_paths:
+        if os.path.exists(vcvarsall_path):
+            return vcvarsall_path
+    return None
+
 def find_msvc():
     """Check if MSVC is available"""
     # Check for cl.exe in PATH
     cl = shutil.which('cl.exe')
     if cl:
         return True
-    # Check common Visual Studio locations
-    vs_paths = [
-        r'C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC',
-        r'C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC',
-        r'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC',
-        r'C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC',
-        r'C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\VC\Tools\MSVC',
-        r'C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Tools\MSVC',
-    ]
-    for vs_path in vs_paths:
-        if os.path.exists(vs_path):
-            # Look for any version subdirectory
-            try:
-                versions = os.listdir(vs_path)
-                if versions:
-                    return True
-            except:
-                pass
+    # Check if vcvarsall.bat exists
+    if find_vcvarsall():
+        return True
     return False
 
 def download_openssl(version, url, dest_dir):
@@ -132,6 +136,8 @@ def build_openssl(source_dir, install_prefix):
     config_target = 'VC-WIN64A'
     
     # Configure OpenSSL
+    # Use no-zlib to avoid needing zlib development libraries
+    # zlib is optional and not required for core OpenSSL functionality
     print("Configuring OpenSSL...")
     configure_cmd = [
         perl,
@@ -139,37 +145,155 @@ def build_openssl(source_dir, install_prefix):
         config_target,
         'no-tests',
         'shared',
-        'zlib-dynamic',
+        'no-zlib',
         '--prefix={}'.format(install_prefix),
         '--openssldir={}'.format(install_prefix)
     ]
     
     check_call(configure_cmd, cwd=source_dir, shell=True)
     
-    # Build OpenSSL
-    print("Building OpenSSL (this may take a while)...")
-    check_call('nmake', cwd=source_dir, shell=True)
+    # Find vcvarsall.bat to set up Visual Studio environment
+    vcvarsall = find_vcvarsall()
+    if not vcvarsall:
+        raise RuntimeError("Visual Studio vcvarsall.bat not found. Please install Visual Studio.")
     
-    # Install OpenSSL
+    # Verify makefile exists before building
+    makefile_path = os.path.join(source_dir, 'makefile')
+    if not os.path.exists(makefile_path):
+        raise RuntimeError("OpenSSL makefile not found at: {}".format(makefile_path))
+    
+    # Create a batch file to properly set up environment and run nmake
+    # Ensure we're in the right directory and environment is set up
+    build_bat = os.path.join(source_dir, 'build_openssl.bat')
+    with open(build_bat, 'w', encoding='utf-8') as f:
+        f.write('@echo off\n')
+        f.write('setlocal\n')
+        f.write('cd /d "{}"\n'.format(source_dir))
+        f.write('if errorlevel 1 exit /b 1\n')
+        f.write('call "{}" amd64 >nul 2>&1\n'.format(vcvarsall))
+        f.write('if errorlevel 1 exit /b 1\n')
+        f.write('REM Clear any make-related environment variables that might interfere\n')
+        f.write('set MAKEFLAGS=\n')
+        f.write('set MAKE=\n')
+        f.write('if not exist makefile (\n')
+        f.write('    echo Error: makefile not found\n')
+        f.write('    exit /b 1\n')
+        f.write(')\n')
+        f.write('nmake.exe /f makefile\n')
+        f.write('exit /b %errorlevel%\n')
+        f.write('endlocal\n')
+    
+    # Build OpenSSL - execute the batch file
+    print("Building OpenSSL (this may take a while)...")
+    build_bat_abs = os.path.abspath(build_bat)
+    # Use shell=True with proper quoting
+    check_call('"{}"'.format(build_bat_abs), shell=True)
+    
+    # Create a batch file to properly set up environment and run nmake install
+    install_bat = os.path.join(source_dir, 'install_openssl.bat')
+    with open(install_bat, 'w', encoding='utf-8') as f:
+        f.write('@echo off\n')
+        f.write('setlocal\n')
+        f.write('cd /d "{}"\n'.format(source_dir))
+        f.write('if errorlevel 1 exit /b 1\n')
+        f.write('call "{}" amd64 >nul 2>&1\n'.format(vcvarsall))
+        f.write('if errorlevel 1 exit /b 1\n')
+        f.write('REM Clear any make-related environment variables that might interfere\n')
+        f.write('set MAKEFLAGS=\n')
+        f.write('set MAKE=\n')
+        f.write('if not exist makefile (\n')
+        f.write('    echo Error: makefile not found\n')
+        f.write('    exit /b 1\n')
+        f.write(')\n')
+        f.write('nmake.exe /f makefile install\n')
+        f.write('exit /b %errorlevel%\n')
+        f.write('endlocal\n')
+    
+    # Install OpenSSL - execute the batch file
     print("Installing OpenSSL...")
-    check_call('nmake install', cwd=source_dir, shell=True)
+    install_bat_abs = os.path.abspath(install_bat)
+    # Use shell=True with proper quoting
+    check_call('"{}"'.format(install_bat_abs), shell=True)
+    
+    # Clean up batch files
+    try:
+        if os.path.exists(build_bat):
+            os.remove(build_bat)
+        if os.path.exists(install_bat):
+            os.remove(install_bat)
+    except:
+        pass
     
     print("OpenSSL build and installation complete!")
     print("Installation directory: {}".format(install_prefix))
     
-    # Verify installation
+    # Verify installation - check for library files
+    # OpenSSL installs libraries in the lib directory
     lib_dir = os.path.join(install_prefix, 'lib')
-    ssl_lib = os.path.join(lib_dir, 'ssl.lib')
-    crypto_lib = os.path.join(lib_dir, 'crypto.lib')
     
-    if not os.path.exists(ssl_lib):
-        raise RuntimeError("OpenSSL installation verification failed: {} not found".format(ssl_lib))
-    if not os.path.exists(crypto_lib):
-        raise RuntimeError("OpenSSL installation verification failed: {} not found".format(crypto_lib))
+    # Check what files actually exist
+    if not os.path.exists(lib_dir):
+        raise RuntimeError("OpenSSL installation verification failed: lib directory not found at {}".format(lib_dir))
+    
+    # List all .lib files to see what was installed
+    lib_files = []
+    if os.path.exists(lib_dir):
+        try:
+            lib_files = [f for f in os.listdir(lib_dir) if f.endswith('.lib')]
+        except Exception as e:
+            print("Warning: Could not list lib directory: {}".format(e))
+    
+    print("Library files found in {}:".format(lib_dir))
+    for f in sorted(lib_files):
+        print("  - {}".format(f))
+    
+    # Find the actual ssl and crypto library names
+    ssl_lib_name = None
+    crypto_lib_name = None
+    
+    for f in lib_files:
+        f_lower = f.lower()
+        if 'ssl' in f_lower and not ssl_lib_name:
+            ssl_lib_name = f
+        if 'crypto' in f_lower and not crypto_lib_name:
+            crypto_lib_name = f
+    
+    if not ssl_lib_name:
+        raise RuntimeError("OpenSSL installation verification failed: ssl library not found in {}".format(lib_dir))
+    if not crypto_lib_name:
+        raise RuntimeError("OpenSSL installation verification failed: crypto library not found in {}".format(lib_dir))
+    
+    # Create symlinks or copies with standard names if needed
+    # MSVC linker expects ssl.lib and crypto.lib
+    ssl_lib_standard = os.path.join(lib_dir, 'ssl.lib')
+    crypto_lib_standard = os.path.join(lib_dir, 'crypto.lib')
+    
+    ssl_lib_actual = os.path.join(lib_dir, ssl_lib_name)
+    crypto_lib_actual = os.path.join(lib_dir, crypto_lib_name)
+    
+    # If the standard names don't exist, create them
+    # On Windows, we can't create symlinks easily, so we'll just verify the actual names exist
+    # The Makefile will need to use the actual library names
+    if not os.path.exists(ssl_lib_standard) and ssl_lib_name != 'ssl.lib':
+        print("Note: OpenSSL installed ssl library as '{}', not 'ssl.lib'".format(ssl_lib_name))
+        print("The build system will need to use the actual library name.")
+    
+    if not os.path.exists(crypto_lib_standard) and crypto_lib_name != 'crypto.lib':
+        print("Note: OpenSSL installed crypto library as '{}', not 'crypto.lib'".format(crypto_lib_name))
+        print("The build system will need to use the actual library name.")
     
     print("OpenSSL libraries verified:")
-    print("  - {}".format(ssl_lib))
-    print("  - {}".format(crypto_lib))
+    print("  - SSL library: {}".format(ssl_lib_actual))
+    print("  - Crypto library: {}".format(crypto_lib_actual))
+    
+    # Write library names to a file so the Makefile can read them
+    lib_names_file = os.path.join(install_prefix, 'lib', 'openssl_lib_names.txt')
+    try:
+        with open(lib_names_file, 'w') as f:
+            f.write("SSL_LIB={}\n".format(ssl_lib_name))
+            f.write("CRYPTO_LIB={}\n".format(crypto_lib_name))
+    except:
+        pass  # Non-critical
 
 def main():
     """Main function"""

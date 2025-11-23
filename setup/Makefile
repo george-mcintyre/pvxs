@@ -34,13 +34,15 @@ ifeq (WIN32,$(OS_CLASS))
 ifndef GNUISH
 # Not using GCC/MinGW, so likely MSVC
 OPENSSL_BUILD_PREFIX = C:/OpenSSL-Win64
-OPENSSL_BUILD_SSL_LIB = $(wildcard $(OPENSSL_BUILD_PREFIX)/lib/ssl.lib)
-OPENSSL_BUILD_CRYPTO_LIB = $(wildcard $(OPENSSL_BUILD_PREFIX)/lib/crypto.lib)
+# Check for both naming conventions: ssl.lib/crypto.lib and libssl.lib/libcrypto.lib
+OPENSSL_BUILD_SSL_LIB = $(firstword $(wildcard $(OPENSSL_BUILD_PREFIX)/lib/ssl.lib) $(wildcard $(OPENSSL_BUILD_PREFIX)/lib/libssl.lib))
+OPENSSL_BUILD_CRYPTO_LIB = $(firstword $(wildcard $(OPENSSL_BUILD_PREFIX)/lib/crypto.lib) $(wildcard $(OPENSSL_BUILD_PREFIX)/lib/libcrypto.lib))
 
 # Check if we have MSVC-compatible OpenSSL at the detected location
 ifdef OPENSSL
-OPENSSL_LIB_SSL_LIB = $(wildcard $(OPENSSL)/lib/ssl.lib)
-OPENSSL_LIB_CRYPTO_LIB = $(wildcard $(OPENSSL)/lib/crypto.lib)
+# Check for both naming conventions
+OPENSSL_LIB_SSL_LIB = $(firstword $(wildcard $(OPENSSL)/lib/ssl.lib) $(wildcard $(OPENSSL)/lib/libssl.lib))
+OPENSSL_LIB_CRYPTO_LIB = $(firstword $(wildcard $(OPENSSL)/lib/crypto.lib) $(wildcard $(OPENSSL)/lib/libcrypto.lib))
 OPENSSL_LIB_SSL_A = $(wildcard $(OPENSSL)/lib/libssl.a)
 OPENSSL_LIB_CRYPTO_A = $(wildcard $(OPENSSL)/lib/libcrypto.a)
 # If only .a files exist but no .lib files, we need to build OpenSSL for MSVC
@@ -66,6 +68,27 @@ endif
 # Use the built OpenSSL location
 OPENSSL_$(T_A) = $(OPENSSL_BUILD_PREFIX)
 OPENSSL = $(OPENSSL_BUILD_PREFIX)
+endif
+
+# Determine the actual library names to use for linking
+# OpenSSL may install as libssl.lib/libcrypto.lib (with lib prefix) or ssl.lib/crypto.lib
+# MSVC linker can handle both, but we need to use the correct name
+# Check both the built OpenSSL location and the detected OPENSSL location
+_OPENSSL_CHECK_PREFIX = $(if $(OPENSSL_BUILD_SSL_LIB),$(OPENSSL_BUILD_PREFIX),$(if $(OPENSSL),$(OPENSSL),$(OPENSSL_BUILD_PREFIX)))
+_OPENSSL_SSL_LIB_FOUND = $(firstword $(wildcard $(_OPENSSL_CHECK_PREFIX)/lib/ssl.lib) $(wildcard $(_OPENSSL_CHECK_PREFIX)/lib/libssl.lib))
+_OPENSSL_CRYPTO_LIB_FOUND = $(firstword $(wildcard $(_OPENSSL_CHECK_PREFIX)/lib/crypto.lib) $(wildcard $(_OPENSSL_CHECK_PREFIX)/lib/libcrypto.lib))
+
+ifdef _OPENSSL_SSL_LIB_FOUND
+OPENSSL_SSL_LIB_NAME = $(notdir $(_OPENSSL_SSL_LIB_FOUND))
+OPENSSL_CRYPTO_LIB_NAME = $(notdir $(_OPENSSL_CRYPTO_LIB_FOUND))
+# Extract library name without .lib extension for linker
+# If it's libssl.lib, linker name is libssl; if it's ssl.lib, linker name is ssl
+OPENSSL_SSL_LIB_LINK = $(patsubst %.lib,%,$(OPENSSL_SSL_LIB_NAME))
+OPENSSL_CRYPTO_LIB_LINK = $(patsubst %.lib,%,$(OPENSSL_CRYPTO_LIB_NAME))
+# Override library names if they differ from default
+ifneq ($(OPENSSL_SSL_LIB_LINK),ssl)
+_LIBEVENT_SYS_LIBS_YES := $(filter-out ssl crypto,$(_LIBEVENT_SYS_LIBS_YES)) $(OPENSSL_SSL_LIB_LINK) $(OPENSSL_CRYPTO_LIB_LINK)
+endif
 endif
 endif
 endif
@@ -97,10 +120,28 @@ ifdef T_A
 
 # Build OpenSSL for MSVC if needed
 ifeq ($(_NEED_OPENSSL_BUILD),YES)
+# On Windows, use ensure-python.bat which will install Python if needed
+# On other platforms, find Python using standard methods
+ifeq (WIN32,$(OS_CLASS))
+# Use ensure-python.bat which finds or installs Python
+# Batch script outputs Python path to stdout, errors to stderr
+# Use abspath to convert relative path to absolute path for Windows
+PYTHON_SCRIPT := $(abspath $(TOP)/.ci-local/ensure-python.bat)
+PYTHON := $(shell "$(PYTHON_SCRIPT)")
+PYTHON := $(strip $(PYTHON))
+ifeq ($(PYTHON),)
+$(error Python not found and installation failed. Check the error messages above for details. Please install Python manually from https://www.python.org/downloads/ and ensure it is in PATH)
+endif
+else
+PYTHON := $(shell command -v python3 2>/dev/null || command -v python 2>/dev/null || which python3 2>/dev/null || which python 2>/dev/null || echo python)
+PYTHON := $(strip $(PYTHON))
+endif
+
 .PHONY: build-openssl-msvc
 build-openssl-msvc:
 	@echo "Building OpenSSL for MSVC..."
-	@python $(TOP)/.ci-local/openssl.py || (echo "Error: Failed to build OpenSSL for MSVC" && exit 1)
+	@echo "Using Python: $(PYTHON)"
+	@"$(PYTHON)" "$(abspath $(TOP)/.ci-local/openssl.py)" || (echo "Error: Failed to build OpenSSL for MSVC" && exit 1)
 
 # Make sure OpenSSL is built before generating TOOLCHAIN
 TOOLCHAIN_PVXS.$(T_A): build-openssl-msvc
